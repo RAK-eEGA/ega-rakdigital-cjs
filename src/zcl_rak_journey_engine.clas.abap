@@ -101,7 +101,9 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS ensure_config.
     METHODS check_types.
     METHODS change_evt  IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS opt_evt     IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+    METHODS opt_evt     IMPORTING iv_name  TYPE string
+                                  iv_typed TYPE abap_bool DEFAULT abap_false
+                        RETURNING VALUE(rv) TYPE string.
     METHODS btn_evt     IMPORTING iv_id   TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS att_max_mb IMPORTING iv_field_mb TYPE i RETURNING VALUE(rv) TYPE i.
     CONSTANTS c_att_fallback_mb TYPE i VALUE 2.
@@ -115,8 +117,23 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS merge_dynamic_steps.
     DATA mt_dyn_required TYPE string_table.
     DATA mv_dyn_note TYPE string.
-    METHODS val_get IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS val_set IMPORTING iv_name TYPE string iv_value TYPE string.
+*   PREFERRED PARAMETER IV_NAME on VAL_GET( ) - not on VAL_SET( ), which never
+*   had a single-value call site to protect. Every existing VAL_GET( name )
+*   call across the engine, the render class and every grid/rule method is a
+*   functional call with exactly one unnamed actual parameter; ABAP only
+*   allows that shorthand when the method has one IMPORTING parameter or a
+*   declared PREFERRED PARAMETER. Adding IV_SUFFIX as a second IMPORTING
+*   parameter without this addition would have turned every one of those call
+*   sites into "parameter assignment must be named" - a syntax error taking
+*   the whole class down at load, exactly what COMP_NAME( )'s own history
+*   warns about.
+    METHODS val_get IMPORTING iv_name     TYPE string
+                               iv_suffix   TYPE string OPTIONAL
+                       PREFERRED PARAMETER iv_name
+                     RETURNING VALUE(rv)   TYPE string.
+    METHODS val_set IMPORTING iv_name   TYPE string
+                               iv_suffix TYPE string OPTIONAL
+                               iv_value  TYPE string.
 
     METHODS take_case IMPORTING iv_case TYPE string.
 
@@ -130,6 +147,18 @@ CLASS zcl_rak_journey_engine DEFINITION
 
     METHODS handle_next.
     METHODS handle_submit.
+*   WHO OWNS THE DRAFT, AND WHO OWNS THE FILES.
+*
+*   Both resolve the same way: what the handler says, else what the journey
+*   is configured to say, else what the backend makes true. Handler first
+*   because only code can decide a mode that changes mid-journey; config
+*   next because a switch a consultant can throw beats one that needs a
+*   transport; derivation last, so a journey that says nothing still gets a
+*   sane answer rather than the accident of which backend it sits on.
+*
+*   See ZIF_RAK_JOURNEY=>C_MODE.
+    METHODS resolve_draft_mode  RETURNING VALUE(rv_mode) TYPE string.
+    METHODS resolve_attach_mode RETURNING VALUE(rv_mode) TYPE string.
     METHODS handle_save.
     METHODS handle_delete.
     METHODS bp_search.
@@ -188,6 +217,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
 
       merge_dynamic_steps( ).
+
+*     Rebuild the model after the merge, not only at launch.
+*
+*     MERGE_DYNAMIC_STEPS( ) can add fields on any round trip - the Notary
+*     business-object step is described only once the citizen has chosen a
+*     declaration, long after INIT( ) ran - and the model built at launch has
+*     no component for them. VAL_GET( ) then falls through to MT_SCRATCH, which
+*     no binding reads, so a value picked in a dynamic field had nowhere to live
+*     and vanished on the next render. On a mandatory field that also made the
+*     step impossible to leave.
+*
+*     BUILD_MODEL( ) carries existing values across, so calling it again is safe
+*     and idempotent; when the merge added nothing it rebuilds the same shape.
+      build_model( ).
 
       LOOP AT mt_dyn_required INTO DATA(lv_dreq2).
         zif_rak_journey~set_required( iv_field = lv_dreq2 iv_on = abap_true ).
@@ -356,7 +399,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       val_set( iv_name = mv_pop_field iv_value = lv_bp ).
       READ TABLE mt_bp_hits INTO DATA(ls_hit) WITH KEY partner = lv_bp.
       IF sy-subrc = 0.
-        val_set( iv_name = |{ mv_pop_field }_NAME| iv_value = ls_hit-name ).
+        val_set( iv_name = mv_pop_field iv_suffix = '_NAME' iv_value = ls_hit-name ).
       ENDIF.
       IF mo_logic IS BOUND.
         mo_logic->on_change( io_ctx = me iv_field = mv_pop_field ).
@@ -634,7 +677,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_field).
+*       A TEXT: default is the field's wording, never its value.
+*
+*       This guard is the whole reason TEXT: is safe on a CHECKBOX. Seed a
+*       consent paragraph as the checkbox's value and the box renders ticked
+*       and satisfies its own required check - the citizen consents to the
+*       declaration by loading the page, and nothing anywhere says so.
         IF ls_field-default IS NOT INITIAL
+           AND ls_field-default NP 'TEXT:*'
            AND ls_field-type <> 'LINK'
            AND ls_field-type <> 'EDITABLE_TABLE'
            AND ls_field-type <> 'RO_PANEL'
@@ -642,8 +692,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           val_set( iv_name = ls_field-name iv_value = ls_field-default ).
         ENDIF.
         IF ls_field-type = 'RO_PANEL'.
-          val_set( iv_name  = |{ ls_field-name }_EXP|
-                   iv_value = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
+          val_set( iv_name   = ls_field-name
+                   iv_suffix = '_EXP'
+                   iv_value  = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
                                            THEN '' ELSE 'X' ) ).
         ENDIF.
       ENDLOOP.
@@ -662,6 +713,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     check_types( ).
+
+*   AFTER the CREATE OBJECT above, which is the whole point. Reported from the
+*   journey banner higher up in this method it read NOT BOUND on every first
+*   load - the banner is written before the handler is built - and that false
+*   negative is worse than no line at all: it sends you looking for a broken
+*   class when the class is fine.
+    IF mv_trace = abap_true.
+      trace( |handler { COND string( WHEN ms_config-handler_class IS NOT INITIAL
+                                     THEN ms_config-handler_class
+                                     ELSE '(none configured)' ) }| &&
+             | · { COND string( WHEN mo_logic IS BOUND THEN 'bound' ELSE 'NOT BOUND' ) }| ).
+    ENDIF.
 
     IF mo_logic IS BOUND.
       TRY.
@@ -738,7 +801,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           CONTINUE.
         ENDIF.
 
-        DATA(lv_name) = to_upper( ls_field-name ).
+*       COMP_NAME( ), not a bare TO_UPPER( ). A field name is free text on
+*       ZRAK_T_JNY_FLD - nothing stops a hyphen, a space or anything else CREATE( )
+*       below cannot use as a component name, and TO_UPPER( ) does not remove one.
+*       CX_SY_STRUCT_COMP_NAME from CL_ABAP_STRUCTDESCR=>CREATE( ) is uncaught here,
+*       so one badly named field anywhere in the config took the whole app down
+*       with "UNCAUGHT EXCEPTION - Please Restart App" for every journey, not only
+*       the one the field belonged to.
+        DATA(lv_name) = zcl_rak_journey_util=>comp_name( ls_field-name ).
 
         IF ls_field-type = 'EDITABLE_TABLE'.
           READ TABLE lt_comp WITH KEY name = lv_name TRANSPORTING NO FIELDS.
@@ -849,12 +919,60 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA(lo_struct) = cl_abap_structdescr=>create( lt_comp ).
+
+*   Carry the existing values across instead of throwing them away.
+*
+*   This used to CREATE DATA a fresh structure and drop the old one, which was
+*   harmless while BUILD_MODEL( ) only ran once at launch. It is not harmless
+*   now: dynamic fields arrive AFTER launch - the Notary declaration is picked
+*   on step 1 and only then does MS_CONFIG gain the business-object fields - so
+*   the model must be rebuilt to grow components for them, and rebuilding must
+*   not cost the citizen everything already entered.
+*
+*   MOVE-CORRESPONDING copies component by name, so fields that survive the
+*   rebuild keep their values and genuinely new ones start empty.
+    DATA(lr_old) = mr_model.
+
     CREATE DATA mr_model TYPE HANDLE lo_struct.
+
+    IF lr_old IS BOUND.
+      FIELD-SYMBOLS <old_model> TYPE any.
+      FIELD-SYMBOLS <new_model> TYPE any.
+      ASSIGN lr_old->*   TO <old_model>.
+      ASSIGN mr_model->* TO <new_model>.
+      IF <old_model> IS ASSIGNED AND <new_model> IS ASSIGNED.
+*       Guarded: a grid whose columns changed between rebuilds has a different
+*       row type under the same component name, and copying one to the other
+*       raises rather than simply skipping. Losing the carried-over values is
+*       bad; taking the whole journey down with a dump is worse.
+        TRY.
+            MOVE-CORRESPONDING <old_model> TO <new_model>.
+          CATCH cx_root INTO DATA(lx_carry).
+            trace( |model rebuild could not carry values across: { lx_carry->get_text( ) }| ).
+        ENDTRY.
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 
   METHOD val_get.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   COMP_NAME( ), not a bare TO_UPPER( ). See the note on BUILD_MODEL( ): a field
+*   name is free text on ZRAK_T_JNY_FLD, and the model component it built for
+*   this same name went through COMP_NAME( ) - VAL_SET( ) has to arrive at the
+*   identical key or a field with a sanitised name would read back empty.
+*
+*   IV_SUFFIX, appended AFTER COMP_NAME( ), never before. A companion component
+*   ( _VS, _VST, _IDTYPE, _NAME, _IX, _EXP ) is built by BUILD_MODEL( ) as
+*   COMP_NAME( base-name ) && suffix - the hash, when the base name needs one,
+*   is over the base name alone. Running COMP_NAME( ) over the base name and
+*   suffix already concatenated hashes a DIFFERENT string once base name plus
+*   suffix together exceed 23 characters, so callers used to write
+*   VAL_GET( |{ name }_VS| ) and silently read back empty once the base name
+*   got long enough - the exact silent failure BUILD_MODEL( )'s own comment
+*   warns COMP_NAME( ) exists to avoid, reintroduced one level up. Do not
+*   re-concatenate the suffix into IV_NAME at the call site; pass it here
+*   instead.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mr_model->* TO <model>.
     ASSIGN COMPONENT lv_key OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
@@ -897,7 +1015,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD val_set.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   Same key VAL_GET( ) computes - see the note there. IV_SUFFIX appended
+*   AFTER COMP_NAME( ), never concatenated into IV_NAME before the call.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     IF lv_key IS INITIAL.
       RETURN.
     ENDIF.
@@ -1124,12 +1244,139 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD resolve_draft_mode.
+*   1. The handler, if it has an opinion.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->draft_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+*   2. The journey configuration.
+    rv_mode = ms_config-draft_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   3. Derived - and this is the rule worth reading.
+*
+*   A backend that creates and re-opens the case IS the draft. Keeping a
+*   second copy on the CJS side would mean two records of the same
+*   unfinished application, diverging from the moment the citizen resumes
+*   one of them, with nothing to say which is authoritative. So whenever
+*   something downstream will hold it, CJS delegates and holds nothing.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-resumable = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+    IF mo_bridge IS BOUND.
+*     The /QNV/ route: SAVE_DRAFT goes out as its own post and comes back
+*     through the draftid launch parameter. Delegation, and it predates all
+*     of this.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   And the honest answer when nothing downstream will hold it: OFF, not
+*   NATIVE. There is no CJS-side draft store - ZRAK_T_BE_LOC belongs to the
+*   LOCAL backend, not to the engine - so NATIVE has nowhere to write.
+*   HANDLE_SAVE( ) has been answering this case with "No backend is
+*   configured for this journey - nothing was saved" for as long as it has
+*   existed; OFF is the same fact, told before the citizen presses the
+*   button rather than after.
+    rv_mode = zif_rak_journey=>c_mode-off.
+  ENDMETHOD.
+
+
+  METHOD resolve_attach_mode.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->attach_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    rv_mode = ms_config-attach_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Derived, and deliberately NOT the same test as the draft.
+*
+*   A backend that owns the case does not necessarily accept files - which
+*   is exactly why TY_CAP carries ATTACHMENTS separately from RESUMABLE.
+*   Asking "has a case been created?" would delegate uploads to a backend
+*   with nowhere to put them, and the file would vanish between the chip
+*   disappearing and the case having no document.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-attachments = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   Everything else stages in ZRAK_CJ_ATTX and is handed over at submit,
+*   which is what every journey does today. Unlike the draft, this native
+*   store is real, so NATIVE is a working answer rather than an aspiration.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
   METHOD handle_save.
+*   OFF is refused here rather than only in the renderer. Hiding the button
+*   does not make BTN_EVT( 'SAVE' ) unreachable - the event still arrives
+*   from a stale page, a resubmitted round trip, or anything that posts the
+*   id - and a journey configured not to keep drafts must not keep one
+*   because of where the check was put.
+    DATA(lv_mode) = resolve_draft_mode( ).
+    IF lv_mode = zif_rak_journey=>c_mode-off.
+      APPEND VALUE #( type = 'Warning'
+        text = 'This service does not keep drafts. Complete the application to submit it.' )
+        TO mt_msg.
+      RETURN.
+    ENDIF.
+
     IF mo_logic IS BOUND.
       TRY.
           mo_logic->on_save( me ).
         CATCH cx_root.
       ENDTRY.
+
+*     ON_DRAFT_SAVE( ) can refuse, which ON_SAVE( ) cannot: its exceptions
+*     are swallowed above, deliberately, and it has no return value. An
+*     Error here stops the write and leaves the citizen on the page.
+      TRY.
+          DATA(lt_dmsg) = mo_logic->on_draft_save( io_ctx      = me
+                                                   iv_draft_id = mv_case_guid ).
+        CATCH cx_root INTO DATA(lx_ds).
+          lt_dmsg = VALUE #( ( type = 'Error'
+            text = |Draft refused: { lx_ds->get_text( ) }| ) ).
+      ENDTRY.
+      IF lt_dmsg IS NOT INITIAL.
+        mt_msg = VALUE #( BASE mt_msg ( LINES OF lt_dmsg ) ).
+        READ TABLE lt_dmsg WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          RETURN.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+*   NATIVE has no store to write to. Say so, rather than reporting a
+*   success for a draft that exists nowhere - the engine has no CJS-side
+*   draft table, and ZRAK_T_BE_LOC belongs to the LOCAL backend.
+    IF lv_mode = zif_rak_journey=>c_mode-native
+       AND mo_backend IS NOT BOUND AND mo_bridge IS NOT BOUND.
+      APPEND VALUE #( type = 'Error'
+        text = 'DRAFT_MODE is NATIVE but CJS has no draft store yet - nothing was saved.' )
+        TO mt_msg.
+      RETURN.
     ENDIF.
 
     IF mo_backend IS BOUND.
@@ -1251,7 +1498,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_idtype) = val_get( |{ mv_pop_field }_IDTYPE| ).
+    DATA(lv_idtype) = val_get( iv_name = mv_pop_field iv_suffix = '_IDTYPE' ).
     IF lv_idtype IS INITIAL.
       lv_idtype = 'YFS002'.
     ENDIF.
@@ -1264,9 +1511,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       END OF ty_sel.
     DATA lt TYPE STANDARD TABLE OF ty_sel WITH EMPTY KEY.
 
-    DATA(lv_like) = '%' && to_upper( lv_term ) && '%'.
+*   AN ID SEARCH IS DECIDED ON THE DIGITS, NOT ON THE PUNCTUATION.
+*
+*   The test used to be LV_TERM CO '0123456789' against the raw term, so an
+*   Emirates ID entered the way it is printed on the card - 784-1987-8624392-7 -
+*   failed it on the hyphens and fell through to the ELSE branch, which searches
+*   ZZFULL_NAME_ENG. The citizen got no results for a partner that exists, and
+*   nothing on the screen suggested their ID had been searched for as a name.
+*
+*   Digits, hyphens and spaces now all count as an ID. NORM_EID( ) then strips the
+*   separators for the LIKE, because BUT0ID-IDNUMBER stores the digits - so
+*   784-1987-8624392-7 and 784198786243927 find the same row.
+*
+*   The NAME branch keeps the term exactly as typed. A name is not digits and
+*   must not have its punctuation removed.
+    DATA(lv_digits) = zcl_rak_bp_search=>norm_eid( lv_term ).
+    DATA(lv_isid)   = xsdbool( lv_digits IS NOT INITIAL AND lv_term CO '0123456789- ' ).
 
-    IF lv_term CO '0123456789'.
+    DATA(lv_like) = COND string( WHEN lv_isid = abap_true
+                                 THEN '%' && lv_digits && '%'
+                                 ELSE '%' && to_upper( lv_term ) && '%' ).
+
+    IF lv_isid = abap_true.
+
       SELECT a~partner, a~zzfull_name_eng AS name, b~idnumber
         FROM but000 AS a
         LEFT JOIN but0id AS b
@@ -1360,8 +1627,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD set_field_state.
-    val_set( iv_name = |{ iv_name }_VS|  iv_value = iv_state ).
-    val_set( iv_name = |{ iv_name }_VST| iv_value = iv_text ).
+    val_set( iv_name = iv_name iv_suffix = '_VS'  iv_value = iv_state ).
+    val_set( iv_name = iv_name iv_suffix = '_VST' iv_value = iv_text ).
   ENDMETHOD.
 
 
@@ -1398,7 +1665,48 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD opt_evt.
-    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+*   A change event is raised when a RULE depends on this field - or when the
+*   journey has a handler at all.
+*
+*   The rule test on its own was a trap. ON_CHANGE( ) is the documented way for a
+*   handler to react to a field, and it simply never fired unless some rule
+*   happened to name that field as its source. A handler could redefine
+*   ON_CHANGE, the method could be correct, and nothing would call it - no error,
+*   no trace, no clue. That is what kept the Notary declaration dropdown from
+*   loading its blueprint: SET_SUBSERVICE( ) sits in ON_CHANGE and the field was
+*   nobody's rule source.
+*
+*   The cost is one round trip when a citizen changes a select on a journey that
+*   has a handler. That is the point of having one, and it is the same round trip
+*   Next already makes. Journeys with no handler class are unaffected.
+*   IV_TYPED SPLITS THE TWO CASES, and the split is the point.
+*
+*   On a control the citizen PICKS from - a select, a radio group, a switch - a
+*   round trip per change is invisible: the choice is made with the mouse and
+*   nobody tabs straight out of it. The OR above is what makes ON_CHANGE( ) fire
+*   for a handler at all, and it stays.
+*
+*   On a control the citizen TYPES into it is not invisible, and this is the
+*   regression it caused. Leaving a text field raises CHANGE, which is a round
+*   trip, which re-renders the view and drops focus - so the first Tab appears to
+*   do nothing and the second one works. Every text field, every journey with a
+*   handler class, which is nearly all of them. The commit that added the OR
+*   reasoned about it as one round trip on a select and did not notice that the
+*   same helper feeds the inputs.
+*
+*   So a typed field goes back to the original test: it raises CHANGE only when a
+*   RULE names it as a source. A handler that genuinely needs ON_CHANGE while
+*   someone types opts in through configuration - a ZRAK_T_JNY_RULE row with that
+*   field as SRC_FIELD - which is the CJS answer anyway: config before code.
+    IF iv_typed = abap_true.
+      IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+        rv = mo_client->_event( |CHANGE_{ iv_name }| ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] )
+       OR mo_logic IS BOUND.
       rv = mo_client->_event( |CHANGE_{ iv_name }| ).
     ENDIF.
   ENDMETHOD.
@@ -1566,13 +1874,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ELSE.
       mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
         text = |TRACE  BACKEND  { lv_calls } Notary API call(s) on this interaction| ) ).
-      LOOP AT lt_belog INTO DATA(lv_bl2).
-        IF lv_bl2 CS '-->' OR lv_bl2 CS '<--'.
-          mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
-            text = |TRACE  BACKEND  { lv_bl2 }| ) ).
-        ENDIF.
-      ENDLOOP.
     ENDIF.
+
+*   EVERY line, not only the ones carrying --> or <--.
+*
+*   The filter that used to sit here showed HTTP arrows and discarded the rest,
+*   which quietly threw away the only lines that explain a call that did NOT
+*   happen: AUTH not attempted, LOOKUP skipped, LOOKUP no endpoint, BLUEPRINT
+*   skipped - and the request payloads, which HTTP( ) has always logged and
+*   nobody has ever been able to see.
+*
+*   That is backwards. "No Notary API call was made" is the symptom; those
+*   notes are the reason, and they were being collected and dropped one line
+*   before the screen.
+*
+*   Also moved OUT of the ELSE. The zero-call case is exactly when the notes
+*   matter most, and it was the one case that displayed none of them.
+    LOOP AT lt_belog INTO DATA(lv_bl2).
+      mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
+        text = |TRACE  BACKEND  { lv_bl2 }| ) ).
+    ENDLOOP.
 
     DATA(lv_ms) = tock( mv_req_t0 ).
 
@@ -1609,8 +1930,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lt_dyn TYPE zif_rak_journey_backend=>tt_dyn_field.
+*   Indices of steps with nothing to draw, deleted after the loop rather than
+*   inside it - deleting from the table being looped over skips rows.
+    DATA lt_drop TYPE STANDARD TABLE OF i WITH EMPTY KEY.
 
     LOOP AT ms_config-steps ASSIGNING FIELD-SYMBOL(<dstep>).
+
+*     Captured HERE, not read later. DESCRIBE_STEP( ) reads and loops over tables
+*     of its own, and any of those resets SY-TABIX - so by the time the drop
+*     decision is made below, SY-TABIX no longer names this step.
+      DATA(lv_ix) = sy-tabix.
 
       IF <dstep>-bknd_screen IS INITIAL.
         CONTINUE.
@@ -1619,13 +1948,41 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       CLEAR lt_dyn.
 
       TRY.
-          lt_dyn = mo_backend->describe_step( <dstep>-bknd_screen ).
+*         The model goes with the step name. A dynamic step can depend on
+*         something the citizen chose - the Notary blueprint depends on the
+*         declaration - and DESCRIBE_STEP( ) runs before on_init( ) and every
+*         other handler hook, so this is the only place it can be handed over.
+*         Guarded: MO_BE is the QNV-side helper and is not bound on every path.
+          lt_dyn = mo_backend->describe_step(
+                     iv_step   = <dstep>-bknd_screen
+                     it_fields = COND #( WHEN mo_be IS BOUND THEN mo_be->be_fields( ) ) ).
         CATCH cx_root INTO DATA(lx_dyn).
           mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }=EXCEPTION | .
           CONTINUE.
       ENDTRY.
 
       mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }={ lines( lt_dyn ) }fld |.
+
+*     A step that has no static fields of its own AND whose backend describes no
+*     fields either has nothing to draw. Note it and drop it below.
+*
+*     This is the Notary business-object case. The blueprint returns businessFields
+*     as an EMPTY ARRAY for the declaration types that have no business object -
+*     Approval & Signature, No Objection, Pledge, Clearance - and the legacy portal
+*     does not show the section at all for those. CJS was rendering an empty step
+*     with a heading, a Next button and nothing to fill in, and then POSTing to
+*     BKND_SCREEN for a business object that does not exist.
+*
+*     Deliberately narrow. DESCRIBE_STEP is implemented for the BO screen only and
+*     returns nothing for every other screen, so keying this on "backend described
+*     no fields" alone would drop every step on the journey. A step that carries
+*     configured fields always survives.
+      IF <dstep>-fields IS INITIAL AND lt_dyn IS INITIAL.
+        APPEND lv_ix TO lt_drop.
+        mv_dyn_note = |{ mv_dyn_note }{ <dstep>-id } DROPPED (no configured fields, | &&
+                      |backend described none) |.
+        CONTINUE.
+      ENDIF.
 
       LOOP AT lt_dyn INTO DATA(ls_dyn).
 
@@ -1641,12 +1998,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
         APPEND VALUE #(
           name    = lv_dnm
-          label   = COND string( WHEN ls_dyn-label IS NOT INITIAL
+*         Arabic when the journey is Arabic. The backend already resolves
+*         LABEL_AR off the blueprint and it was being thrown away here, so every
+*         blueprint-driven field carried an English label on the Arabic journey -
+*         on a screen where every configured field beside it was translated.
+*         Same precedence ZCL_RAK_JOURNEY_REPO->PICK( ) uses: Arabic if asked for
+*         and present, English otherwise.
+          label   = COND string( WHEN mv_lang = 'A' AND ls_dyn-label_ar IS NOT INITIAL
+                                 THEN ls_dyn-label_ar
+                                 WHEN ls_dyn-label IS NOT INITIAL
                                  THEN ls_dyn-label
                                  ELSE ls_dyn-name )
           type    = COND string( WHEN ls_dyn-type IS NOT INITIAL
                                  THEN to_upper( ls_dyn-type )
                                  ELSE 'INPUT' )
+*         MAX_LEN was computed by DESCRIBE_STEP and dropped here, so a blueprint
+*         field with a length limit accepted anything and failed at the Notary API
+*         instead of at the field - the citizen learns about it on submit, with no
+*         indication of which answer was too long.
+          validation = VALUE #( max_len = ls_dyn-max_len
+                                regex   = ls_dyn-regex )
           options = VALUE #( FOR o IN ls_dyn-options ( key = o-key text = o-text ) )
         ) TO <dstep>-fields.
 
@@ -1658,6 +2029,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     ENDLOOP.
 
+*   Descending, so an earlier delete cannot shift a later index.
+*
+*   MS_CONFIG-STEPS is rebuilt from the same blueprint on every round trip, so the
+*   drop is the same every time and MV_STEP keeps addressing the step the citizen
+*   is actually on. The clamp is for the one case that is not stable: a resumed
+*   draft whose stored step index was recorded before a step disappeared.
+    IF lines( lt_drop ) > 0 AND lines( lt_drop ) < lines( ms_config-steps ).
+      SORT lt_drop DESCENDING.
+      LOOP AT lt_drop INTO DATA(lv_drop).
+        DELETE ms_config-steps INDEX lv_drop.
+      ENDLOOP.
+      IF mv_step >= lines( ms_config-steps ).
+        mv_step = lines( ms_config-steps ) - 1.
+      ENDIF.
+      IF mv_step < 0.
+        mv_step = 0.
+      ENDIF.
+    ENDIF.
+
   ENDMETHOD.
 
 
@@ -1668,7 +2058,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lv_ix TYPE i.
-    lv_ix = val_get( |{ ls_f-name }_IX| ).
+    lv_ix = val_get( iv_name = ls_f-name iv_suffix = '_IX' ).
     IF lv_ix < 0.
       RETURN.
     ENDIF.
@@ -1936,7 +2326,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.

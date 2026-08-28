@@ -286,6 +286,10 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_roll_term TYPE string.
     DATA mv_shlp_term TYPE string.
     DATA mv_fld_filter TYPE string.
+*   Step to narrow the field list to. Separate from MV_FLD_FILTER on purpose:
+*   the text filter is a guess at a substring, this is a choice from a list
+*   that cannot be spelt wrong, and the two combine.
+    DATA mv_fld_step TYPE string.
     DATA mv_only_bad   TYPE abap_bool.
     DATA mv_doc        TYPE string.
 
@@ -356,6 +360,7 @@ CLASS zcl_rak_cjs DEFINITION
              row   TYPE i,
              col   TYPE i,
              span  TYPE i,
+             flow  TYPE abap_bool,
            END OF ty_dsg,
            tt_dsg TYPE STANDARD TABLE OF ty_dsg WITH EMPTY KEY.
 
@@ -506,6 +511,13 @@ CLASS zcl_rak_cjs DEFINITION
 *   Opens one Author panel and asks the page to scroll to it. Called by the ED*
 *   handlers - filling a form the author cannot see is the same as doing nothing.
     METHODS focus_panel IMPORTING iv_key TYPE string.
+*   Two-press confirm for a destructive action that is not a DL_ row delete. The
+*   row deletes in the tables have always armed before acting; Deactivate, the
+*   Design tab Clear and Import did not, and all three are irreversible from the
+*   Studio. Returns TRUE only on the second press of the same button.
+    METHODS armed       IMPORTING iv_ev          TYPE string
+                                  iv_warn        TYPE string
+                        RETURNING VALUE(rv_go)   TYPE abap_bool.
     METHODS tpl_chips   IMPORTING iv_id TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS engine_url  IMPORTING iv_journey TYPE string iv_ar TYPE abap_bool DEFAULT abap_false
                                   iv_step TYPE i DEFAULT -1
@@ -851,7 +863,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'SAVE'. save_journey( ).
         WHEN 'SAVEPREV'. save_journey( ). IF mv_mtype = 'Success'. mv_preview = to_upper( mv_journey_id ). mv_mode = 'PREVIEW'. ENDIF.
         WHEN 'COPY'. copy_journey( ).
-        WHEN 'DEACT'. deactivate_journey( ).
+        WHEN 'DEACT'.
+*         Nothing selected is not something to confirm - it is something to say.
+*         Arming first would ask the author to confirm deactivating a blank id, and
+*         the second press would then tell them to pick a journey. DEACTIVATE_JOURNEY
+*         already words that case, so let it.
+          IF mv_sel IS INITIAL.
+            deactivate_journey( ).
+          ELSEIF armed( iv_ev   = 'DEACT'
+                        iv_warn = |Deactivate { to_upper( mv_sel ) }? It disappears from launch | &&
+                                  |immediately. Press Deactivate again to confirm.| ) = abap_true.
+            deactivate_journey( ).
+          ENDIF.
         WHEN 'CFGCLR'. clear_cache( ).
         WHEN 'THEMELOAD'.
 *         Load the preset into the FORM only. Nothing is stored until Save, so a
@@ -951,20 +974,40 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                THEN |All { lines( mt_f4_scan ) } value help(s) resolve to options|
                                ELSE |{ lv_f4bad } of { lines( mt_f4_scan ) } value help(s) resolve to NO options — | &&
                                     |those dropdowns render empty on the page and report nothing| ).
-            mv_mtype = COND #( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
           ENDIF.
 
         WHEN 'FLDFILT'.
           IF mv_fld_filter IS INITIAL.
             mv_msg = 'Filter cleared — showing every field'. mv_mtype = 'Information'.
           ENDIF.
+        WHEN 'OPTSTEP'.
+*         Changing the step invalidates the field beneath it: an option is
+*         keyed to step AND field, and leaving a field from the previous step
+*         selected writes a row that points at neither.
+          CLEAR ov_field.
+        WHEN 'OPTFLD'.
+        WHEN 'COLSTEP'.
+          CLEAR cv_field.
+        WHEN 'COLFLD'.
+        WHEN 'FLDSTEP'.
+*         Nothing to do but re-render - the combobox has already written
+*         MV_FLD_STEP through its two-way binding.
         WHEN 'FLDBAD'.
           mv_only_bad = xsdbool( mv_only_bad = abap_false ).
         WHEN 'FLDALL'.
-          CLEAR: mv_fld_filter, mv_only_bad.
+          CLEAR: mv_fld_filter, mv_only_bad, mv_fld_step.
 
         WHEN 'DOCEXP'. doc_export( ).
-        WHEN 'DOCIMP'. doc_import( ).
+        WHEN 'DOCIMP'.
+*         Same reasoning as DEACT: an empty box is a message, not a confirmation.
+          IF mv_doc IS INITIAL.
+            doc_import( ).
+          ELSEIF armed( iv_ev   = 'DOCIMP'
+                        iv_warn = 'Import replaces every step, field, option, column and rule in ' &&
+                                  'the loaded draft. Unsaved edits are lost. Press Import again to confirm.' ) = abap_true.
+            doc_import( ).
+          ENDIF.
 
         WHEN 'MIGGO'.
           IF auth_ok( '02' ) = abap_true.
@@ -980,7 +1023,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               IMPORTING
                 ev_ok       = DATA(lv_mig_ok)
                 ev_msg      = mv_msg ).
-            mv_mtype = COND #( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
             IF lv_mig_ok = abap_true.
 *             Every other write path in this class invalidates and this one did
 *             not, so a re-migrate over an existing ID wrote correct rows and
@@ -1214,7 +1257,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
 
     mv_preview = mv_journey_id.
-    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
 *   lint_all( ) reloads fifty journeys in a loop and lints each one itself.
 *   Without this it linted every one of them twice and wrote a message nobody
@@ -1255,7 +1298,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_msg = |{ mv_msg } — { lines( mt_lint_row ) } field finding(s)| &&
                COND string( WHEN lv_bad > 0 THEN |, { lv_bad } blocking| ) &&
                |. See the ! column.|.
-      mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
+      mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
     ELSE.
       mv_mtype = 'Success'.
     ENDIF.
@@ -1334,11 +1377,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     INSERT zrak_t_jny FROM @( VALUE #( mandt = sy-mandt journey_id = jid title = mv_title title_ar = mv_title_ar
       layout_mode = mv_layout theme_variant = mv_variant accent_type = mv_accent brand_color = mv_brand
       navy_color = mv_navy density = mv_density subtitle = mv_subtitle subtitle_ar = mv_subtitle_ar
-      theme_own     = COND #( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
+      theme_own     = COND string( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
       handler_class = to_upper( mv_handler )
-      show_actions  = COND #( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
-      active        = COND #( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
-      bknd_active   = COND #( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
+      show_actions  = COND string( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
+      active        = COND string( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
+      bknd_active   = COND string( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
       bknd_category = mv_bknd_cat
       bknd_journey  = to_upper( mv_bknd_jny )
       bknd_fm_post  = to_upper( mv_bknd_fmp )
@@ -1365,14 +1408,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = f-field_name seqnr = to_int( f-seqnr ) ftype = f-ftype
         zlabel = f-label zlabel_ar = f-label_ar placeholder = f-placeholder placeholder_ar = f-place_ar
         default_val = f-default_val fgroup = f-fgroup zsection = f-section fstate = f-fstate width = f-width
-        hidden   = COND #( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
+        hidden   = COND string( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND string( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND string( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
         regex = f-regex min_len = to_int( f-min_len ) max_len = to_int( f-max_len )
         min_val = f-min_val max_val = f-max_val msg = f-msg msg_ar = f-msg_ar
-        has_attach = COND #( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
+        has_attach = COND string( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
         attach_label = f-attach_label attach_types = f-att_types attach_maxmb = to_int( f-att_maxmb )
-        attach_multi = COND #( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
+        attach_multi = COND string( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
         rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
@@ -1393,12 +1436,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = c-field_name col_name = c-col_name seqnr = to_int( c-seqnr )
         zlabel = c-label zlabel_ar = c-label_ar ctrl = c-ctrl shlp = c-shlp rollname = c-rollname
         width = c-width align = c-align
-        hidden   = COND #( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
-        pinned   = COND #( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
+        hidden   = COND string( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
+        pinned   = COND string( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND string( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND string( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
         decimals = to_int( c-decimals ) maxlen = to_int( c-maxlen )
-        total    = COND #( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
+        total    = COND string( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1447,7 +1490,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_msg = |Saved { jid } — { lines( mt_steps ) } steps, { lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN mt_lint IS NOT INITIAL
                           THEN |. { lines( mt_lint ) } finding(s) still open| ).
-    mv_mtype = COND #( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
   ENDMETHOD.
 
 
@@ -1513,7 +1556,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       ( `DATE` ) ( `TIME` ) ( `DATETIME` ) ( `SELECT` ) ( `MULTISELECT` ) ( `RADIO` )
       ( `CHECKBOX` ) ( `SWITCH` ) ( `SEGMENTED` ) ( `CHECKGROUP` ) ( `SLIDER` ) ( `STEPPER` ) ( `RATING` )
       ( `DISPLAY` ) ( `READONLY` ) ( `STATUS` ) ( `OBJNUM` ) ( `PROGRESS` ) ( `LINK` )
-      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` ) ).
+      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` )
+      ( `PDF` ) ).
   ENDMETHOD.
 
 
@@ -1538,10 +1582,34 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgBar i.on { background: rgb(196,30,38); }` &&
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
-      `.rakLintMsg { flex:1 1 auto; min-width:0; }`.
+      `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
+*     Bottom right, not top: the toolbar and the panel headers are what the author
+*     is aiming at, and a banner across the top covers exactly those. z-index 90
+*     sits above the page and below UI5's own dialogs, which start around 1000 -
+*     a value help must never open behind this.
+      `.rakToast { position:fixed; right:1.5rem; bottom:1.5rem; z-index:90; ` &&
+      `max-width:34rem; animation:rakToastIn .18s ease-out; }` &&
+      `.rakToast .sapMMsgStrip { box-shadow:0 10px 28px rgba(16,35,62,0.22); border-radius:10px; }` &&
+      `@keyframes rakToastIn { from { opacity:0; transform:translateY(10px); } ` &&
+      `to { opacity:1; transform:none; } }`.
     REPLACE ALL OCCURRENCES OF `{` IN c WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN c WITH `\}`.
     rv = `<div><style>` && c && `</style></div>`.
+  ENDMETHOD.
+
+
+  METHOD armed.
+*   MV_ARM_EVT is cleared at the top of MAIN whenever the next event differs, so an
+*   arm cannot survive the author going off to do something else and coming back.
+*   Same mechanism the DL_ row deletes use - one arm at a time, on purpose.
+    IF mv_arm_evt = iv_ev.
+      CLEAR mv_arm_evt.
+      rv_go = abap_true.
+      RETURN.
+    ENDIF.
+    mv_arm_evt = iv_ev.
+    mv_msg     = iv_warn.
+    mv_mtype   = 'Warning'.
   ENDMETHOD.
 
 
@@ -1562,32 +1630,63 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD scroll_js.
-*   The scroll container is the page, not the window - sap.m.Page scrolls its own
-*   div, so window.scrollTo does nothing here. Same container the engine's
-*   SCROLL_KEEPER uses.
+*   The Studio rebuilds its whole view on every round trip, so the new DOM opens at
+*   scrollTop 0 and the author is thrown back to the top of a page that runs to
+*   sixty fields. This records the position and puts it back.
+*
+*   The scroll container is deliberately NOT found by class name. sap.m.Page
+*   renders an OUTER div carrying sapMPageEnableScrolling, which is overflow
+*   hidden, and an INNER section that does the actual scrolling. A listener that
+*   compared e.target with the outer div therefore never matched, nothing was ever
+*   written, and the restore below always read back a zero - the whole mechanism
+*   was inert. PICK takes whichever candidate is genuinely scrollable instead, so
+*   it does not matter which element UI5 chose to put the overflow on.
+*
+*   Note for the engine: ZCL_RAK_JOURNEY_CSS->SCROLL_KEEPER still compares against
+*   sapMPageEnableScrolling the same way and has the same problem.
     DATA(lv_js) =
-      `var q=function(){return document.querySelector('.sapMPageEnableScrolling');};` &&
-      `if(!window._cjsWired){window._cjsWired=1;` &&
-      `document.addEventListener('scroll',function(e){var s=q();` &&
-      `if(s&&e.target===s){try{sessionStorage.setItem('cjsScroll',s.scrollTop);}catch(x){}}},true);}`.
+      `var K='cjsScroll';` &&
+      `var pick=function(){` &&
+      `var l=document.querySelectorAll('.sapMPageScroll,.sapMPageEnableScrolling,` &&
+      `.sapMScrollCont,.sapUiScrollDelegate,section');var b=null;` &&
+      `for(var i=0;i<l.length;i++){var e=l[i];` &&
+      `if(e.scrollHeight-e.clientHeight>20&&(!b||e.scrollHeight>b.scrollHeight)){b=e;}}` &&
+      `return b;};` &&
+      `var put=function(){var s=pick();` &&
+      `if(s){try{sessionStorage.setItem(K,s.scrollTop);}catch(x){}}};` &&
+*     Debounced on scroll, because scroll fires continuously and PICK walks the
+*     DOM. Also on mousedown: a press landing inside the debounce window would
+*     otherwise round-trip with a stale position recorded, which is exactly the
+*     case that matters - the author scrolls to a button and presses it.
+      `if(!window._cjsWired){window._cjsWired=1;var t=null;` &&
+      `document.addEventListener('scroll',function(){` &&
+      `if(t){clearTimeout(t);}t=setTimeout(put,80);},true);` &&
+      `document.addEventListener('mousedown',put,true);}`.
 
     IF mv_focus IS NOT INITIAL.
 *     A panel that was collapsed a moment ago has not finished its expand
-*     animation, so its height is still wrong on the first frame. Retry for a
-*     few frames rather than measuring once and landing short.
+*     animation, so its height is still wrong on the first frame. Retry for a few
+*     frames rather than measuring once and landing short.
+*
+*     PUT( ) after the scroll, so the position the author was TAKEN to becomes the
+*     remembered one. Without it the next action would restore the position they
+*     were at before pressing Edit and undo the navigation.
       lv_js = lv_js &&
         `var n=0;var f=function(){n=n+1;` &&
-        `var t=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
-        `if(t){t.scrollIntoView({block:'start'});` &&
-        `if(n<12){requestAnimationFrame(f);}}` &&
-        `else if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
+        `var g=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
+        `if(g){g.scrollIntoView({block:'start'});put();` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
       CLEAR mv_focus.
     ELSE.
+*     Keep re-asserting for a few frames after the first success. UI5 lays the
+*     form out in stages, so a single assignment lands and is then overwritten.
       lv_js = lv_js &&
-        `var p=0;try{p=parseInt(sessionStorage.getItem('cjsScroll')||'0',10);}catch(x){}` &&
-        `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
-        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
-        `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
+        `var p=0;try{p=parseInt(sessionStorage.getItem(K)||'0',10);}catch(x){}` &&
+        `if(p>0){var n=0;var f=function(){n=n+1;var s=pick();` &&
+        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<60){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
     ENDIF.
 
     lv_js = lv_js && `this.remove();`.
@@ -1604,8 +1703,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
     render_toolbar( page ).
+*   Floating, not in the flow. An inline strip appears and disappears between the
+*   toolbar and the panels, so every action that produced a message pushed the
+*   whole page down or let it snap back up under the author - and the message could
+*   only be read from the top of the page anyway. position:fixed costs no layout in
+*   either direction, so nothing moves, and it stays legible wherever the author
+*   happens to be scrolled to.
+*
+*   Closable, because it is now overlaying content rather than sitting above it.
+*   Closing is a client-side act with no round trip, so it cannot lose anything.
     IF mv_msg IS NOT INITIAL.
-      page->message_strip( text = mv_msg type = mv_mtype showicon = abap_true class = 'sapUiSmallMargin' ).
+      page->vbox( class = 'rakToast' )->message_strip( text            = mv_msg
+                                                       type            = mv_mtype
+                                                       showicon        = abap_true
+                                                       showclosebutton = abap_true ).
     ENDIF.
     CASE mv_mode.
       WHEN 'AUTHOR'.  render_author( page ).
@@ -1628,13 +1739,24 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     bar->button( text = 'Load' icon = 'sap-icon://open-folder' press = mo_client->_event( 'LOAD' ) class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'New'  icon = 'sap-icon://add-document' press = mo_client->_event( 'NEW' ) ).
     DATA(lv_armed) = xsdbool( mv_arm_save IS NOT INITIAL AND mv_arm_save = to_upper( mv_journey_id ) ).
-    bar->button( text  = COND #( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
+    bar->button( text  = COND string( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
                  icon  = 'sap-icon://save'
-                 type  = COND #( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
+                 type  = COND string( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
                  press = mo_client->_event( 'SAVE' ) ).
     bar->input( value = mo_client->_bind_edit( mv_copy_to ) placeholder = 'Copy to (new ID)' width = '12rem' class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'Copy' icon = 'sap-icon://copy' press = mo_client->_event( 'COPY' ) ).
-    bar->button( text = 'Deactivate' icon = 'sap-icon://pause' press = mo_client->_event( 'DEACT' ) class = 'sapUiTinyMarginBegin' ).
+*   Armed state on the control itself, not only in the message. The same shape the
+*   row deletes use: red, an alert icon and a tooltip that says what a second press
+*   will do - so the button that is now dangerous looks different from the one that
+*   merely asked a question.
+    DATA(lv_arm_de) = xsdbool( mv_arm_evt = 'DEACT' ).
+    bar->button( text    = COND string( WHEN lv_arm_de = abap_true THEN 'Deactivate anyway' ELSE 'Deactivate' )
+                 icon    = COND string( WHEN lv_arm_de = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://pause' )
+                 type    = COND string( WHEN lv_arm_de = abap_true THEN 'Reject' )
+                 tooltip = COND string( WHEN lv_arm_de = abap_true
+                                   THEN 'Click again to take this journey off launch' )
+                 press   = mo_client->_event( 'DEACT' )
+                 class   = 'sapUiTinyMarginBegin' ).
 *   Clear cache. Save, Copy, Deactivate and Migrate already invalidate, and so
 *   does Load now - which leaves exactly one case for this button: config changed
 *   OUTSIDE the Studio. A seed report, a direct table update, a transport import.
@@ -1654,27 +1776,27 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(seg) = io->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginBottom' ).
     seg->button( text  = 'Compose'
                  icon  = 'sap-icon://palette'
-                 type  = COND #( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_COMPOSE' ) ).
     seg->button( text  = 'Author'
                  icon  = 'sap-icon://edit'
-                 type  = COND #( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUTHOR' ) ).
     seg->button( text  = 'Preview'
                  icon  = 'sap-icon://show'
-                 type  = COND #( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_PREVIEW' ) ).
     seg->button( text  = 'Migrate'
                  icon  = 'sap-icon://journey-arrive'
-                 type  = COND #( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_MIGRATE' ) ).
     seg->button( text  = 'Audit all'
                  icon  = 'sap-icon://validate'
-                 type  = COND #( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUDIT' ) ).
     seg->button( text  = 'Design'
                  icon  = 'sap-icon://screen-split-two'
-                 type  = COND #( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_DESIGN' ) ).
   ENDMETHOD.
 
@@ -1786,9 +1908,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-bknd_screen )->text( |{ lv_fcnt }| ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDSTEP_{ r-step_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -1809,6 +1931,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(p) = io->panel(
       headertext = |Fields — { lines( mt_fields ) }| &&
                    COND string( WHEN lv_flagged > 0 THEN |, { lv_flagged } with findings| ) &&
+*                Say WHICH step, not just "filtered". A panel headed "Fields -
+*                62" showing four rows is alarming until you remember you set a
+*                filter three minutes ago; naming the step answers that without
+*                the author having to look for the control.
+                   COND string( WHEN mv_fld_step IS NOT INITIAL THEN | · step { mv_fld_step }| ) &&
                    COND string( WHEN mv_only_bad = abap_true      THEN ` · showing findings only`
                                 WHEN mv_fld_filter IS NOT INITIAL THEN ` · filtered` )
       expandable = abap_true
@@ -1962,7 +2089,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Filtering is not a nicety at that size - it is the difference between fixing
 *   the three flagged fields and scrolling past them.
     DATA(ff) = p->hbox( alignitems = 'Center' class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
-    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd' ).
+
+*   STEP FIRST, because that is how an author actually thinks about a journey:
+*   they are working on one step, not on a list of sixty fields. Typing "S2"
+*   into the text box already worked, but only if you knew the step existed and
+*   spelt it the way the table does - and "S2" also matches a field called
+*   TRANS2. A list you pick from cannot be spelt wrong and cannot over-match.
+    ff->label( text = 'Step:' class = 'sapUiTinyMarginEnd' ).
+    DATA(fs_step) = ff->combobox( selectedkey = mo_client->_bind_edit( mv_fld_step )
+                                  change      = mo_client->_event( 'FLDSTEP' )
+                                  width       = '12rem' ).
+    fs_step->item( key = '' text = 'All steps' ).
+    LOOP AT mt_steps INTO DATA(ls_fstep).
+      fs_step->item( key  = ls_fstep-step_id
+                     text = |{ ls_fstep-step_id } - { ls_fstep-title }| ).
+    ENDLOOP.
+
+    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd sapUiSmallMarginBegin' ).
     ff->input( value       = mo_client->_bind_edit( mv_fld_filter )
                placeholder = 'field, label, type, step, tech name or value help'
                width       = '20rem' ).
@@ -1972,27 +2115,66 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                 class = 'sapUiTinyMarginBegin' ).
     ff->button( text    = 'Findings only'
                 icon    = 'sap-icon://alert'
-                type    = COND #( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                type    = COND string( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                 tooltip = 'Show only the fields carrying a lint finding'
                 press   = mo_client->_event( 'FLDBAD' )
                 class   = 'sapUiTinyMarginBegin' ).
-    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL.
+    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL OR mv_fld_step IS NOT INITIAL.
       ff->button( text  = 'Show all'
                   icon  = 'sap-icon://clear-filter'
                   press = mo_client->_event( 'FLDALL' )
                   class = 'sapUiTinyMarginBegin' ).
     ENDIF.
 
+*   FOURTEEN COLUMNS, AND THE LAST ONE IS THE ONE YOU NEED.
+*
+*   Every column was fixed-width and always shown, so the table was wider
+*   than the panel and the row ran off the right edge under a horizontal
+*   scrollbar. Edit and Copy survived; Delete did not - the action a user
+*   most needs to find was the one column that could not be reached without
+*   scrolling sideways first.
+*
+*   DEMANDPOPIN with MINSCREENWIDTH is the UI5 answer: below the named
+*   width the column folds INTO the row as a label/value line instead of
+*   being clipped. Nothing is lost, it just moves.
+*
+*   What stays at every width is what identifies a row and what acts on it:
+*   Seq, Step, Field, Type, Label, the finding marker and the buttons. The
+*   descriptive middle - Tech, Roll, the four flags, Row - folds first,
+*   because you read those AFTER finding the row, never to find it.
+*   The four flag columns are abbreviated to keep the table narrow, and
+*   nothing on screen said what they meant - AR in particular reads as a
+*   language code rather than 'an Arabic label is maintained'. UI5 column
+*   headers in this version take neither a tooltip nor markup, so the legend
+*   goes beside the filter instead, where it is read once and remembered.
+    p->text( text  = 'Req = required · Hid = hidden · Att = has attachment · AR = Arabic label maintained · Row = share a row with the field above'
+             class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
+
     DATA(t) = p->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c) = t->columns( ).
-    c->column( )->text( 'Seq' ). c->column( )->text( 'Step' ). c->column( )->text( 'Field' ). c->column( )->text( 'Type' ).
-    c->column( )->text( 'Label' ). c->column( )->text( 'Tech' ). c->column( )->text( 'Roll' ).
-    c->column( )->text( 'Req' ). c->column( )->text( 'Hid' ). c->column( )->text( 'Att' ). c->column( )->text( 'AR' ).
-    c->column( )->text( 'Row' ).
+    c->column( )->text( 'Seq' ).
+    c->column( )->text( 'Step' ).
+    c->column( )->text( 'Field' ).
+    c->column( )->text( 'Type' ).
+    c->column( )->text( 'Label' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Tech' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Roll' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Tablet'  )->text( 'Req' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Hid' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Att' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'AR' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Row' ).
     c->column( )->text( '!' ).
-    c->column( )->text( '' ).
+*   Pinned to the right and given a width of its own, so the three buttons
+*   are never what gets squeezed.
+    c->column( width = '9rem' halign = 'End' )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_fields INTO DATA(r).
+*     The step narrows before the text does - it is the cheaper test and the
+*     one more likely to exclude.
+      IF mv_fld_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( mv_fld_step ).
+        CONTINUE.
+      ENDIF.
       IF mv_fld_filter IS NOT INITIAL.
         DATA(lv_hay) = to_upper( |{ r-step_id } { r-field_name } { r-ftype } { r-label } | &&
                                  |{ r-tech_name } { r-rollname } { r-shlp } { r-domname }| ).
@@ -2011,10 +2193,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-ftype
         )->text( r-label )->text( r-tech_name )->text( r-rollname
-        )->text( COND #( WHEN r-required = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
+        )->text( COND string( WHEN r-required = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
 *     The pair toggle lives in the Row cell, NOT in the action cluster. Putting
 *     it first among the actions pushed Edit / Duplicate / Delete past the right
 *     edge of a table that had just gained a twelfth column, so Delete looked
@@ -2025,9 +2207,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF lv_rtok IS NOT INITIAL.
         rowc->text( text = substring( val = lv_rtok off = 4 ) class = 'sapUiTinyMarginEnd' ).
       ENDIF.
-      rowc->button( text    = COND #( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
+      rowc->button( text    = COND string( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
                     type    = 'Transparent'
-                    tooltip = COND #( WHEN lv_rtok IS NOT INITIAL
+                    tooltip = COND string( WHEN lv_rtok IS NOT INITIAL
                                       THEN 'Take this field off the shared row'
                                       ELSE 'Put this field on the same row as the field above' )
                     press   = mo_client->_event( |ROWPAIR_{ r-step_id }~{ r-field_name }| ) ).
@@ -2041,9 +2223,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       LOOP AT mt_lint_row INTO DATA(ls_lr)
            WHERE step = to_upper( r-step_id ) AND field = to_upper( r-field_name ).
         lv_marker->button(
-          icon    = COND #( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
+          icon    = COND string( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
                             ELSE 'sap-icon://alert' )
-          type    = COND #( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
+          type    = COND string( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
           tooltip = ls_lr-text
           press   = mo_client->_event( |EDFLD_{ r-step_id }~{ r-field_name }| ) ).
       ENDLOOP.
@@ -2057,23 +2239,52 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Duplicate'
                    press   = mo_client->_event( |DUPFLD_{ r-step_id }~{ r-field_name }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
 
 
   METHOD render_opts.
-    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }|
+    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }| &&
+                           COND string( WHEN ov_step IS NOT INITIAL OR ov_field IS NOT INITIAL
+                                        THEN | · showing { ov_step }{ COND string( WHEN ov_field IS NOT INITIAL THEN | / { ov_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_opts
                          expand     = mo_client->_event( 'PNL~OPTS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlOPTS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).    f->input( value = mo_client->_bind_edit( ov_step ) ).
-    f->label( 'Field name' ). f->input( value = mo_client->_bind_edit( ov_field ) ).
+*   PICK, DO NOT TYPE. Step and field were free-text, and an option row whose
+*   step or field name does not match an existing field is not an error - it is
+*   simply never read, so the dropdown the author was configuring stays empty
+*   and nothing anywhere says why. A list cannot be mistyped.
+*
+*   The field list narrows to the chosen step, because an option belongs to a
+*   field on a step and offering all sixty is offering fifty-five wrong answers.
+    f->label( 'Step ID' ).
+    DATA(os) = f->combobox( selectedkey = mo_client->_bind_edit( ov_step )
+                            change      = mo_client->_event( 'OPTSTEP' ) ).
+    os->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_os).
+      os->item( key = ls_os-step_id text = |{ ls_os-step_id } - { ls_os-title }| ).
+    ENDLOOP.
+
+    f->label( 'Field name' ).
+    DATA(of) = f->combobox( selectedkey = mo_client->_bind_edit( ov_field )
+                            change      = mo_client->_event( 'OPTFLD' ) ).
+    of->item( key = '' text = '' ).
+*   The step test is an IF and not part of the WHERE, deliberately: in a
+*   LOOP AT ... WHERE the left operand of every comparison is resolved as a
+*   COLUMN of the table line, so 'ov_step IS INITIAL' there sends ABAP looking
+*   for a component called OV_STEP and the class will not activate.
+    LOOP AT mt_fields INTO DATA(ls_of).
+      IF ov_step IS NOT INITIAL AND ls_of-step_id <> ov_step.
+        CONTINUE.
+      ENDIF.
+      of->item( key = ls_of-field_name text = |{ ls_of-field_name } ({ ls_of-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).        f->input( value = mo_client->_bind_edit( ov_seq ) placeholder = 'blank = auto' ).
     f->label( 'Option key' ). f->input( value = mo_client->_bind_edit( ov_key ) ).
     f->label( 'Option text (EN)' ). f->input( value = mo_client->_bind_edit( ov_text ) ).
@@ -2087,6 +2298,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     c->column( )->text( 'Key' ). c->column( )->text( 'Text' ). c->column( )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_opts INTO DATA(r).
+*     The list follows the form. Having chosen a step and a field above, the
+*     rows worth looking at are that field's - the rest belong to another
+*     dropdown and only make this one harder to read.
+      IF ov_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( ov_step ).
+        CONTINUE.
+      ENDIF.
+      IF ov_field IS NOT INITIAL AND to_upper( r-field_name ) <> to_upper( ov_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_dev) = |DL_OPT~{ r-step_id }~{ r-field_name }~{ r-opt_key }|.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-opt_key )->text( r-opt_text ).
@@ -2095,9 +2315,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Edit'
                    press   = mo_client->_event( |EDOPT_{ r-step_id }~{ r-field_name }~{ r-opt_key }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2110,14 +2330,44 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   step/field-scoping convention as Options above: Step ID / Field name are
 *   plain inputs the author must match to an existing grid field by hand,
 *   not auto-filled from the Fields panel.
-    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }|
+    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }| &&
+                           COND string( WHEN cv_step IS NOT INITIAL OR cv_field IS NOT INITIAL
+                                        THEN | · showing { cv_step }{ COND string( WHEN cv_field IS NOT INITIAL THEN | / { cv_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_cols
                          expand     = mo_client->_event( 'PNL~COLS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlCOLS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).       f->input( value = mo_client->_bind_edit( cv_step ) ).
-    f->label( 'Grid field name' ). f->input( value = mo_client->_bind_edit( cv_field ) ).
+*   PICK, DO NOT TYPE - and the comment above this method admitted the cost of
+*   the old way: "plain inputs the author must match to an existing grid field
+*   by hand". A column row keyed to a field name that does not exist is read by
+*   nobody and reported by nothing; the grid simply renders its default columns
+*   and the author goes looking in the renderer for a bug that is a typo.
+*
+*   The field list is narrowed twice: to the chosen step, and to the field types
+*   that actually HAVE columns. Offering a DATE field here would be offering a
+*   row that can never do anything.
+    f->label( 'Step ID' ).
+    DATA(cs) = f->combobox( selectedkey = mo_client->_bind_edit( cv_step )
+                            change      = mo_client->_event( 'COLSTEP' ) ).
+    cs->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_cs).
+      cs->item( key = ls_cs-step_id text = |{ ls_cs-step_id } - { ls_cs-title }| ).
+    ENDLOOP.
+
+    f->label( 'Grid field name' ).
+    DATA(cf) = f->combobox( selectedkey = mo_client->_bind_edit( cv_field )
+                            change      = mo_client->_event( 'COLFLD' ) ).
+    cf->item( key = '' text = '' ).
+*   Same reason as the Options list above - the step test cannot live in the
+*   WHERE. The ftype test can, and does.
+    LOOP AT mt_fields INTO DATA(ls_cf)
+         WHERE ftype = 'EDITABLE_TABLE' OR ftype = 'TABLE'.
+      IF cv_step IS NOT INITIAL AND ls_cf-step_id <> cv_step.
+        CONTINUE.
+      ENDIF.
+      cf->item( key = ls_cf-field_name text = |{ ls_cf-field_name } ({ ls_cf-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).           f->input( value = mo_client->_bind_edit( cv_seq ) placeholder = 'blank = auto' ).
     f->label( 'Column name' ).   f->input( value = mo_client->_bind_edit( cv_col ) ).
     f->label( 'Label (EN)' ).    f->input( value = mo_client->_bind_edit( cv_label ) ).
@@ -2149,10 +2399,17 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Pinned (not supported)' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) enabled = abap_false ).
     f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
-*   Still editable, unlike PINNED - per-row required validation is missing, not
-*   impossible. It is simply not wired into VALIDATE_STEP / MISSING_REQUIRED yet,
-*   so a grid with an empty mandatory cell passes validation and submits.
-    f->label( 'Required (not enforced yet)' ).
+*   ENFORCED, unlike PINNED and DECIMALS either side of it. The label said
+*   "not enforced yet" long after it was wired up, which is the more damaging
+*   direction for a caveat to be wrong in: an author reads it, believes the
+*   flag is inert, and either leaves it off where it is needed or sets it and
+*   is surprised when a half-filled grid stops the citizen.
+*
+*   ZCL_RAK_JOURNEY_RULES=>MISSING_REQUIRED( ) checks a required column
+*   against every row that ALREADY EXISTS - not against the row count. An
+*   empty grid still passes, exactly as a field-level REQUIRED flag does, so
+*   this makes a started row complete rather than making the grid mandatory.
+    f->label( 'Required' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
     f->label( 'Decimals (not applied yet)' ).
     f->input( value = mo_client->_bind_edit( cv_decimals )
@@ -2168,6 +2425,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     cco->column( )->text( 'Column' ). cco->column( )->text( 'Label' ). cco->column( )->text( 'Ctrl' ). cco->column( )->text( '' ).
     DATA(itc) = tc->items( ).
     LOOP AT mt_cols INTO DATA(rc).
+*     Same as Options: once a grid field is chosen, its columns are what is
+*     being worked on. A journey with three grids otherwise shows all three
+*     sets interleaved with nothing separating them.
+      IF cv_step IS NOT INITIAL AND to_upper( rc-step_id ) <> to_upper( cv_step ).
+        CONTINUE.
+      ENDIF.
+      IF cv_field IS NOT INITIAL AND to_upper( rc-field_name ) <> to_upper( cv_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_devc) = |DL_COL~{ rc-step_id }~{ rc-field_name }~{ rc-col_name }|.
       DATA(cellsc) = itc->column_list_item( )->cells( ).
       cellsc->text( rc-seqnr )->text( rc-step_id )->text( rc-field_name )->text( rc-col_name )->text( rc-label )->text( rc-ctrl ).
@@ -2176,9 +2442,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                     type    = 'Transparent'
                     tooltip = 'Edit'
                     press   = mo_client->_event( |EDCOL_{ rc-step_id }~{ rc-field_name }~{ rc-col_name }| ) ).
-      actc->button( icon = COND #( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                    type = COND #( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
-                    tooltip = COND #( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
+      actc->button( icon = COND string( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                    type = COND string( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
+                    tooltip = COND string( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
                     press = mo_client->_event( lv_devc ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2237,9 +2503,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-action )->text( r-tgt_field )->text( r-tgt_value ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDRULE_{ r-rule_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2255,10 +2521,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     lt->label( text = 'Preview language:' class = 'sapUiTinyMarginEnd' ).
     lt->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     lt->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     lt->link( text = 'Open in new tab ↗' target = '_blank' class = 'sapUiSmallMarginBegin'
               href = engine_url( iv_journey = mv_preview iv_ar = xsdbool( mv_prev_lang = 'AR' ) ) ).
     IF field_exists( 'PAYFEE' ) = abap_true.
@@ -2512,13 +2778,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
     SORT mt_rules BY rule_id.
     mv_dirty = abap_true.
-    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
     mv_msg = |Loaded { to_upper( ls_d-journey_id ) } from the document — { lines( mt_steps ) } steps, | &&
              |{ lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN lv_bad > 0 THEN |, { lv_bad } line(s) unreadable and skipped| ) &&
              |. Nothing is written until you Save.|.
-    mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
   ENDMETHOD.
 
 
@@ -2547,7 +2813,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(lv_cmd) = CONV string( lt_k[ 1 ] ).
 
     IF lv_cmd = 'DSG_CLR'.
-      dsg_clear( mv_dsg_step ).
+      IF armed( iv_ev   = 'DSG_CLR'
+                iv_warn = |Clear the layout for { to_upper( mv_dsg_step ) }? Every row and width | &&
+                          |on this step goes, and it renders the classic way again. | &&
+                          |Press Clear again to confirm.| ) = abap_true.
+        dsg_clear( mv_dsg_step ).
+      ENDIF.
       RETURN.
     ENDIF.
 
@@ -2670,6 +2941,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         ENDIF.
         <s>-col = <d>-col.
         <d>-col = lv_tgt.
+      WHEN 'DSG_FL'.
+*       A toggle, not a move. Nothing about the grid changes - the field
+*       keeps its row, column and span - so this falls through to the same
+*       save as everything else and needs no re-spacing.
+        <d>-flow = xsdbool( <d>-flow = abap_false ).
       WHEN 'DSG_SM'.
         IF <d>-span <= 1.
           RETURN.
@@ -2817,7 +3093,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                           col   = COND i( WHEN ls_c-attr-col_start > 0
                                           THEN ls_c-attr-col_start
                                           ELSE sy-tabix )
-                          span  = ls_c-attr-col_span ) TO rt.
+                          span  = ls_c-attr-col_span
+                          flow  = ls_c-attr-flow ) TO rt.
         ENDLOOP.
       ENDLOOP.
 
@@ -2859,13 +3136,30 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(lv_key) = CONV zcl_rak_cj_lay=>ty_key( to_upper( iv_step ) ).
 
     LOOP AT it INTO DATA(ls).
+
+*     READ BEFORE WRITE. PERSIST( ) does a full MODIFY, so an IS_ATTR built
+*     from scratch here does not just set row, column and span - it blanks
+*     every other attribute on the element. ALIGN, WIDTH, INLINE, HIDDEN and
+*     FIXED were all being wiped by any press of a move or resize arrow,
+*     which is a quiet way to lose work: the field moves as asked and the
+*     alignment someone set ten minutes ago is simply gone.
+*
+*     RESOLVE( ) returns what is stored, and only the four things this
+*     editor actually edits are overwritten.
+      DATA(ls_attr) = lo_lay->resolve( iv_journey = lv_jny
+                                       iv_step    = lv_key
+                                       iv_block   = '*'
+                                       iv_elem    = CONV #( ls-field ) ).
+      ls_attr-row_no    = ls-row.
+      ls_attr-col_start = ls-col.
+      ls_attr-col_span  = ls-span.
+      ls_attr-flow      = ls-flow.
+
       lo_lay->persist( iv_journey = lv_jny
                        iv_step    = lv_key
                        iv_block   = '*'
                        iv_elem    = CONV #( ls-field )
-                       is_attr    = VALUE #( row_no    = ls-row
-                                             col_start = ls-col
-                                             col_span  = ls-span ) ).
+                       is_attr    = ls_attr ).
     ENDLOOP.
 
     zcl_rak_cj_cfg_cache=>invalidate( to_upper( mv_journey_id ) ).
@@ -3994,7 +4288,7 @@ TO rt.
     hp->message_strip(
       text     = |{ lines( lt_bad ) } journey(s) with errors · { lv_err } error(s) · { lv_wrn } warning(s). | &&
                  |A journey with errors will not behave as configured - clear those before it goes to QA.|
-      type     = COND #( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
+      type     = COND string( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
       showicon = abap_true
       class    = 'sapUiSmallMargin' ).
 
@@ -4082,9 +4376,14 @@ TO rt.
                  class = 'sapUiSmallMarginBegin' ).
 
     IF lv_on = abap_true.
-      bar->button( text  = 'Clear'
-                   icon  = 'sap-icon://reset'
-                   press = mo_client->_event( 'DSG_CLR' ) ).
+      DATA(lv_arm_cl) = xsdbool( mv_arm_evt = 'DSG_CLR' ).
+      bar->button( text    = COND string( WHEN lv_arm_cl = abap_true THEN 'Clear anyway' ELSE 'Clear' )
+                   icon    = COND string( WHEN lv_arm_cl = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://reset' )
+                   type    = COND string( WHEN lv_arm_cl = abap_true THEN 'Reject' )
+                   tooltip = COND string( WHEN lv_arm_cl = abap_true
+                                     THEN 'Click again to drop every row and width on this step'
+                                     ELSE 'Drop the layout and render this step the classic way' )
+                   press   = mo_client->_event( 'DSG_CLR' ) ).
     ENDIF.
 
     DATA(lt) = dsg_plan( mv_dsg_step ).
@@ -4110,22 +4409,22 @@ TO rt.
     pl->label( text = 'Preview:' class = 'sapUiTinyMarginEnd' ).
     pl->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     pl->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     pl->button( text  = 'Desktop'
                 icon  = 'sap-icon://sys-monitor'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
                 press = mo_client->_event( 'DSG_DEV~DESKTOP' )
                 class = 'sapUiSmallMarginBegin' ).
     pl->button( text  = 'Tablet'
                 icon  = 'sap-icon://ipad'
-                type  = COND #( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~TABLET' ) ).
     pl->button( text  = 'Phone'
                 icon  = 'sap-icon://iphone'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~PHONE' ) ).
 
     pl->link( text   = 'Open in new tab ↗'
@@ -4227,7 +4526,16 @@ TO rt.
 
       DATA(lv_sel) = xsdbool( to_upper( mv_dsg_fld ) = to_upper( ls_d-field ) ).
 
+*     WRAP, so the action buttons cannot be pushed out of sight.
+*
+*     This pane shares the width with the live preview, and the row carries a
+*     twelve-segment bar, a name, a type, a span and six buttons. On a narrow
+*     window the buttons ran off the right edge and were simply gone - no
+*     scrollbar, no clue they existed, and no way to move a field. Wrapping
+*     drops them onto a second line instead, which is ugly for one row and
+*     far better than an editor whose controls disappear.
       DATA(row) = box->hbox( alignitems = 'Center'
+                             wrap       = 'Wrap'
                              class      = COND string( WHEN lv_sel = abap_true
                                                        THEN 'sapUiTinyMarginBottom rakDsgSel'
                                                        ELSE 'sapUiTinyMarginBottom' ) ).
@@ -4250,7 +4558,24 @@ TO rt.
       REPLACE ALL OCCURRENCES OF `}` IN lv_bar WITH `\}`.
       row->html( content = lv_bar sanitizecontent = abap_false ).
 
-      row->text( text = ls_d-field class = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
+*     WIDTH AND WRAPPING, BOTH REQUIRED.
+*
+*     This is an hbox, so the field name is a flex item with no width of its
+*     own. Flex gives such an item min-content width, and a wrapping text
+*     whose min-content is one character wide renders one character per
+*     line - DIVORCEE_PARTNER comes out as a vertical stripe sixteen rows
+*     tall, dragging the whole row down with it.
+*
+*     Turning wrapping off alone would stop the stripe but leave the name
+*     column ragged, since each row would size to its own text. The fixed
+*     width also lines the type and span badges up down the list, which is
+*     what makes a long row of fields readable at a glance. A name longer
+*     than the width gets an ellipsis, and the field is identified again in
+*     the label editor behind the Tt button.
+      row->text( text     = ls_d-field
+                 width    = '11rem'
+                 wrapping = 'false'
+                 class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
       row->object_status( text = ls_d-ftype state = 'None' class = 'sapUiSmallMarginEnd' ).
       row->object_status( text  = |{ ls_d-span }/12|
                           state = COND string( WHEN ls_d-span = 12 THEN 'None' ELSE 'Information' )
@@ -4260,6 +4585,18 @@ TO rt.
                    type    = COND string( WHEN lv_sel = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                    tooltip = 'Edit English / Arabic label'
                    press   = mo_client->_event( |DSG_TX~{ ls_d-field }| )
+                   class   = 'sapUiTinyMarginEnd' ).
+*     FLOW toggle. Turns the cell into a left-to-right box, which is what
+*     puts a handler's search or ADD button beside the field instead of
+*     under it. Off everywhere until pressed, so no journey moves on its own.
+      row->button( icon    = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'sap-icon://horizontal-grip'
+                                          ELSE 'sap-icon://vertical-grip' )
+                   type    = COND string( WHEN ls_d-flow = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'Field and its buttons sit side by side - press to stack them'
+                                          ELSE 'Field and its buttons are stacked - press to put them side by side' )
+                   press   = mo_client->_event( |DSG_FL~{ ls_d-field }| )
                    class   = 'sapUiTinyMarginEnd' ).
       row->button( icon    = 'sap-icon://navigation-left-arrow'
                    type    = 'Transparent'
@@ -4329,9 +4666,13 @@ TO rt.
                icon  = 'sap-icon://download'
                type  = 'Emphasized'
                press = mo_client->_event( 'DOCEXP' ) ).
-    b->button( text    = 'Import from box'
-               icon    = 'sap-icon://upload'
-               tooltip = 'Replaces the loaded draft. Nothing is written until Save.'
+    DATA(lv_arm_im) = xsdbool( mv_arm_evt = 'DOCIMP' ).
+    b->button( text    = COND string( WHEN lv_arm_im = abap_true THEN 'Import anyway' ELSE 'Import from box' )
+               icon    = COND string( WHEN lv_arm_im = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://upload' )
+               type    = COND string( WHEN lv_arm_im = abap_true THEN 'Reject' )
+               tooltip = COND string( WHEN lv_arm_im = abap_true
+                                 THEN 'Click again to replace the loaded draft'
+                                 ELSE 'Replaces the loaded draft. Nothing is written until Save.' )
                press   = mo_client->_event( 'DOCIMP' )
                class   = 'sapUiTinyMarginBegin' ).
     p->text_area( value = mo_client->_bind_edit( mv_doc )
@@ -4363,7 +4704,7 @@ TO rt.
         )->object_status(
              text  = COND #( WHEN s-ok = abap_true THEN |{ s-cnt } option(s)|
                              ELSE 'NO options - renders an empty dropdown' )
-             state = COND #( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
+             state = COND string( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
     ENDLOOP.
   ENDMETHOD.
 
@@ -4591,6 +4932,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     l2->item( key = 'CLEAN' text = 'CLEAN' ).
     l2->item( key = 'PREMIUM' text = 'PREMIUM' ).
     l2->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    l2->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     l2->item( key = 'PORTAL' text = 'PORTAL — large title, sticky footer' ).
     f->label( 'Accent' ).        DATA(l3) = f->combobox( selectedkey = mo_client->_bind_edit( mv_accent ) ).
     l3->item( key = 'Emphasized' text = 'Emphasized' ).
@@ -4712,6 +5054,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     gv->item( key = 'CLEAN' text = 'CLEAN' ).
     gv->item( key = 'PREMIUM' text = 'PREMIUM' ).
     gv->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    gv->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     gv->item( key = 'PORTAL' text = 'PORTAL - large title, sticky footer' ).
 
     ft->label( 'Accent' ).

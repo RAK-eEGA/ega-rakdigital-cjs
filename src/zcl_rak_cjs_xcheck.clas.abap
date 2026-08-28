@@ -49,6 +49,9 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
     CLASS-METHODS x08_status_carrier.
     CLASS-METHODS x09_grid_contract.
     CLASS-METHODS x10_next_requires.
+    CLASS-METHODS x13_label_truncated.
+    CLASS-METHODS x14_overlength_name.
+    CLASS-METHODS x15_required_readonly.
 ENDCLASS.
 
 
@@ -99,6 +102,9 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
     x06_pay_screen( ).
     x08_status_carrier( ).
     x10_next_requires( ).
+    x13_label_truncated( ).
+    x14_overlength_name( ).
+    x15_required_readonly( ).
 
     IF gt_msg IS INITIAL.
       add( iv_sev  = 'I'
@@ -520,6 +526,159 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
                        |this step. The gate fails open - the button behaves as if it were | &&
                        |blank - so the step has no gate at all.| ).
       ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x13_label_truncated.
+*   A label that is EXACTLY at its column width was almost certainly cut on
+*   insert rather than written that length. ZLABEL is CHAR(150), ZLABEL_AR
+*   the same since the widening, and the giveaway is that the text stops
+*   mid-sentence: EC01's certification ends "...held responsible for".
+*
+*   Nothing raises for this. The row inserts, the field renders, and the
+*   citizen ticks a consent statement whose second half nobody has read -
+*   which is worse than an error, because it looks like it worked.
+*
+*   The fix is the TEXT: convention on DEFAULT_VAL (CHAR 1000), read by
+*   ZCL_RAK_JOURNEY_RENDER->LONG_TEXT( ). This only reports; a label that is
+*   genuinely 150 characters long and complete is a false positive, and
+*   saying so costs a glance where missing a cut declaration costs more.
+    CONSTANTS lc_label_len TYPE i VALUE 150.
+
+    LOOP AT gt_fld INTO DATA(ls_f).
+      IF ls_f-default_val CP 'TEXT:*'.
+*       Already on the long-text route - the label is a fallback, not the
+*       text anyone reads.
+        CONTINUE.
+      ENDIF.
+
+*     The other long-text route: a row in ZCL_RAK_TEXT=>LONG_TEXTS( ),
+*     which is where a legal declaration belongs - literals there have no
+*     length ceiling and no missing _AR twin. LONG( ) hands back the label
+*     unchanged when it holds nothing, so a different answer means this
+*     field is covered and the truncated ZLABEL is never rendered.
+*
+*     Without this test X13 reports a blocker that has already been fixed,
+*     and a checker that cries wolf is one people learn to skip.
+*
+*     CONV on all three: LONG( ) takes strings by reference, and these are
+*     DDIC-typed fields. Passing them raw is what dumped this class once.
+      DATA(lv_lbl) = CONV string( ls_f-zlabel ).
+      IF zcl_rak_text=>long( iv_journey = CONV #( ls_f-journey_id )
+                             iv_field   = CONV #( ls_f-field_name )
+                             iv_default = lv_lbl ) <> lv_lbl.
+        CONTINUE.
+      ENDIF.
+
+      IF strlen( ls_f-zlabel ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name }: ZLABEL is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Put the full text in ZCL_RAK_TEXT=>LONG_TEXTS( ), | &&
+                       |or in DEFAULT_VAL as TEXT:... / TEXT:@nnn.| ).
+      ENDIF.
+
+      IF strlen( ls_f-zlabel_ar ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name }: ZLABEL_AR is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Use ZCL_RAK_TEXT=>LONG_TEXTS( ), which holds | &&
+                       |EN and AR with no length ceiling.| ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x14_overlength_name.
+*   ZCL_RAK_JOURNEY_UTIL=>COMP_NAME( ) is what turns a free-text FIELD_NAME into
+*   an ABAP structure component: upper-cased, sanitised, and - past 23 characters
+*   - collapsed into an 18-character prefix plus a 4-digit hash of the WHOLE
+*   name, so BUILD_MODEL( ) never dumps CX_SY_STRUCT_COMP_NAME even on a
+*   companion suffix as long as _IDTYPE (7 characters: 23 + 7 = 30, the DDIC cap).
+*
+*   ERROR at 24: the base name itself is now silently rewritten into a hash, and
+*   the component the field is bound to no longer resembles its own name in a
+*   trace, in SE24, or in an ASSIGN COMPONENT written against the obvious name.
+*
+*   WARNING from 17: a field this long has likely grown, or will grow, a
+*   companion lookup - a handler reading _IDTYPE, _NAME, _VS, _VST, _IX or _EXP
+*   off it. Every such call has to run COMP_NAME( ) on the BASE name and append
+*   the suffix afterwards, never build the suffixed string first and hand THAT
+*   to COMP_NAME( ) - doing it the wrong way round makes the 23-character
+*   collapse fire on a different, longer string than BUILD_MODEL( ) built the
+*   component under, and the lookup silently finds nothing. VAL_GET( )/
+*   VAL_SET( )/BIND_OF( )/BIND_STATE( ) take the suffix as its own parameter for
+*   exactly this reason, but this checker cannot see handler source, and nothing
+*   stops a handler calling the public GET_VAL( )/SET_VAL( ) the old, wrong way.
+*   17 is the base length at which even the longest suffix, _IDTYPE at 7
+*   characters, first pushes 17 + 7 = 24 over the 23-character line.
+    CONSTANTS lc_warn TYPE i VALUE 17.
+    CONSTANTS lc_err  TYPE i VALUE 24.
+
+    LOOP AT gt_fld INTO DATA(ls_f).
+      DATA(lv_len) = strlen( CONV string( ls_f-field_name ) ).
+      IF lv_len >= lc_err.
+        add( iv_sev  = 'E'
+             iv_rule = 'X14'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name } is { lv_len } characters. COMP_NAME( ) collapses | &&
+                       |anything at 24 or more into an 18-character-plus-hash component that no | &&
+                       |longer resembles the field name - every trace, SE24 lookup and handler | &&
+                       |ASSIGN COMPONENT against the obvious name will find nothing. Rename it | &&
+                       |to 23 characters or fewer.| ).
+      ELSEIF lv_len >= lc_warn.
+        add( iv_sev  = 'W'
+             iv_rule = 'X14'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name } is { lv_len } characters. A companion lookup on it | &&
+                       |( _IDTYPE, _NAME, _VS, _VST, _IX, _EXP ) is one COMP_NAME( ) call away | &&
+                       |from silently binding to nothing - the base name plus a 7-character | &&
+                       |suffix like _IDTYPE already exceeds the 23-character cap BUILD_MODEL( ) | &&
+                       |builds components under. Keep field names at 16 characters or fewer if | &&
+                       |any companion lookup is planned.| ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x15_required_readonly.
+*   MISSING_REQUIRED( ) opens with LOOP AT ls_ms-fields ... WHERE readonly =
+*   abap_false - a READONLY field is skipped before REQUIRED is ever tested, no
+*   matter what REQUIRED says. REQ_LABEL( ) does not make the same check, so the
+*   asterisk still renders: the field looks mandatory and nothing ever enforces
+*   it. On a field the citizen cannot edit - written instead by ON_INIT( ) or a
+*   popup - that gap has shipped at least one blank-but-accepted submission.
+*
+*   This is exactly the "warn at save time" the engine cannot yet express as
+*   real enforcement: honouring REQUIRED on a read-only field would mean testing
+*   the bound value instead of editability, which is a MISSING_REQUIRED change,
+*   not a config one. Until that lands, flag the combination here, where a
+*   Studio author sees it before it reaches a citizen.
+    LOOP AT gt_fld INTO DATA(ls_f) WHERE required = abap_true AND readonly = abap_true.
+      IF ls_f-ftype = 'PAYFEE' OR ls_f-ftype = 'REQPANEL' OR ls_f-ftype = 'DISPLAY'
+         OR ls_f-ftype = 'READONLY' OR ls_f-ftype = 'TABLE' OR ls_f-ftype = 'UPLOAD'
+         OR ls_f-ftype = 'STATUS' OR ls_f-ftype = 'OBJNUM' OR ls_f-ftype = 'PROGRESS'
+         OR ls_f-ftype = 'LINK'.
+*       MISSING_REQUIRED excludes these types a second time, after the READONLY
+*       filter, for reasons that have nothing to do with editability - a TABLE
+*       has no scalar to be empty, a STATUS carrier is not the citizen's to
+*       fill in. Flagging them here on top would be the same false alarm X09
+*       already learned not to raise on a display grid.
+        CONTINUE.
+      ENDIF.
+      add( iv_sev  = 'E'
+           iv_rule = 'X15'
+           iv_step = CONV #( ls_f-step_id )
+           iv_text = |{ ls_f-field_name } is REQUIRED and READONLY together. | &&
+                     |MISSING_REQUIRED( ) tests WHERE readonly = abap_false, so a read-only | &&
+                     |field is skipped before REQUIRED is ever looked at - the asterisk renders, | &&
+                     |Submit never checks it, and a value left blank by whatever writes this | &&
+                     |field posts anyway. If the citizen genuinely cannot type here, seed and | &&
+                     |validate the value in ON_INIT( ) / ON_CUSTOM_VALIDATE( ) instead of relying | &&
+                     |on REQUIRED.| ).
     ENDLOOP.
   ENDMETHOD.
 

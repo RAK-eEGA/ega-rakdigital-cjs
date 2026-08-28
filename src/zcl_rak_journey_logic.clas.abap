@@ -158,7 +158,22 @@ CLASS zcl_rak_journey_logic DEFINITION
                 it_fields  TYPE tt_pop_field
                 iv_ok_text TYPE string DEFAULT 'Save'
                 iv_ok_evt  TYPE string DEFAULT 'OK'
-                iv_cxl_evt TYPE string DEFAULT 'CANCEL'.
+                iv_cxl_evt TYPE string DEFAULT 'CANCEL'
+*               How many field columns the dialog lays out: 1 (the default and
+*               what every existing caller gets), 2 or 3. Anything outside that
+*               is clamped rather than refused - a popup is not the place to
+*               fail because somebody typed 5.
+*
+*               Fields flow left to right in IT_FIELDS order. There is no way to
+*               say "this one spans two columns": a form that needs that has
+*               outgrown DIALOG_FORM( ) and should be built control by control,
+*               the way RENDER_OWN_POPUP( ) in ZCL_RAK_TEST_ALL_LOGIC is.
+*
+*               A TEXTAREA in a 3-column dialog is a 3-line box a third of the
+*               width, which is worse than the same box full width. Put long
+*               free text on a 1-column dialog, or last where it hurts least.
+                iv_columns TYPE i DEFAULT 1.
+
 
     " Draw the payment card: fee list + total, a Pay button, and - while a
     " payment is in progress and not yet PAID - a status indicator plus a
@@ -225,12 +240,74 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 
 
   METHOD dialog_form.
-    DATA(lo_dlg)  = io_popup->dialog( title = iv_title contentwidth = '34rem' ).
-    DATA(lo_form) = lo_dlg->content(
-      )->simple_form( editable  = abap_true
-                      layout    = 'ResponsiveGridLayout'
-                      columnsxl = '1' columnsl = '1' columnsm = '1'
-      )->content( ns = 'form' ).
+*   COLUMNS. One is the default and draws exactly what this method always drew -
+*   same width, same attributes, no new behaviour for any existing caller.
+*
+*   Clamped, not validated. 0 and 7 both mean somebody guessed, and a dialog that
+*   refuses to open is a worse answer than a dialog with one column.
+    DATA(lv_cols) = COND i( WHEN iv_columns < 1 THEN 1
+                            WHEN iv_columns > 3 THEN 3
+                            ELSE iv_columns ).
+
+*   The dialog has to grow with the columns or the fields just get narrower and
+*   nothing is gained. These are the widths at which a label and its control stop
+*   colliding at each count.
+    DATA(lv_width) = SWITCH string( lv_cols
+                                    WHEN 2 THEN '54rem'
+                                    WHEN 3 THEN '74rem'
+                                    ELSE        '34rem' ).
+
+    DATA(lo_dlg)  = io_popup->dialog( title = iv_title contentwidth = lv_width ).
+
+*   THE THREE ATTRIBUTES THAT MAKE MULTI-COLUMN ACTUALLY WORK, and the reason
+*   this is a method parameter and not a line each caller writes for itself.
+*   Setting COLUMNSL alone looks like it should be enough and is not:
+*
+*     LABELSPAN* = 12 puts the label on its own row ABOVE its control. At one
+*     column the default side-by-side label is right; at two or three the label
+*     eats half of an already narrow cell and every control is squeezed to
+*     nothing. 12 of 12 grid units is the whole width, which is what forces the
+*     wrap.
+*
+*     ADJUSTLABELSPAN = false. Left true - the default - SAPUI5 recomputes the
+*     label span itself from the number of containers and silently discards the
+*     LABELSPAN* above. The symptom is a two-column dialog that lays out as if
+*     none of this had been set, which reads as the columns not working at all.
+*
+*     SINGLECONTAINERFULLSIZE = false. A SimpleForm with ONE container - which is
+*     every dialog built here, since none of them passes a title per group -
+*     defaults to giving that container the full width and ignoring COLUMNSL /
+*     COLUMNSXL entirely. This is the attribute that lets a single container be
+*     divided into columns at all.
+*
+*   All three are passed ONLY when there is more than one column, so the
+*   one-column dialog keeps the exact markup it had before this parameter existed.
+    DATA lo_form TYPE REF TO z2ui5_cl_xml_view.
+    IF lv_cols = 1.
+      lo_form = lo_dlg->content(
+        )->simple_form( editable  = abap_true
+                        layout    = 'ResponsiveGridLayout'
+                        columnsxl = '1' columnsl = '1' columnsm = '1'
+        )->content( ns = 'form' ).
+    ELSE.
+      lo_form = lo_dlg->content(
+        )->simple_form( editable                = abap_true
+                        layout                  = 'ResponsiveGridLayout'
+                        columnsxl               = |{ lv_cols }|
+                        columnsl                = |{ lv_cols }|
+                        columnsm                = |{ lv_cols }|
+                        labelspanxl             = '12'
+                        labelspanl              = '12'
+                        labelspanm              = '12'
+*                       A LITERAL 'false', not ABAP_FALSE. SIMPLE_FORM passes this one
+*                       through RAW - only SINGLECONTAINERFULLSIZE goes through
+*                       BOOLEAN_ABAP_2_JSON - so ABAP_FALSE would emit a blank
+*                       attribute and the default true would stand.
+                        adjustlabelspan         = 'false'
+                        singlecontainerfullsize = abap_false
+        )->content( ns = 'form' ).
+    ENDIF.
+
 
 *   Created on first use, not per field. The resolver caches per instance, so one
 *   instance across the whole dialog means two fields on the same data element
@@ -691,7 +768,22 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
     DATA(lv_case) = io_ctx->get_val( c_pay_case ).
     IF lv_case IS INITIAL.
       io_ctx->add_msg( iv_type = 'Error'
-                       iv_text = 'Payment cannot start: no case number. The case is created by the Pay press itself, so this means the commit did not reach the backend.' ).
+*                      NOT "the commit did not reach the backend" any more. That
+*                      wording asserted the one thing that is usually false: the
+*                      commit reaches the backend, the case gets created, and the
+*                      number comes back as the journey KEY rather than as EV_CASE
+*                      because we went in holding nothing. PAYNOW adopts it now.
+*                      Reaching here means neither channel produced a case, so say
+*                      that and nothing more.
+*                      BACKTICKS, not quotes. ABAP TRUNCATES TRAILING BLANKS in a
+*                      '...' character literal, so 'from the ' && 'commit' renders
+*                      as "from thecommit" - which is exactly how this shipped and
+*                      what the citizen was shown. A `...` string literal keeps
+*                      them. Any concatenation split across lines needs backticks
+*                      or a |...| template; this is not a style preference.
+                       iv_text = `Payment cannot start: no case number came back from the ` &&
+                                 `commit, on either the case or the journey key. Nothing ` &&
+                                 `can be billed until the backend has created the case.` ).
       zcl_rak_cj_evt=>add( iv_type   = zcl_rak_cj_evt=>c_type-pay_block
                            iv_case   = lv_case
                            iv_result = 'BLOCK'
@@ -845,6 +937,14 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~attach_mode.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~draft_mode.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~get_attachments.
   ENDMETHOD.
 
@@ -853,11 +953,19 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~get_drafts.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~get_table.
   ENDMETHOD.
 
 
   METHOD zif_rak_journey_logic~on_after_read.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_archive.
   ENDMETHOD.
 
 
@@ -915,6 +1023,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~on_draft_discard.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_load.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_save.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~on_feedback.
   ENDMETHOD.
 
@@ -960,9 +1080,21 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
         io_ctx->set_val( iv_name = 'PAY_REFERENCE' iv_value = '' ).
         io_ctx->set_val( iv_name = c_pay_tries     iv_value = '0' ).
 
-*       COMMIT ONCE. The commit is what has the backend create the case, and every
-*       press was creating another one, because the case id does not survive the
-*       round trip as a key:
+*       COMMIT ON EVERY PRESS. Pressing Pay IS pressing Next internally: the
+*       commit is what has the backend create the case, and the gateway has
+*       nothing to bill against until it exists.
+*
+*       It used to run only while CASE_NUMBER was blank, which meant a press that
+*       failed anywhere after the commit - no open item yet, a lock, a gateway that
+*       never answered - could never re-post. The retry went straight to
+*       PREPARE_PAYMENT( ) against a case the backend may not have finished, and
+*       the citizen had no way to make the create happen again.
+*
+*       Re-posting is safe because the BAdI is the thing that decides: CREATE_CASE( )
+*       is skipped when the case already exists, so a second commit updates rather
+*       than duplicates. The duplicate-case loop this guard was written for was not
+*       the BAdI creating a second case on purpose - it was the key changing
+*       underneath it:
 *
 *         1  the BAdI overwrites the INTRENO_JOURNEY item with the new case id
 *         2  the bridge returns that as EV_GUID, so GET_CASE( ) becomes the case id
@@ -974,45 +1106,76 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
 *            CREATE( ), GUID_CREATE makes a fresh draft, IS_NEW goes true,
 *            GS_DATA-CASEID is blank - and CREATE_CASE makes another case
 *
-*       So the loop is not in the BAdI's logic, it is in the key changing underneath
-*       it. Remembering the case number on this side breaks it: once we hold one,
-*       the case exists and the only thing a second press needs is the gateway
-*       prepared again.
-        IF io_ctx->get_val( c_pay_case ) IS INITIAL.
-
-*         STATUS is what tells the BAdI what this post IS. MAPPER switches on it to
-*         set GV_SAVE_DRAFT / GV_SUBMIT / GV_PAYMENT, and the D0xx UPDATE only
-*         reaches CREATE_CASE( ) under WHEN GV_SAVE_DRAFT. COMMIT_STEP( ) posts no
-*         status of its own - its own trace line says 'no STATUS' - so without this
-*         the pay commit arrives with a full payload and no instruction: no case is
-*         created, CASE_NUMBER stays blank, and PREPARE_PAYMENT( ) reports 'no case
-*         number, the commit did not reach the backend'. It did reach it. It just
-*         never said what it was for.
+*       That is a backend key problem and it belongs on the backend side. Skipping
+*       the commit hid it at the cost of a payment that could not be retried.
 *
-*         Written HERE rather than in each subclass. The seed comments on the
-*         payment step's STATUS carrier already assume the base class does it, and a
-*         payment journey that forgets fails in a way that looks like a backend
-*         problem for as long as it takes somebody to think of the status item.
-          io_ctx->set_val( iv_name = 'STATUS' iv_value = 'PAYMENT' ).
+*       STATUS is what tells the BAdI what this post IS. MAPPER switches on it to
+*       set GV_SAVE_DRAFT / GV_SUBMIT / GV_PAYMENT, and the D0xx UPDATE only
+*       reaches CREATE_CASE( ) under WHEN GV_SAVE_DRAFT. COMMIT_STEP( ) posts no
+*       status of its own - its own trace line says 'no STATUS' - so without this
+*       the pay commit arrives with a full payload and no instruction: no case is
+*       created, CASE_NUMBER stays blank, and PREPARE_PAYMENT( ) reports "no case
+*       number, the commit did not reach the backend". It did reach it. It just
+*       never said what it was for.
+*
+*       Written HERE rather than in each subclass. The seed comments on the
+*       payment step's STATUS carrier already assume the base class does it, and a
+*       payment journey that forgets fails in a way that looks like a backend
+*       problem for as long as it takes somebody to think of the status item.
+        io_ctx->set_val( iv_name = 'STATUS' iv_value = 'PAYMENT' ).
 
-          DATA(lv_committed) = io_ctx->commit_step( ).
+        DATA(lv_committed) = io_ctx->commit_step( ).
 
-*         Cleared on BOTH paths. STATUS is an ordinary model member and rides the
-*         draft, so left set it would travel on the next ordinary Next and have the
-*         BAdI run the whole submit-and-pay branch for a plain step change.
-          io_ctx->set_val( iv_name = 'STATUS' iv_value = '' ).
+*       Cleared on BOTH paths. STATUS is an ordinary model member and rides the
+*       draft, so left set it would travel on the next ordinary Next and have the
+*       BAdI run the whole submit-and-pay branch for a plain step change.
+        io_ctx->set_val( iv_name = 'STATUS' iv_value = '' ).
 
-          IF lv_committed = abap_false.
-            io_ctx->set_val( iv_name = c_pay_started iv_value = '' ).
-            RETURN.
+        IF lv_committed = abap_false.
+          io_ctx->set_val( iv_name = c_pay_started iv_value = '' ).
+          RETURN.
+        ENDIF.
+
+*       INTRENO_JOURNEY IS THE CASE, IN EVERY SCENARIO.
+*
+*       That is the backend contract, stated by the people who own it, and the
+*       engine already holds the value: the bridge reads INTRENO_JOURNEY off the
+*       returned items and hands it back, and GET_CASE( ) is where it lands.
+*
+*       ZCL_RAK_QNV_BRIDGE->POST( ) only reports EV_CASE when the returned
+*       INTRENO_JOURNEY DIFFERS from the one it was sent. On the press that creates
+*       the case there is nothing to differ from, and on a backend that answers with
+*       the key it was given there is no difference either - so EV_CASE stays blank,
+*       TAKE_CASE( ) is never called, and CASE_NUMBER is empty on a journey that
+*       demonstrably has a case. PREPARE_PAYMENT( ) then refuses on every poll while
+*       the citizen watches a timer.
+*
+*       An earlier version of this adopted the key ONLY when it was all digits and
+*       under 22 characters, on the theory that a GUID_22 draft key must never reach
+*       RESOLVE_CASE( ). That test rejected the very value it was meant to pass and
+*       the payment step stayed dead. The shape of the key is the backend's business,
+*       not something to be second-guessed from here.
+*
+*       So: if CASE_NUMBER is blank, the journey key IS the case number. Guarded on
+*       blank only, so every journey that already has one is untouched.
+*
+*       WATCH THIS ONE. If a draft GUID_22 ever does reach RESOLVE_CASE( ) it goes
+*       into an SCMG_EXT_KEY comparison and raises CX_SY_OPEN_SQL_DATA_ERROR rather
+*       than simply missing - mid-payment, with the gateway open in another tab. If
+*       that appears, the answer is for the BACKEND to return the case in
+*       INTRENO_JOURNEY on this post, not to put the guess back here.
+        IF io_ctx->get_val( c_pay_case ) IS INITIAL.
+          DATA(lv_key) = io_ctx->get_case( ).
+          IF lv_key IS NOT INITIAL.
+            io_ctx->set_val( iv_name = c_pay_case iv_value = lv_key ).
           ENDIF.
+        ENDIF.
 
 *       CASE_NUMBER is written by the ENGINE, in TAKE_CASE( ), from the bridge's
 *       EV_CASE - not here. It used to be captured from GET_CASE( ) at this point,
 *       which worked only while the backend was renaming the journey key. Now that
 *       the key holds still, GET_CASE( ) is the DRAFT guid, and writing it here
 *       overwrote the real case number the engine had just published.
-        ENDIF.
 
         DATA(lo_pay) = pay_engine( io_ctx ).
 
@@ -1351,6 +1514,10 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                           AND io_ctx->get_val( c_pay_field ) <> 'PAID' ) ).
 
     rv_done = abap_true.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~retention.
   ENDMETHOD.
 
 

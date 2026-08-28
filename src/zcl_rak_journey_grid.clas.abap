@@ -87,7 +87,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -150,7 +150,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       CLEAR et_cols.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
         text = |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ) ).
@@ -192,11 +192,33 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF lv_cc IS INITIAL.
         CONTINUE.
       ENDIF.
-      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s).
+*     FIVE slots now, not four: name:label:type:src:label_ar
+*
+*     The fifth is the ARABIC COLUMN HEADING, and it is the answer to "how do I
+*     translate a grid column" for a grid still on this packed spec. Until it
+*     existed there was no answer: the renderer reads GC-LABEL_AR when MV_LANG is
+*     A, but only COL_ROWS_OF( ) - the ZRAK_T_JNY_COL path - ever filled it, so a
+*     DEFAULT_VAL grid showed English headings in an Arabic journey and nothing
+*     anywhere said why.
+*
+*     A SPLIT with FIVE targets, and that matters. ABAP puts the unsplit REMAINDER
+*     into the last target, so with four targets a five-part spec put "src:label_ar"
+*     into SRC and the Arabic silently became part of a data element name.
+*
+*     Existing four-part specs are unaffected - LV_A comes back blank and LABEL_AR
+*     stays initial, which is exactly the state they are in today.
+*
+*     Note this is the SECOND-best way to do it. ZRAK_T_JNY_COL has ZLABEL_AR as a
+*     real column, maintained in the Studio as "Label (AR)" on the column editor,
+*     and COL_ROWS_OF( ) reads it. That path wins whenever the grid has rows there.
+*     Use the spec slot for a grid not yet migrated; use the table for a new one.
+      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s) DATA(lv_a).
+
       DATA(lv_nn) = condense( lv_n ).
       DATA(lv_ll) = condense( lv_l ).
       DATA(lv_tt) = condense( lv_t ).
       DATA(lv_ss) = condense( lv_s ).
+      DATA(lv_aa) = condense( lv_a ).
       IF lv_nn IS INITIAL.
         CONTINUE.
       ENDIF.
@@ -226,14 +248,22 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     and turning the column back on is a one-word edit.
       DATA(lv_up) = to_upper( lv_tt ).
       DATA(lv_hid) = xsdbool( lv_up = 'HIDE' OR lv_up = 'HIDDEN' ).
+*     COMP_NAME( ), matching COL_ROWS_OF( ) - see the note there. This is the
+*     older, packed DEFAULT_VAL path for a grid not yet migrated to
+*     ZRAK_T_JNY_COL, but it feeds the identical CL_ABAP_STRUCTDESCR=>CREATE( )
+*     in BUILD_MODEL( ), so a hyphen here dumps exactly the same way.
       APPEND VALUE #(
-        name  = to_upper( lv_nn )
+        name  = zcl_rak_journey_util=>comp_name( lv_nn )
         label = COND #( WHEN lv_ll IS NOT INITIAL THEN lv_ll ELSE lv_nn )
         ctype = COND #( WHEN lv_hid = abap_true    THEN 'INPUT'
                         WHEN lv_up  IS NOT INITIAL THEN lv_up
                         ELSE 'INPUT' )
         hide  = lv_hid
+*       NOT upper-cased, unlike SRC. SRC is a DDIC name; this is text a citizen
+*       reads.
+        label_ar = lv_aa
         src   = to_upper( lv_ss ) ) TO rt.
+
     ENDLOOP.
 
     apply_grid_rules( EXPORTING iv_grid = to_upper( is_field-name )
@@ -258,8 +288,19 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ORDER BY seqnr.
 
     LOOP AT lt_col INTO DATA(ls_col).
+*     COMP_NAME( ), not a bare TO_UPPER( ). COL_NAME is free text on
+*     ZRAK_T_JNY_COL's own column editor - nothing stops a hyphen there either,
+*     and this is the actual site: BUILD_MODEL( )'s inner row/column structure
+*     (CL_ABAP_STRUCTDESCR=>CREATE( LT_ROWCOMP )) is built from exactly this
+*     NAME, so a column called REVIEW-GRID raised CX_SY_STRUCT_COMP_NAME here,
+*     not from the field name COMP_NAME( ) already protects in BUILD_MODEL( ).
+*     Confirmed live: the exception object's own COMPONENT_NAME was 'REVIEW-GRID',
+*     under CX_SY_STRUCT_CREATION - a structure TYPE creation, which only the
+*     two CL_ABAP_STRUCTDESCR=>CREATE( ) calls in BUILD_MODEL( ) can raise; the
+*     outer one was already sanitised, so this - the inner one, fed by this
+*     method - was the one still open.
       APPEND VALUE #(
-        name     = to_upper( ls_col-col_name )
+        name     = zcl_rak_journey_util=>comp_name( CONV #( ls_col-col_name ) )
         label    = COND #( WHEN ls_col-zlabel IS NOT INITIAL THEN ls_col-zlabel ELSE ls_col-col_name )
         label_ar = ls_col-zlabel_ar
         ctype    = COND #( WHEN ls_col-ctrl IS NOT INITIAL THEN to_upper( ls_col-ctrl ) ELSE 'INPUT' )
@@ -450,7 +491,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -492,7 +533,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   METHOD grid_from_json.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -531,7 +572,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -617,7 +658,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -667,7 +708,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF lv_mode = 'SINGLE'.
       FIELD-SYMBOLS <model> TYPE any.
       ASSIGN mo_e->mr_model->* TO <model>.
-      ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+      ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
       IF sy-subrc = 0.
         FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
         ASSIGN <tab> TO <t>.
@@ -706,7 +747,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -750,7 +791,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -831,7 +872,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.

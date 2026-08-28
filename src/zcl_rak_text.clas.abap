@@ -134,6 +134,10 @@ CLASS zcl_rak_text DEFINITION
         pay_inprog    TYPE symsgno VALUE '071',
         pay_nofee     TYPE symsgno VALUE '072',
         pay_first     TYPE symsgno VALUE '073',
+*       A PDF field with no document yet. Not an error - a certificate that
+*       does not exist until the request is approved is the normal case, and
+*       an empty viewer reads as one still loading.
+        pdf_none      TYPE symsgno VALUE '075',
       END OF c_no.
     TYPES:
       BEGIN OF ty_txt,
@@ -158,6 +162,40 @@ CLASS zcl_rak_text DEFINITION
         english TYPE string,
       END OF ty_miss,
       tt_miss TYPE STANDARD TABLE OF ty_miss WITH EMPTY KEY.
+
+*   FIELD LONG TEXT - a paragraph that will not fit in ZLABEL.
+*
+*   ZLABEL is CHAR(150) and cuts on INSERT, so a consent declaration in
+*   ZRAK_T_JNY_FLD is not merely displayed short, it IS short: the rest of
+*   the sentence is gone from the database and cannot be recovered from it.
+*   It has to come from somewhere that has no such ceiling, and this is that
+*   somewhere - keyed by journey and field, bilingual, and in git rather
+*   than in a table nobody can review.
+*
+*   Preferred over TEXT: on DEFAULT_VAL when the text is legal wording, for
+*   two reasons: string literals here have no length limit and no _AR
+*   problem, and a declaration that someone must be able to audit belongs
+*   where a diff will show it changing.
+    TYPES:
+      BEGIN OF ty_long,
+        journey_id TYPE string,
+        field_name TYPE string,
+        en         TYPE string,
+        ar         TYPE string,
+      END OF ty_long,
+      tt_long TYPE STANDARD TABLE OF ty_long WITH EMPTY KEY.
+
+    CLASS-METHODS long_texts
+      RETURNING VALUE(rt_long) TYPE tt_long.
+
+*   The paragraph for one field, or IV_DEFAULT when nothing is registered -
+*   which means an unregistered field keeps whatever ZLABEL holds, and every
+*   journey that predates this renders exactly as it did.
+    CLASS-METHODS long
+      IMPORTING iv_journey     TYPE string
+                iv_field       TYPE string
+                iv_default     TYPE string
+      RETURNING VALUE(rv_text) TYPE string.
 
     CLASS-METHODS catalogue
       RETURNING VALUE(rt_txt) TYPE tt_txt.
@@ -319,7 +357,10 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
         ar = `لم يتم إصدار الرسوم لهذا الطلب بعد، لذلك لا يمكن فتح صفحة الدفع. تم حفظ الطلب - أعد فتحه بعد بضع دقائق للدفع.` )
       ( msgno = c_no-pay_first
         en = `Payment must be completed before submitting.`
-        ar = `يجب إتمام عملية الدفع قبل الإرسال.` ) ).
+        ar = `يجب إتمام عملية الدفع قبل الإرسال.` )
+      ( msgno = c_no-pdf_none
+        en = `No document to display yet.`
+        ar = `لا يوجد مستند للعرض حتى الآن.` ) ).
   ENDMETHOD.
 
 
@@ -414,6 +455,62 @@ CLASS ZCL_RAK_TEXT IMPLEMENTATION.
 
   METHOD lang.
     rv_lang = COND #( WHEN gv_lang IS NOT INITIAL THEN gv_lang ELSE sy-langu ).
+  ENDMETHOD.
+
+
+  METHOD long_texts.
+*   EC01 - the File Complaint certification.
+*
+*   ZLABEL held this at exactly 150 characters, cut by the INSERT that
+*   wrote it: "...I understand that I will be held responsible for". The
+*   rest of the sentence is not hidden by the renderer, it is absent from
+*   ZRAK_T_JNY_FLD, so it had to be re-supplied rather than recovered.
+*   XCHECK rule X13 named the field: DECLARATION, on step S1.
+*
+*   >> THE CLOSING CLAUSE IS A RECONSTRUCTION. CONFIRM IT. <<
+*
+*   Everything up to "held responsible for" is verbatim from the database.
+*   What follows it - "any incorrect or false information provided" - was
+*   written here to close the sentence, because the original wording no
+*   longer exists anywhere to copy from. It is deliberately the most
+*   conservative ending available: it completes the grammar and adds no
+*   obligation, consequence or penalty that the visible half did not
+*   already imply. If the approved text says more than that - rejection of
+*   the application, legal liability, anything - this is understating it
+*   and must be replaced with the real wording. A citizen is agreeing to
+*   this sentence.
+*
+*   The Arabic is a translation of the same reconstruction and carries the
+*   same caveat.
+    rt_long = VALUE tt_long(
+      ( journey_id = 'EC01'
+        field_name = 'DECLARATION'
+        en         = `I hereby certify that the information provided in this form is accurate, ` &&
+                     `complete, correct, and true. I understand that I will be held responsible ` &&
+                     `for any incorrect or false information provided.`
+        ar         = `أقر بأن المعلومات المقدمة في هذا النموذج دقيقة وكاملة وصحيحة وحقيقية. ` &&
+                     `وأتفهم أنني سأكون مسؤولاً عن أي معلومات غير صحيحة أو كاذبة يتم تقديمها.` ) ).
+  ENDMETHOD.
+
+
+  METHOD long.
+    rv_text = iv_default.
+    IF iv_journey IS INITIAL OR iv_field IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ TABLE long_texts( ) INTO DATA(ls_long)
+         WITH KEY journey_id = to_upper( iv_journey )
+                  field_name = to_upper( iv_field ).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    IF is_arabic( ) = abap_true AND ls_long-ar IS NOT INITIAL.
+      rv_text = ls_long-ar.
+    ELSEIF ls_long-en IS NOT INITIAL.
+      rv_text = ls_long-en.
+    ENDIF.
   ENDMETHOD.
 
 

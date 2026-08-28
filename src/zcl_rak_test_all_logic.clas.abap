@@ -45,9 +45,28 @@
 *& same list. The DDIC names above are chosen because they exist on every
 *& system, not because they suit those fields.
 *&
-*& PER-POPUP BP SEARCH. bp_opts( ) gives the two partner searches different
-*& rules: the lessor is verified, the lessee is looked up with no MOI call,
-*& findings as warnings, and a capped hit list. See ZCL_RAK_BP_SEARCH=>TY_REQ.
+*& PER-POPUP BP SEARCH. bp_opts( ) gives four partner searches different rules,
+*& one template each, and step 0 carries a button for every one of them:
+*&
+*&   LESSOR     verified. Everything runs - the empty template is full strength.
+*&   LESSEE     looked up. NO_MOI_CALL, findings as warnings, capped hit list.
+*&   TENANCY    SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both expiry checks off, which
+*&              is FLAG = 'T' said as the two decisions it actually is.
+*&   SOFTVERIFY SKIP_MOI_MISMATCH - MOI IS still called and the BP still updated
+*&              from it; only a DOB or nationality mismatch stops rejecting. This
+*&              is NOT the LESSEE template, and the difference is the one that
+*&              costs the most time to work out.
+*&
+*& The last two run against the LESSEE fields on purpose. A subject is a FIELD
+*& PREFIX and needs nine real fields behind it, because BIND( ) resolves model
+*& components only - it does NOT fall through to scratch the way SET_VAL and
+*& GET_VAL do. Point a subject at fields that do not exist and the dialog binds to
+*& nothing: the citizen picks an ID type, it never reaches the server, and the
+*& popup silently asks again. Holding the ruleset apart from the subject also
+*& isolates the variable - same partner, same form, different rules.
+*&
+*& ZP28 is deliberately not demonstrated - see the note in bp_opts( ). The full
+*& switch list is on ZCL_RAK_BP_SEARCH=>TY_REQ.
 *&
 *& PAYMENT IS SIMULATED. render_field builds a fixed fee table instead of
 *& calling ZCL_RAK_PAY_ENGINE, and on_popup_event intercepts PAYNOW and
@@ -88,12 +107,42 @@ CLASS zcl_rak_test_all_logic DEFINITION
     METHODS zif_rak_journey_logic~render_field       REDEFINITION.
     METHODS zif_rak_journey_logic~wants_feedback     REDEFINITION.
     METHODS zif_rak_journey_logic~on_feedback        REDEFINITION.
+    METHODS zif_rak_journey_logic~draft_mode        REDEFINITION.
+    METHODS zif_rak_journey_logic~attach_mode       REDEFINITION.
+    METHODS zif_rak_journey_logic~get_drafts        REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_save     REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_load     REDEFINITION.
+    METHODS zif_rak_journey_logic~on_draft_discard  REDEFINITION.
+    METHODS zif_rak_journey_logic~retention         REDEFINITION.
+    METHODS zif_rak_journey_logic~on_archive        REDEFINITION.
 
   PRIVATE SECTION.
 *   Handler-owned popup and event ids. The engine prefixes handler events
 *   with HPOP_ on the way out and strips it on the way back, so these are
 *   the bare ids seen in on_popup_event.
     CONSTANTS c_pop_help  TYPE string VALUE 'HELP'.
+
+*   TWO AND THREE COLUMN DIALOGS. Same DIALOG_FORM( ) as C_POP_HELP below, same
+*   field list shape - the only difference is IV_COLUMNS. They exist as separate
+*   popups rather than one popup with a toggle because the point is to see the
+*   three layouts side by side and decide which suits a form, and a toggle would
+*   mean closing and reopening to compare.
+*
+*   All three OK buttons share one event and both Cancel buttons share another.
+*   The dialogs differ in layout only, so branching their buttons would be three
+*   copies of CLOSE_POPUP( ).
+    CONSTANTS c_pop_c2    TYPE string VALUE 'COLS2'.
+    CONSTANTS c_pop_c3    TYPE string VALUE 'COLS3'.
+    CONSTANTS c_evt_c2    TYPE string VALUE 'OPENCOLS2'.
+    CONSTANTS c_evt_c3    TYPE string VALUE 'OPENCOLS3'.
+    CONSTANTS c_evt_cok   TYPE string VALUE 'COLSOK'.
+    CONSTANTS c_evt_ccxl  TYPE string VALUE 'COLSCANCEL'.
+
+*   EMIRATES ID NORMALISATION. A button that runs the same lookup twice - once
+*   with the ID hyphenated the way the card prints it, once with the bare digits -
+*   and reports that both reached the same search.
+    CONSTANTS c_evt_eid   TYPE string VALUE 'EIDDEMO'.
+
     CONSTANTS c_evt_help  TYPE string VALUE 'OPENHELP'.
     CONSTANTS c_evt_hsave TYPE string VALUE 'HELPSAVE'.
     CONSTANTS c_evt_hcxl  TYPE string VALUE 'HELPCANCEL'.
@@ -152,6 +201,26 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   never heard of it and silently dropped.
     CONSTANTS c_evt_bplsr TYPE string VALUE 'BP_OPEN_LESSOR'.
     CONSTANTS c_evt_bplse TYPE string VALUE 'BP_OPEN_LESSEE'.
+*   Two more subjects, and they exist for the two distinctions TY_REQ's own
+*   comments say keep being got wrong. Neither needs a configured field: the popup
+*   builds its names as <SUBJECT>_<SUFFIX> and SET_VAL falls through to scratch for
+*   a name that is not on the journey, so a new subject costs a constant and a
+*   branch and nothing in ZRAK_T_JNY_FLD.
+    CONSTANTS c_evt_bpten TYPE string VALUE 'BP_OPEN_TENANCY'.
+    CONSTANTS c_evt_bpsft TYPE string VALUE 'BP_OPEN_SOFTVERIFY'.
+*   Which TEMPLATE is in force, held separately from which SUBJECT is open.
+*
+*   They have to be separate. The subject is a FIELD PREFIX - the popup builds
+*   <SUBJECT>_SEARCHBY and eight more from it, and every one of them has to be a
+*   real field on the journey, because BIND( ) resolves model components ONLY. It
+*   does not fall through to the scratch store the way SET_VAL and GET_VAL do, so a
+*   made-up subject binds to nothing, the citizen picks an ID type, nothing comes
+*   back, and the dialog just asks again.
+*
+*   The ruleset is only rules. Varying it against a subject whose nine fields
+*   already exist is what lets these two templates be demonstrated without adding
+*   config - and it isolates the variable, which a separate partner would not.
+    CONSTANTS c_bp_rules  TYPE string VALUE 'BP_RULESET'.
 *   The form behind the popup. Scratch, because none of these is a configured
 *   field - they exist only while the dialog is open.
     CONSTANTS c_own_id    TYPE string VALUE 'OWN_ID'.
@@ -233,9 +302,34 @@ CLASS zcl_rak_test_all_logic DEFINITION
 *   Per-subject BP search options. The whole point of ZCL_RAK_BP_POPUP taking a
 *   TY_REQ template is that two partners on one journey do not need the same
 *   rules, and until now they had no way to differ.
+*   Which ruleset is in force, and a title that says so on the dialog. Without the
+*   title the four buttons open a popup that looks identical in all four cases and
+*   nobody can tell which template they are looking at.
+    METHODS bp_rules  IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                      RETURNING VALUE(rv)  TYPE string.
+    METHODS bp_title  IMPORTING io_ctx     TYPE REF TO zif_rak_journey
+                      RETURNING VALUE(rv)  TYPE string.
     METHODS bp_opts   IMPORTING iv_subject TYPE string
                       RETURNING VALUE(rs)  TYPE zcl_rak_bp_search=>ty_req.
     METHODS seed_fees IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+*   The reference example for FTYPE = 'PDF' - see the method for the two
+*   config shapes a developer can copy.
+    METHODS seed_pdf  IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+
+*   The field list behind the two multi-column dialogs. One list, three layouts:
+*   that is the demonstration. Building it once also makes the point that nothing
+*   about a FIELD changes when the column count does - IV_COLUMNS is a property of
+*   the dialog, not of anything in TT_POP_FIELD.
+    METHODS col_demo_fields
+*     Unqualified, and it has to be. TT_POP_FIELD is PROTECTED on
+*     ZCL_RAK_JOURNEY_LOGIC, so it is visible here only by inheritance -
+*     ZCL_RAK_JOURNEY_LOGIC=>TT_POP_FIELD would be a syntax error.
+      RETURNING VALUE(rt) TYPE tt_pop_field.
+
+*   Emirates ID, typed four ways, all resolving to the same fifteen digits.
+    METHODS eid_demo
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+
 
 ENDCLASS.
 
@@ -244,7 +338,116 @@ ENDCLASS.
 CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
 
+  METHOD col_demo_fields.
+*   Eight fields, deliberately. Six or fewer and a 3-column dialog draws two
+*   ragged rows that prove nothing; eight fills three rows at 3 columns, four at
+*   2 and eight at 1, so the difference is unmistakable.
+*
+*   The types are mixed on purpose - input, SELECT, DATE, CHECKBOX, NUMBER - to
+*   show that the column layout is applied by the FORM and every control type
+*   flows into it unchanged. Nothing in TT_POP_FIELD mentions columns.
+*
+*   TEXTAREA is the one type NOT in this list, and its absence is the lesson. A
+*   3-line box a third of a dialog wide is worse than the same box full width, so
+*   long free text belongs on a 1-column dialog - see C_POP_HELP, which has one
+*   and is 1-column for exactly that reason.
+    rt = VALUE #(
+      ( name = 'CD_FIRST'   label = 'First name'      required = abap_true
+        placeholder = 'As printed on the ID' )
+      ( name = 'CD_LAST'    label = 'Family name'     required = abap_true )
+      ( name = 'CD_EID'     label = 'Emirates ID'     placeholder = '784-1987-8624392-7'
+        maxlen = 20 )
+      ( name = 'CD_DOB'     label = 'Date of birth'   type = 'DATE' )
+
+*     A list the handler owns. OPTIONS beats every DDIC source, so this needs no
+*     data element - the same precedence DIALOG_FORM( ) documents.
+      ( name = 'CD_ROLE'    label = 'Role' type = 'SELECT'
+        options = VALUE #( ( key = 'OWN' text = 'Owner' )
+                           ( key = 'REP' text = 'Representative' )
+                           ( key = 'AGT' text = 'Agent' ) ) )
+
+*     Resolved from DDIC. H_T005 is used because it exists everywhere, not
+*     because a country search help belongs on a nationality field.
+      ( name = 'CD_NAT'     label = 'Nationality'     shlp = 'H_T005' )
+      ( name = 'CD_SHARE'   label = 'Share %'         type = 'NUMBER' )
+      ( name = 'CD_PRIMARY' label = 'Primary contact' type = 'CHECKBOX' ) ).
+  ENDMETHOD.
+
+
+  METHOD eid_demo.
+*   THE HYPHEN FIX, SHOWN RATHER THAN DESCRIBED.
+*
+*   A citizen types the Emirates ID the way it is printed on the card. Every layer
+*   under the search wants the fifteen digits, and a hyphen reaching the MOI call
+*   behind BP_QUERY used to be a short dump rather than an empty result - in front
+*   of the citizen, on a screen that had accepted the input without complaint.
+*
+*   NORM_EID( ) is public and static precisely so this is one line from anywhere.
+*   It keeps digits and drops everything else, so all four of these are one ID:
+*
+*     784-1987-8624392-7   as printed on the card
+*     784 1987 8624392 7   spaces, from a careful typist
+*     784198786243927      bare digits
+*     " 784-1987-8624392-7 "  pasted with the whitespace it came with
+*
+*   The fourth is the one that used to be hardest to diagnose. CONDENSE alone
+*   would not have saved it, because the hyphens were still there afterwards.
+    DATA(lt_forms) = VALUE string_table(
+      ( `784-1987-8624392-7` )
+      ( `784 1987 8624392 7` )
+      ( `784198786243927` )
+      ( ` 784-1987-8624392-7 ` ) ).
+
+    DATA lv_first TYPE string.
+    DATA lv_same  TYPE abap_bool VALUE abap_true.
+
+    LOOP AT lt_forms INTO DATA(lv_raw).
+      DATA(lv_norm) = zcl_rak_bp_search=>norm_eid( lv_raw ).
+      IF sy-tabix = 1.
+        lv_first = lv_norm.
+      ELSEIF lv_norm <> lv_first.
+        lv_same = abap_false.
+      ENDIF.
+      io_ctx->add_msg( iv_type = 'Information'
+                       iv_text = |typed "{ lv_raw }" -> searched as "{ lv_norm }"| ).
+    ENDLOOP.
+
+*   An assertion, not decoration. If this ever says NO then the normalisation has
+*   been changed underneath the fix and the dump is back - and a demo that reports
+*   its own result is worth more than four lines nobody re-reads.
+    io_ctx->add_msg(
+      iv_type = COND string( WHEN lv_same = abap_true THEN 'Success' ELSE 'Error' )
+      iv_text = COND string(
+        WHEN lv_same = abap_true
+        THEN |All { lines( lt_forms ) } forms normalise to { lv_first } - |
+          && |the search is reached identically whichever one is typed.|
+        ELSE `The four forms did NOT normalise alike. NORM_EID( ) has regressed ` &&
+             `and a hyphenated Emirates ID will dump again.` ) ).
+
+*   WHERE THE STRIPPING ACTUALLY HAPPENS, and why no caller has to do it.
+*
+*   ZCL_RAK_BP_SEARCH->QUERY( ) normalises the EId filter itself, so every caller
+*   is covered at once - this class, ZCL_RAK_BP_POPUP, ZCL_RAK_NOT_APPROVAL_LOGIC
+*   and anything written later. Calling NORM_EID( ) first, as OWN_SEARCH( ) in
+*   this class does, is therefore belt and braces rather than a requirement.
+*
+*   IT IS GUARDED, and this is the part worth remembering. TY_REQ-EID also carries
+*   PASSPORT and UNIFIED numbers - both ZCL_RAK_BP_POPUP and
+*   ZCL_RAK_NOT_APPROVAL_LOGIC put them there and both say in their own comments
+*   that they are not sure it is right. A passport number may contain a hyphen
+*   that BELONGS to it, so IS_EID_TYPE( ) keeps the stripping off those searches.
+    io_ctx->add_msg(
+      iv_type = 'Information'
+      iv_text = |Emirates ID search strips separators: | &&
+                |{ zcl_rak_bp_search=>is_eid_type( 'YFS002' ) }. | &&
+                |Passport search does not: | &&
+                |{ zcl_rak_bp_search=>is_eid_type( 'YFS004' ) }. | &&
+                |A hyphen in a passport number may be part of the number.| ).
+  ENDMETHOD.
+
+
   METHOD addrow.
+
     DATA(lv_n) = lines( cs_tab-columns ).
     APPEND INITIAL LINE TO cs_tab-rows ASSIGNING FIELD-SYMBOL(<r>).
     IF lv_n >= 1.
@@ -531,6 +734,27 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD bp_rules.
+*   Blank means "use the subject", which is what the two real partners do and why
+*   LESSOR and LESSEE are untouched by any of this.
+    rv = io_ctx->get_val( c_bp_rules ).
+    IF rv IS INITIAL.
+      rv = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD bp_title.
+    DATA(lv_r) = bp_rules( io_ctx ).
+    rv = SWITCH string( to_upper( lv_r )
+           WHEN 'TENANCY'    THEN 'Partner Search - tenancy rules (both expiry checks off)'
+           WHEN 'SOFTVERIFY' THEN 'Partner Search - soft verify (MOI called, mismatch tolerated)'
+           WHEN 'LESSEE'     THEN 'Partner Search - lessee (looked up, no MOI call)'
+           WHEN 'LESSOR'     THEN 'Partner Search - lessor (fully verified)'
+           ELSE 'Partner Search' ).
+  ENDMETHOD.
+
+
   METHOD bp_opts.
 *   Two partners on one journey with two different requirements, which is exactly
 *   the case ZCL_RAK_BP_POPUP's template parameter exists for. Before it, both
@@ -559,7 +783,56 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *       A picker does not need a hundred rows.
         rs-max_rows    = 20.
 
+      WHEN 'TENANCY'.
+*       BOTH expiry checks off. This is what FLAG = 'T' has always meant, said as
+*       the two decisions it actually is:
+*
+*         SKIP_TL_EXPIRY  - trade licence expiry, category 2
+*         SKIP_EID_EXPIRY - Emirates ID expiry, category 1
+*
+*       Written this way on purpose. FLAG = 'T' still works and VALIDATE( ) ORs
+*       the two together, so nothing existing breaks - but FLAG carries three
+*       unrelated decisions in one field, which is why it keeps being reached for
+*       as a general "skip validation" switch when it is not one. A tenancy that
+*       only wants the expiry checks off can now say exactly that, and a reader
+*       does not have to know the codes.
+*
+*       EID_CHECK_OFF is the older name for the second of these and is still
+*       honoured, so it is deliberately NOT set here as well: setting both would
+*       suggest they are two different things.
+        rs-skip_tl_expiry  = abap_true.
+        rs-skip_eid_expiry = abap_true.
+
+      WHEN 'SOFTVERIFY'.
+*       The distinction that costs the most time. This is NOT the LESSEE template
+*       above, and the difference is not a matter of degree:
+*
+*         NO_MOI_CALL       (LESSEE)     - MOI is never called. Nothing is read
+*                                          from it and nothing is written back.
+*         SKIP_MOI_MISMATCH (here)       - MOI IS called and the BP IS UPDATED
+*                                          from it. Only a date-of-birth or
+*                                          nationality mismatch stops rejecting.
+*
+*       So this template still pays the whole cost of the call - ZCRM_MOI_CR_UPD_MASS
+*       writes, takes at least five seconds by construction, and its WAIT UP TO ends
+*       the LUW and forces an implicit COMMIT of whatever the journey had open
+*       mid-step. Pick it when you WANT the BP refreshed from MOI and only want to
+*       be lenient about the comparison. Pick NO_MOI_CALL when you are looking a
+*       partner up and want none of that.
+*
+*       Equivalent to FLAG = 'X', and for the same reason as TENANCY above it is
+*       spelled out rather than encoded.
+        rs-skip_moi_mismatch = abap_true.
+*       Findings still reject here. Softening the MOI comparison is one decision;
+*       letting an expired licence through is a different one, and this template
+*       does not make it.
+
       WHEN OTHERS.
+*       ZP28 is deliberately not demonstrated. It makes BP_QUERY inject
+*       TEMP_CASETYPE = 'ZP28' by setting paging SKIP and TOP to 999999999, which
+*       is how that case type reaches partners of type YP0001. It is not a tuning
+*       switch and a journey that is not ZP28 must leave it false, so an example
+*       here would only invite someone to copy it.
     ENDCASE.
   ENDMETHOD.
 
@@ -642,8 +915,8 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     The key rides in the event id, which is how a list of unknown length wires
 *     one button per row without needing a constant for each.
       lo_list->button( text  = ls_doc-text
-                       type  = COND #( WHEN ls_doc-key = lv_sel THEN 'Emphasized' ELSE 'Transparent' )
-                       icon  = COND #( WHEN ls_doc-key = lv_sel
+                       type  = COND string( WHEN ls_doc-key = lv_sel THEN 'Emphasized' ELSE 'Transparent' )
+                       icon  = COND string( WHEN ls_doc-key = lv_sel
                                        THEN 'sap-icon://accept' ELSE 'sap-icon://circle-task-2' )
                        press = io_ctx->event( |DOCSET_{ ls_doc-key }| ) ).
     ENDLOOP.
@@ -722,8 +995,8 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       lo_cells->text( lv_shr ).
       lo_cells->object_status(
         text  = |{ lv_docs } file(s)|
-        state = COND #( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
-        icon  = COND #( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
+        state = COND string( WHEN lv_docs > 0 THEN 'Success' ELSE 'Warning' )
+        icon  = COND string( WHEN lv_docs > 0 THEN 'sap-icon://attachment' ELSE 'sap-icon://alert' ) ).
 *     Two buttons rather than the legacy overflow menu: one press instead of
 *     two, and nothing hidden behind an icon a citizen has to discover.
       DATA(lo_act) = lo_cells->hbox( ).
@@ -1078,6 +1351,145 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey_logic~draft_mode.
+*   LIVE - the engine calls this from RESOLVE_DRAFT_MODE( ).
+*
+*   NATIVE: this journey has no backend that drafts, so CJS stages the model
+*   itself. A journey on the /QNV/ bridge would answer DELEGATE and let
+*   SAVE_DRAFT go out as it always has; one that must not be left half-done -
+*   a payment confirmation, an OTP step - answers OFF.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~attach_mode.
+*   LIVE - the engine calls this from RESOLVE_ATTACH_MODE( ).
+*
+*   Answered separately from DRAFT_MODE( ) on purpose: the common shape while
+*   a backend has no file endpoint is a delegated draft whose files still sit
+*   in ZRAK_CJ_ATTX. NATIVE is what the engine does today for every journey.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~get_drafts.
+*   RESERVED - the engine does not call this yet.
+*
+*   Under NATIVE the framework answers this and a handler need not redefine
+*   it at all. Shown here for the DELEGATE case, where the backend holds the
+*   list and only the handler knows how to ask: read it, map it onto
+*   TY_DRAFT, and let the caller render it.
+*
+*   Note what is NOT done here. IV_PARTNER is not defaulted to "everything"
+*   when blank, and IV_WITH_ROLES is not assumed - a draft belonging to a
+*   partner this user does not act for must not appear in the list, and the
+*   cost of getting that backwards is a disclosure rather than a bug report.
+    IF iv_partner IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    rt = VALUE #(
+      ( draft_id   = 'DEMO-0001'
+        journey_id = 'TEST_ALL'
+        title      = 'Demonstration application'
+        title_ar   = 'طلب توضيحي'
+        step       = 2
+        partner    = iv_partner
+        status     = 'DRAFT'
+        created_by = sy-uname ) ).
+
+    IF iv_with_roles = abap_true.
+*     The role-BP half: drafts this user created for somebody else. Only
+*     reached when the caller explicitly asked, never by default.
+      APPEND VALUE #( draft_id   = 'DEMO-0002'
+                      journey_id = 'TEST_ALL'
+                      title      = 'Application filed on behalf of a company'
+                      step       = 1
+                      partner    = iv_partner
+                      on_behalf  = iv_partner
+                      status     = 'DRAFT'
+                      created_by = sy-uname ) TO rt.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_save.
+*   LIVE - HANDLE_SAVE( ) calls this, and an Error refuses the save.
+*
+*   Unlike ON_SAVE( ), this one can refuse: a message of type 'Error' keeps
+*   the citizen on the page and nothing is written. Used here to make the
+*   point that a draft is still allowed to have rules - just far fewer of
+*   them than a submit, since the whole purpose is to keep incomplete work.
+    IF io_ctx->get_val( 'FULL_NAME' ) IS INITIAL.
+      rt = VALUE #( ( type = 'Error'
+                      text = 'Enter the applicant name before saving a draft.' ) ).
+      RETURN.
+    ENDIF.
+
+    rt = VALUE #( ( type = 'Success'
+                    text = |Draft { iv_draft_id } saved by the test handler.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_load.
+*   RESERVED - the engine does not call this yet.
+*
+*   A draft is restored with the values it was saved with, which is right for
+*   what the citizen typed and wrong for everything derived. Anything with a
+*   shelf life is re-read here rather than served weeks stale: a fee, a
+*   partner's address, a validity date.
+    io_ctx->set_val( iv_name = 'PAYFEE' iv_value = '' ).
+    io_ctx->set_val( iv_name = zcl_rak_journey_logic=>c_pay_started iv_value = '' ).
+
+    rt = VALUE #( ( type = 'Information'
+                    text = |Draft { iv_draft_id } re-opened; the fee will be recalculated.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_draft_discard.
+*   RESERVED - the engine does not call this yet.
+*
+*   Reached both ways - the citizen pressed Delete, or retention expired the
+*   draft - so it must not assume there is anyone watching. Anything the
+*   handler parked outside the draft comes back here to be cleaned up.
+    rt = VALUE #( ( type = 'Success'
+                    text = |Draft { iv_draft_id } discarded.| ) ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~retention.
+*   LIVE - the ZRAK_CJ_ATT_PURGE report calls this.
+*
+*   Runs from housekeeping. IO_CTX arrives UNBOUND: no model, no user, no
+*   journey. Nothing in this method may read it.
+*
+*   Drafts outlive their files here, and that asymmetry is the point. A
+*   90-day draft is a convenience; a 90-day pile of uploaded Emirates ID
+*   scans in ZRAK_CJ_ATTX is a liability. The files go first, the draft
+*   survives, and the citizen is asked to upload again.
+    rs = VALUE #( draft_days    = 90
+                  draft_action  = zif_rak_journey=>c_retain-archive
+                  attach_days   = 30
+                  attach_action = zif_rak_journey=>c_retain-delete ).
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_archive.
+*   RESERVED - the engine does not call this yet.
+*
+*   Called once per expiring draft because RETENTION( ) asked for ARCHIVE.
+*   Returning abap_true tells the framework the draft is safely elsewhere and
+*   its copy may go; abap_false leaves it untouched.
+*
+*   abap_false here, deliberately. This handler has nowhere to archive to,
+*   and a demonstration that returns true would be teaching every journey
+*   copied from it to drop drafts on the floor. A journey with a real
+*   destination - a DMS drop, an outbound feed - returns true only after the
+*   write to that destination has succeeded, never before.
+    rv_handled = abap_false.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~get_attachments.
 *   RESERVED - the engine does not call this yet. It will source the chip
 *   list from here once attachments round-trip through the BAdI.
@@ -1365,6 +1777,76 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
     ENDIF.
 
     seed_fees( io_ctx ).
+    seed_pdf( io_ctx ).
+  ENDMETHOD.
+
+
+  METHOD seed_pdf.
+*&---------------------------------------------------------------------*
+*& PDF - the reference example for FTYPE = 'PDF'.
+*&
+*& The control shows a document with sap.m.PDFViewer. It holds no value
+*& the citizen enters, so validation skips it entirely: no REQUIRED, no
+*& MIN_LEN, no REGEX will ever fire on it.
+*&
+*& WHERE THE DOCUMENT COMES FROM - two routes, and the VALUE wins:
+*&
+*&   1. DEFAULT_VAL   a static URL. The same document for everyone -
+*&                    terms, a specimen form, a fee schedule. Pure
+*&                    configuration; this method is not involved.
+*&                    TERMS_PDF on S2 is that route.
+*&
+*&   2. the VALUE     a URL the handler resolved for THIS case. A
+*&                    certificate the backend generated, a document the
+*&                    citizen uploaded earlier. Overrides the default,
+*&                    which is why a per-case document beats a general one.
+*&                    CASE_PDF on S2 is that route, and this is it.
+*&
+*& NOTHING IS INVENTED HERE, and that is the correction worth reading.
+*& An earlier version of this method set CASE_PDF to a plausible-looking
+*& MIME path that did not exist, and the viewer answered "The PDF file
+*& could not be loaded" - which reads as a broken control rather than a
+*& wrong URL. A reference example that ships a dead link teaches the
+*& wrong lesson twice: once about the control, once about the path.
+*&
+*& So the document is supplied at launch instead:
+*&
+*&     ?journey=ZTEST_ALL&pdfguid=<guid>
+*&
+*& A GUID, not a URL. ZCL_RAK_JOURNEY_UTIL=>ATT_URL( ) builds the address
+*& of the streaming ICF node from it, which keeps the URL relative and
+*& same-origin - and a relative path is what the renderer treats as
+*& trusted, so the viewer opens it without sap.m.PDFViewer's cross-origin
+*& prompt. Passing a whole URL as a query parameter would also nest a ?
+*& inside a ? and need escaping nobody wants to debug.
+*&
+*& TO SEE IT WORK
+*&   1. S4 Documents - upload any PDF to Main document
+*&   2. SE16N ZRAK_CJ_ATTX - copy the GUID of that row
+*&   3. relaunch with &pdfguid=<that guid>
+*&
+*& WITH NO PARAMETER the field stays empty, and that is the third state
+*& worth seeing: an information strip, not a grey panel. An empty viewer
+*& reads as a document still loading and the citizen waits for something
+*& that is never coming.
+*&---------------------------------------------------------------------*
+
+*   Not overwriting a value already present: a resumed draft may carry a
+*   document resolved on an earlier visit, and re-seeding would replace a
+*   real one with whatever this launch happened to pass.
+    IF io_ctx->get_val( 'CASE_PDF' ) IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_guid) = condense( io_ctx->get_param( 'pdfguid' ) ).
+    IF lv_guid IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    io_ctx->set_val( iv_name  = 'CASE_PDF'
+                     iv_value = zcl_rak_journey_util=>att_url( lv_guid ) ).
+    io_ctx->add_msg( iv_type = 'Information'
+                     iv_text = |Certificate resolved from staged document { lv_guid }.| ).
   ENDMETHOD.
 
 
@@ -1382,7 +1864,7 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       DATA(lv_asubj) = io_ctx->get_val( 'BP_ACTIVE_SUBJECT' ).
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_asubj
-                            is_search  = bp_opts( lv_asubj ) )->handle( iv_event ).
+                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->handle( iv_event ).
       RETURN.
     ENDIF.
 
@@ -1394,16 +1876,62 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     make the popup class parse its own events to find out who it is.
       WHEN c_evt_bplsr.
         io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSOR' ).
+*       Clear the ruleset, or a template picked earlier would still be in force on
+*       a partner that is meant to be fully verified. Silent if it leaked.
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = '' ).
         io_ctx->open_popup( 'BP_LESSOR' ).
         RETURN.
       WHEN c_evt_bplse.
         io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = '' ).
         io_ctx->open_popup( 'BP_LESSEE' ).
         RETURN.
+
+*     --- the two template demonstrations ------------------------------
+*     SUBJECT stays LESSEE so the nine <S>_* fields resolve; only the RULESET
+*     changes. A subject of its own would need nine more fields in
+*     ZRAK_T_JNY_FLD - and without them BIND( ) returns nothing, the ID type the
+*     citizen picks never reaches the server, and the dialog silently re-asks the
+*     same question. Reusing the lessee fields also isolates the variable: same
+*     partner, same form, different rules.
+      WHEN c_evt_bpten.
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = 'TENANCY' ).
+        io_ctx->open_popup( 'BP_LESSEE' ).
+        RETURN.
+      WHEN c_evt_bpsft.
+        io_ctx->set_val( iv_name = 'BP_ACTIVE_SUBJECT' iv_value = 'LESSEE' ).
+        io_ctx->set_val( iv_name = c_bp_rules iv_value = 'SOFTVERIFY' ).
+        io_ctx->open_popup( 'BP_LESSEE' ).
+        RETURN.
+
+*     --- the same dialog at two and three columns ---------------------
+*     One event each to open, one shared OK and one shared Cancel. The dialogs
+*     differ in LAYOUT only, so giving them separate button handlers would be
+*     three copies of CLOSE_POPUP( ).
+      WHEN c_evt_c2.
+        io_ctx->open_popup( c_pop_c2 ).
+      WHEN c_evt_c3.
+        io_ctx->open_popup( c_pop_c3 ).
+      WHEN c_evt_cok.
+        io_ctx->close_popup( ).
+        io_ctx->add_msg( iv_type = 'Success'
+*                        Backticks: ABAP truncates trailing blanks in a '...'
+*                        literal, so the space before the join is lost and this
+*                        would read "data -every field".
+                         iv_text = `Saved. The column count changed the layout, not the data - ` &&
+                                   `every field bound to the same model member in all three.` ).
+      WHEN c_evt_ccxl.
+        io_ctx->close_popup( ).
+
+*     --- Emirates ID with and without hyphens -------------------------
+      WHEN c_evt_eid.
+        eid_demo( io_ctx ).
 
 *     --- handler-owned dialog ---------------------------------------
       WHEN c_evt_help.
         io_ctx->open_popup( c_pop_help ).
+
 
       WHEN c_evt_hsave.
         io_ctx->close_popup( ).
@@ -1640,17 +2168,37 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 *     after both was reachable on no step at all. Nothing complained: an unreachable
 *     render block is just a screen that quietly lacks two buttons.
       DATA(lo_bp) = io_view->hbox( class = 'rakRow sapUiSmallMarginTop' ).
-      lo_bp->button( text  = COND #( WHEN io_ctx->get_val( 'LESSOR_PARTNER' ) IS INITIAL
+      lo_bp->button( text  = COND string( WHEN io_ctx->get_val( 'LESSOR_PARTNER' ) IS INITIAL
                                      THEN 'Search lessor' ELSE 'Change lessor' )
                      icon  = 'sap-icon://search'
                      type  = 'Emphasized'
                      press = io_ctx->event( c_evt_bplsr ) ).
-      lo_bp->button( text  = COND #( WHEN io_ctx->get_val( 'LESSEE_PARTNER' ) IS INITIAL
-                                     THEN 'Search lessee' ELSE 'Change lessee' )
+      lo_bp->button( text  = COND string( WHEN io_ctx->get_val( 'LESSEE_PARTNER' ) IS INITIAL
+                                          THEN 'Search lessee' ELSE 'Change lessee' )
                      icon  = 'sap-icon://search'
                      type  = 'Emphasized'
                      class = 'sapUiSmallMarginBegin'
                      press = io_ctx->event( c_evt_bplse ) ).
+
+*     The other two templates in BP_OPTS( ), so every switch it sets is reachable
+*     from the screen rather than only readable in the source. Transparent, because
+*     these two demonstrate rules rather than being the journey's real partners.
+*     The tooltip names the switches each one sets - that is the point of the
+*     button existing at all.
+      lo_bp->button( text    = 'Lessee, tenancy rules'
+                     icon    = 'sap-icon://search'
+                     type    = 'Transparent'
+                     tooltip = 'Same lessee fields, SKIP_TL_EXPIRY + SKIP_EID_EXPIRY - both ' &&
+                               'expiry checks off, the readable form of FLAG = T'
+                     class   = 'sapUiSmallMarginBegin'
+                     press   = io_ctx->event( c_evt_bpten ) ).
+      lo_bp->button( text    = 'Lessee, soft verify'
+                     icon    = 'sap-icon://search'
+                     type    = 'Transparent'
+                     tooltip = 'Same lessee fields, SKIP_MOI_MISMATCH - MOI is still called and ' &&
+                               'the BP still updated from it; only a DOB or nationality mismatch ' &&
+                               'stops rejecting'
+                     press   = io_ctx->event( c_evt_bpsft ) ).
 
       render_own_list( io_ctx = io_ctx io_view = io_view ).
       RETURN.
@@ -1687,9 +2235,13 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
 
     IF iv_id CP 'BP_*'.
       DATA(lv_subj) = substring_after( val = iv_id sub = 'BP_' ).
+*     Subject for the field names, ruleset for the rules. BP_RULESET is blank for
+*     the two real partners, and BP_RULES( ) then falls back to the subject - so
+*     LESSOR and LESSEE behave exactly as before.
       NEW zcl_rak_bp_popup( io_ctx     = io_ctx
                             iv_subject = lv_subj
-                            is_search  = bp_opts( lv_subj ) )->render( io_popup ).
+                            iv_title   = bp_title( io_ctx )
+                            is_search  = bp_opts( bp_rules( io_ctx ) ) )->render( io_popup ).
       RETURN.
     ENDIF.
 
@@ -1702,7 +2254,41 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   TWO AND THREE COLUMNS, from one field list.
+*
+*   IV_COLUMNS is the whole difference. Nothing in COL_DEMO_FIELDS( ) knows how
+*   many columns it will be drawn in, and nothing in it needs to: the count is a
+*   property of the DIALOG. Open all three from step 0 and compare.
+*
+*   Fields flow left to right in list order. There is no way to make one field
+*   span two columns - a form needing that has outgrown DIALOG_FORM( ) and should
+*   be hand-built, the way RENDER_OWN_POPUP( ) below is.
+    IF iv_id = c_pop_c2.
+      dialog_form( io_ctx     = io_ctx
+                   io_popup   = io_popup
+                   iv_title   = 'Two columns'
+                   iv_columns = 2
+                   iv_ok_text = 'Save'
+                   iv_ok_evt  = c_evt_cok
+                   iv_cxl_evt = c_evt_ccxl
+                   it_fields  = col_demo_fields( ) ).
+      RETURN.
+    ENDIF.
+
+    IF iv_id = c_pop_c3.
+      dialog_form( io_ctx     = io_ctx
+                   io_popup   = io_popup
+                   iv_title   = 'Three columns'
+                   iv_columns = 3
+                   iv_ok_text = 'Save'
+                   iv_ok_evt  = c_evt_cok
+                   iv_cxl_evt = c_evt_ccxl
+                   it_fields  = col_demo_fields( ) ).
+      RETURN.
+    ENDIF.
+
     CHECK iv_id = c_pop_help.
+
 
 *   EVERY POPUP CAPABILITY, ON ONE DIALOG. The first two lines are what a popup
 *   could draw before; everything after them is new.
@@ -1777,6 +2363,25 @@ CLASS ZCL_RAK_TEST_ALL_LOGIC IMPLEMENTATION.
                     icon  = 'sap-icon://sys-help'
                     type  = 'Transparent'
                     press = io_ctx->event( c_evt_help ) ).
+
+*   Step 0 only. Three buttons on every step of a six-step journey is chrome
+*   nobody asked for; the demonstrations belong where a developer opening this
+*   journey lands.
+    IF lv_step = 0.
+      lo_bar->button( text  = '2-column dialog'
+                      icon  = 'sap-icon://column-chart-dual-axis'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_c2 ) ).
+      lo_bar->button( text  = '3-column dialog'
+                      icon  = 'sap-icon://multiple-line-chart'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_c3 ) ).
+      lo_bar->button( text  = 'Emirates ID, hyphens or not'
+                      icon  = 'sap-icon://validate'
+                      type  = 'Transparent'
+                      press = io_ctx->event( c_evt_eid ) ).
+    ENDIF.
+
 
 *   Documents is step index 3. The grid has no change event of its own -
 *   render_grid binds cells straight to the model and only Add and Delete

@@ -53,6 +53,29 @@ CLASS zcl_rak_journey_render DEFINITION
 
     METHODS render_result IMPORTING io_parent TYPE REF TO z2ui5_cl_xml_view
                                     is_field  TYPE zif_rak_journey=>ty_field.
+*   THE 150-CHARACTER CEILING, AND THE WAY ROUND IT.
+*
+*   ZLABEL is CHAR(150). A consent declaration is not 150 characters, so it
+*   arrives cut mid-sentence - and cut on INSERT, in the database, which is
+*   why no amount of wrapping or CSS in the renderer brings the rest back.
+*   EC01's certification lands at exactly 150, ending "...responsible for".
+*
+*   DEFAULT_VAL is CHAR(1000) and already carries prefixed instructions
+*   rather than plain values - see the CHK: convention in the engine's
+*   ROWCHK_ handler. TEXT: is the same idea for long field text:
+*
+*     TEXT:I hereby certify that ...        the paragraph, literally
+*     TEXT:@042                             message 042 from ZRAK_T_CJ_TXT
+*
+*   The @ form is the one to reach for when the text must be bilingual.
+*   DEFAULT_VAL has no _AR twin, so a literal paragraph is language-neutral
+*   and will show its English to an Arabic reader; ZRAK_T_CJ_TXT holds
+*   TEXT_EN and TEXT_AR and is resolved by sy-langu, at CHAR(255) each.
+*
+*   Returns the ordinary label when no TEXT: is present, so every journey
+*   configured before this existed renders exactly as it did.
+    METHODS long_text IMPORTING is_field       TYPE zif_rak_journey=>ty_field
+                     RETURNING VALUE(rv_text) TYPE string.
     METHODS req_label   IMPORTING io_form  TYPE REF TO z2ui5_cl_xml_view
                                   is_field TYPE zif_rak_journey=>ty_field.
     METHODS before_field IMPORTING io_view  TYPE REF TO z2ui5_cl_xml_view
@@ -61,8 +84,18 @@ CLASS zcl_rak_journey_render DEFINITION
                                    is_field TYPE zif_rak_journey=>ty_field.
     METHODS f4_opts    IMPORTING is_field  TYPE zif_rak_journey=>ty_field
                        RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
-    METHODS bind_of IMPORTING iv_name TYPE string RETURNING VALUE(rv_bind) TYPE string.
-    METHODS bind_state IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+*   PREFERRED PARAMETER IV_NAME - BIND_OF( name ) is called as a single-value
+*   functional call throughout this class and from ZCL_RAK_JOURNEY_ENGINE;
+*   without this addition, adding IV_SUFFIX as a second IMPORTING parameter
+*   would turn every one of those into a syntax error (see the note on
+*   VAL_GET( ) in ZCL_RAK_JOURNEY_ENGINE for the full reasoning).
+    METHODS bind_of IMPORTING iv_name         TYPE string
+                               iv_suffix       TYPE string OPTIONAL
+                       PREFERRED PARAMETER iv_name
+                     RETURNING VALUE(rv_bind)  TYPE string.
+    METHODS bind_state IMPORTING iv_name   TYPE string
+                                 iv_suffix TYPE string OPTIONAL
+                       RETURNING VALUE(rv) TYPE string.
     METHODS render_block_laid_out
       IMPORTING io_parent  TYPE REF TO z2ui5_cl_xml_view
                 iv_journey TYPE zcl_rak_cj_lay=>ty_key
@@ -79,6 +112,12 @@ CLASS zcl_rak_journey_render DEFINITION
     CLASS-DATA gt_f4c TYPE zif_rak_cjs_types=>tt_f4c.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
     DATA mv_in_cell TYPE abap_bool.
+*   Set while rendering a FLOW cell. MV_FLOW_CELL stops RENDER_ONE forcing the
+*   control to 100%, which in a flex row would squeeze the button to nothing.
+*   MO_LBL_TGT is where REQ_LABEL puts the label - the cell itself, so the
+*   label stays ABOVE while the control and the button pair up beside it.
+    DATA mv_flow_cell TYPE abap_bool.
+    DATA mo_lbl_tgt   TYPE REF TO z2ui5_cl_xml_view.
     METHODS pay_field IMPORTING iv_index       TYPE i
                       RETURNING VALUE(rv_name) TYPE string.
     METHODS status_state IMPORTING iv_value     TYPE string
@@ -118,9 +157,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD bind_of.
+*   COMP_NAME( ), matching VAL_GET( )/VAL_SET( )/BUILD_MODEL( ) - see the note on
+*   BUILD_MODEL( ). A bare TO_UPPER( ) here would try to bind a control straight
+*   to a component name the model never has, on any field whose name needed
+*   sanitising - CX_SY_STRUCT_COMP_NAME, uncaught, on the first render.
+*
+*   IV_SUFFIX is appended AFTER COMP_NAME( ), matching how BUILD_MODEL( ) builds
+*   a companion component ( _IDTYPE, _IX, _EXP ): COMP_NAME( base name ) then the
+*   raw suffix. Passing an already-suffixed string as IV_NAME instead - the
+*   pattern this replaces - hashes a different, longer string once base name
+*   plus suffix exceeds 23 characters, and the ASSIGN COMPONENT below then finds
+*   nothing: the control silently binds to no value.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    DATA(lv_comp) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
+    ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv_bind = mo_e->mo_client->_bind_edit( <f> ).
     ENDIF.
@@ -128,9 +179,11 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
 
   METHOD bind_state.
+*   Same key BIND_OF( ) computes - see the note there.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
+    DATA(lv_comp) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
+    ASSIGN COMPONENT lv_comp OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
     IF sy-subrc = 0.
       rv = mo_e->mo_client->_bind( <f> ).
     ENDIF.
@@ -173,6 +226,22 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                    | · shlp { COND string( WHEN is_field-shlp IS NOT INITIAL THEN is_field-shlp ELSE '(none)' ) }| &&
                    | · domain { COND string( WHEN is_field-domname IS NOT INITIAL THEN is_field-domname ELSE '(none)' ) }| &&
                    | · resolved { lines( rt ) } option(s)| ).
+*     A list that came back exactly at the cap was almost certainly cut, and a cut
+*     list is indistinguishable from a complete one by looking at it - the citizen
+*     cannot find their entry and nothing on the page says why.
+*
+*     A GATE rather than a plain trace line, so it lands in the blocker list next
+*     to the zero-options gate below it - the two failures are siblings and belong
+*     in the same place. Both are inside the trace guard, so both need trace=x:
+*     that is a real limitation, not a design decision, and if truncation ever
+*     bites in production this is the check to lift out of the guard.
+      IF lines( rt ) >= zcl_rak_f4_resolver=>c_max.
+        mo_e->trace_gate( |Field { is_field-name } resolved { lines( rt ) } options, | &&
+                          |which is the cap - the list is almost certainly | &&
+                          |TRUNCATED and the citizen cannot pick anything past it. | &&
+                          |Narrow the search help or raise ZCL_RAK_F4_RESOLVER=>C_MAX.| ).
+      ENDIF.
+
       IF rt IS INITIAL AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL
                              OR is_field-domname IS NOT INITIAL ).
         mo_e->trace_gate( |Field { is_field-name } asks for value help but resolved | &&
@@ -314,6 +383,13 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   How many messages had been drawn before the fields were rendered. Anything
+*   appended past this point was added BY the field rendering - the LIST lines
+*   naming where each dropdown's options came from - and the loop above had
+*   already been and gone, so those lines were collected and never shown. This
+*   is the only reason they are drawn at the bottom rather than with the rest.
+    DATA(lv_msg_pre) = lines( mo_e->mt_msg ).
+
     CASE mo_e->ms_config-theme-layout_mode.
       WHEN 'TABS'.
         render_tabs( page ).
@@ -326,6 +402,15 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN OTHERS.
         render_wizard( page ).
     ENDCASE.
+
+    IF lines( mo_e->mt_msg ) > lv_msg_pre.
+      LOOP AT mo_e->mt_msg INTO DATA(ls_late) FROM lv_msg_pre + 1.
+        page->message_strip( text     = zcl_rak_journey_util=>esc( ls_late-text )
+                             type     = ls_late-type
+                             showicon = abap_true
+                             class    = 'sapUiTinyMarginBegin sapUiTinyMarginEnd' ).
+      ENDLOOP.
+    ENDIF.
 
     mo_e->mo_client->view_display( view->stringify( ) ).
 
@@ -379,7 +464,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'SEARCH'.
         io_parent->title( text = zcl_rak_journey_util=>esc( is_field-label ) class = |{ mo_e->mo_css->cls( 'SECTION' ) } rakBlkTitle| ).
         DATA(lo_box) = io_parent->hbox( class = 'rakSearch' alignitems = 'End' justifycontent = 'Start' ).
-        DATA(lo_idt) = lo_box->combobox( selectedkey = bind_of( |{ is_field-name }_IDTYPE| ) width = '12rem' ).
+        DATA(lo_idt) = lo_box->combobox( selectedkey = bind_of( iv_name = is_field-name iv_suffix = '_IDTYPE' ) width = '12rem' ).
         LOOP AT is_field-options INTO DATA(ls_o).
           lo_idt->item( key = ls_o-key text = zcl_rak_journey_util=>opt_text( iv_key = ls_o-key iv_text = ls_o-text ) ).
         ENDLOOP.
@@ -523,9 +608,16 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             IF lv_cstrim IS INITIAL.
               CONTINUE.
             ENDIF.
-            SPLIT lv_csraw AT ':' INTO DATA(lv_csn) DATA(lv_csh).
+*           The spec is KEY:Label:TYPE. Split into THREE targets, not two:
+*           with two, the type stayed glued to the label and the Notary party
+*           table drew its headers as "Party Name:TEXT". A two-part spec is
+*           still fine - the third target simply comes back empty.
+            SPLIT lv_csraw AT ':' INTO DATA(lv_csn) DATA(lv_csh) DATA(lv_cstyp).
             lv_csn = to_upper( condense( lv_csn ) ).
             lv_csh = condense( lv_csh ).
+            IF lv_csh IS INITIAL.
+              lv_csh = lv_csn.
+            ENDIF.
             APPEND lv_csn TO lt_csn.
             APPEND lv_csh TO lt_csh.
           ENDLOOP.
@@ -587,7 +679,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                      THEN `` ELSE is_field-default ).
 
         DATA(lo_tab) = io_parent->table( alternaterowcolors = abap_true
-                                         mode               = COND #( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
+                                         mode               = COND string( WHEN lv_pick IS NOT INITIAL THEN 'SingleSelectMaster' ELSE 'None' )
                                          class              = 'sapUiSmallMarginBeginEnd' ).
 
         DATA lt_thide TYPE STANDARD TABLE OF i WITH EMPTY KEY.
@@ -638,7 +730,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           DATA(lv_row_key) = COND string( WHEN lt_row IS NOT INITIAL THEN lt_row[ 1 ] ELSE `` ).
           DATA(lv_sel)     = xsdbool( lv_pick IS NOT INITIAL AND mo_e->val_get( lv_pick ) = lv_row_key ).
           DATA(lo_cells)   = lo_items->column_list_item(
-                               type     = COND #( WHEN lv_pick IS NOT INITIAL THEN 'Active' ELSE 'Inactive' )
+                               type     = COND string( WHEN lv_pick IS NOT INITIAL THEN 'Active' ELSE 'Inactive' )
                                selected = lv_sel
                                press    = COND #( WHEN lv_pick IS NOT INITIAL
                                                   THEN mo_e->mo_client->_event( |ROWPICK_{ is_field-name }~{ lv_row_key }| ) ELSE `` )
@@ -697,9 +789,20 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                                            iv_block   = iv_block
                                                            it_elem    = lt_elem ).
 
-    DATA(lo_grid) = io_parent->grid( default_span = 'XL12 L12 M12 S12'
-                                     hspacing     = '1'
-                                     vspacing     = '1' )->content( ns = 'layout' ).
+*   THE CARD, which a laid-out step never had. The unlaid path wraps its fields
+*   in a SimpleForm - or a Panel for a section - carrying cls( 'CARD' ); this one
+*   dropped a bare Grid onto the step body and nothing else. So a step drawn in
+*   the layout designer rendered its fields directly on the page background while
+*   the step before it sat in a white card, and no theme could close the gap
+*   because there was no element to style.
+*
+*   Invisible for as long as the page behind it was white. The ATTEST variant
+*   gives the page a grey, and the missing card became the first thing you see.
+    DATA(lo_card) = io_parent->vbox( class = mo_e->mo_css->cls( 'CARD' ) ).
+
+    DATA(lo_grid) = lo_card->grid( default_span = 'XL12 L12 M12 S12'
+                                   hspacing     = '1'
+                                   vspacing     = '1' )->content( ns = 'layout' ).
 
     LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<ls_row>).
 
@@ -737,6 +840,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                   THEN CONV string( is_cell-attr-width )
                                   ELSE '100%' ).
 
+*   FLOW - the cell's own direction.
+*
+*   A cell is a vbox, so everything put into it stacks: the field, then
+*   whatever AFTER_FIELD( ) adds. That is why a handler's search or ADD
+*   button always lands UNDER its input and never beside it - it is the
+*   container, not the button, that decides.
+*
+*   FLOW turns the cell into an hbox, and the button lands where the reader
+*   expects it. ALIGNITEMS 'End' rather than the cell's own alignment: the
+*   field is label-above-input and the button is a button, so aligning
+*   their bottoms puts the button level with the input rather than floating
+*   next to the label.
+*
+*   Off by default and read from a column that is blank everywhere until
+*   somebody ticks it in the Design tab, so no existing journey moves.
     DATA(lo_cell) = io_parent->vbox( class      = 'rakCell'
                                      width      = lv_width
                                      alignitems = lv_align ).
@@ -748,14 +866,56 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     mv_in_cell = abap_true.
     before_field( io_view = lo_cell is_field = is_field ).
 
-    IF zcl_rak_journey_util=>is_block( is_field-type ) = abap_true.
-      render_block( io_parent = lo_cell is_field = is_field ).
-    ELSE.
-      render_one( io_form = lo_cell is_field = is_field ).
+    DATA(lv_block) = zcl_rak_journey_util=>is_block( is_field-type ).
+
+*   FLOW - the field and its buttons, side by side.
+*
+*   A cell is a vbox, so everything put into it stacks: the label, the
+*   control, then whatever AFTER_FIELD( ) adds. That is why a handler's
+*   search or ADD button always lands UNDER its input - the container
+*   decides, not the button.
+*
+*   The cell STAYS a vbox and gains an inner row. Only the control and the
+*   trailing buttons go into that row; the label is redirected back to the
+*   cell through MO_LBL_TGT so it keeps sitting above, and the field goes on
+*   matching every other field on the step. Making the whole cell an hbox
+*   would have dragged the label alongside the input as a side effect.
+*
+*   Not offered for blocks - a table or a panel is already a layout of its
+*   own and has nothing to sit beside.
+    DATA lo_body TYPE REF TO z2ui5_cl_xml_view.
+    lo_body = lo_cell.
+    IF is_cell-attr-flow = abap_true AND lv_block = abap_false.
+      mv_flow_cell = abap_true.
+
+*     ORDER MATTERS. z2ui5 emits children in the order they are created, so
+*     the label's container has to exist BEFORE the row that holds the
+*     control - otherwise REQ_LABEL( ), which runs later from inside
+*     RENDER_ONE( ), appends the label after the row and it renders UNDER
+*     the field instead of above it.
+*
+*     An empty vbox is cheap and stays empty for the field types that never
+*     call REQ_LABEL( ) at all, such as CHECKBOX and SEARCH.
+      mo_lbl_tgt = lo_cell->vbox( ).
+
+*     JUSTIFYCONTENT 'Start' keeps the button against the control. Without
+*     it the row spreads its children across the full cell width and the
+*     button drifts to the far edge, which is no more "next to the field"
+*     than being underneath it was.
+      lo_body = lo_cell->hbox( class          = 'rakCellFlow'
+                               width          = '100%'
+                               justifycontent = 'Start'
+                               alignitems     = 'End' ).
     ENDIF.
 
-    after_field( io_view = lo_cell is_field = is_field ).
-    CLEAR mv_in_cell.
+    IF lv_block = abap_true.
+      render_block( io_parent = lo_cell is_field = is_field ).
+    ELSE.
+      render_one( io_form = lo_body is_field = is_field ).
+    ENDIF.
+
+    after_field( io_view = lo_body is_field = is_field ).
+    CLEAR: mv_in_cell, mv_flow_cell, mo_lbl_tgt.
 
   ENDMETHOD.
 
@@ -930,7 +1090,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             ELSE |This step is not finished yet.| ).
         ENDIF.
       ELSEIF to_upper( ls_gate-type ) = 'PAYFEE'.
-        lv_paid = abap_true.
+
+*       A NON-BLANK fee field is not a PAID one. This branch used to take any
+*       value at all as payment received, so a PAYFEE carrying anything the
+*       backend read put there - or a DEFAULT_VAL on the field - opened Next and
+*       relabelled it Done while the fee card two inches above it was still
+*       showing the Pay button. The card tests = 'PAID' and so does the gate in
+*       ON_CUSTOM_VALIDATE; the footer is the only place that did not, which is
+*       how the citizen got a live Next on an unpaid step.
+        IF mo_e->zif_rak_journey~get_val( ls_gate-name ) = 'PAID'.
+          lv_paid = abap_true.
+        ELSE.
+          lv_pay  = abap_true.
+          lv_open = abap_false.
+          lv_wait = xsdbool( mo_e->zif_rak_journey~get_val( 'PAY_STARTED' ) = 'X' ).
+        ENDIF.
       ENDIF.
     ENDIF.
 
@@ -1022,7 +1196,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                                           THEN zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-done iv_default = 'Done' )
                                           ELSE zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-next iv_default = 'Next' ) )
                       type      = mo_e->ms_config-theme-accent_type
-                      icon      = COND #( WHEN lv_paid = abap_true
+                      icon      = COND string( WHEN lv_paid = abap_true
                                           THEN 'sap-icon://accept'
                                           ELSE 'sap-icon://navigation-right-arrow' )
                       iconfirst = xsdbool( lv_paid = abap_true )
@@ -1054,11 +1228,19 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
     IF mo_e->ms_config-theme-show_actions = abap_true AND mo_e->mv_submitted = abap_false.
       DATA(lo_r) = lo_top->hbox( ).
-      lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-save_draft iv_default = 'Save as Draft' )
-                    icon  = 'sap-icon://save'
-                    type  = 'Transparent'
-                    class = 'sapUiSmallMarginBegin'
-                    press = mo_e->btn_evt( 'SAVE' ) ).
+*     Save-as-Draft is gated separately from SHOW_ACTIONS, which is
+*     all-or-nothing and also carries Delete. A journey that keeps no drafts
+*     still wants a Delete button, so the two cannot share a switch.
+*
+*     This only hides the control. HANDLE_SAVE( ) refuses the event as well,
+*     because a hidden button is not an unreachable one.
+      IF mo_e->resolve_draft_mode( ) <> zif_rak_journey=>c_mode-off.
+        lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-save_draft iv_default = 'Save as Draft' )
+                      icon  = 'sap-icon://save'
+                      type  = 'Transparent'
+                      class = 'sapUiSmallMarginBegin'
+                      press = mo_e->btn_evt( 'SAVE' ) ).
+      ENDIF.
       lo_r->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-delete iv_default = 'Delete' )
                     icon  = 'sap-icon://delete'
                     type  = 'Transparent'
@@ -1091,28 +1273,70 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+*   EVERY FIELD THE RENDERER IS ASKED TO DRAW, and the type it was asked to
+*   draw it as. Behind the trace flag, so it costs nothing normally.
+*
+*   This exists because "the field does not render" is otherwise unanswerable
+*   from the outside: a field missing from the config, a field hidden by a
+*   rule, and a field whose FTYPE does not match any branch all look identical
+*   on screen - an absence. The three have completely different fixes, and
+*   telling them apart took four rounds of reading source that could not be
+*   run from where it was being read.
+*
+*   Its absence from the list is the finding. A field that appears here and
+*   still shows nothing is a rendering problem; a field that never appears
+*   never reached RENDER_ONE( ) at all, and the cause is upstream - config,
+*   cache, or a hidden flag.
+    mo_e->trace( |render { is_field-name } type=[{ is_field-type }]| ).
+
     DATA(lv_bind) = bind_of( is_field-name ).
-    DATA(lv_vs)   = bind_state( |{ is_field-name }_VS| ).
-    DATA(lv_vst)  = bind_state( |{ is_field-name }_VST| ).
+    DATA(lv_vs)   = bind_state( iv_name = is_field-name iv_suffix = '_VS' ).
+    DATA(lv_vst)  = bind_state( iv_name = is_field-name iv_suffix = '_VST' ).
     DATA(lv_edit) = xsdbool( mo_e->mo_rules->is_readonly( is_field ) = abap_false ).
     DATA(lv_min)  = COND string( WHEN is_field-validation-min_val IS NOT INITIAL THEN is_field-validation-min_val ELSE '0' ).
     DATA(lv_max)  = COND string( WHEN is_field-validation-max_val IS NOT INITIAL THEN is_field-validation-max_val ELSE '100' ).
     DATA(lv_w)    = zcl_rak_journey_util=>ctrl_width( is_field ).
-    IF mv_in_cell = abap_true.
+    IF mv_in_cell = abap_true AND mv_flow_cell = abap_false.
       lv_w = '100%'.
     ENDIF.
 
+*   Where an empty dropdown comes from. Three sources feed one list and each
+*   can come back with nothing, so "No data" on screen used to be the same
+*   picture whether the field had no configured options, the handler declined,
+*   the handler raised, or the resolver found nothing. The exception in
+*   particular was caught and cleared without a word, which is the worst of
+*   the four to debug because it looks identical to a deliberate empty list.
     DATA(lt_opt) = is_field-options.
+    DATA(lv_vhsrc) = COND string( WHEN lt_opt IS NOT INITIAL THEN 'config' ELSE `` ).
+
     IF lt_opt IS INITIAL AND mo_e->mo_logic IS BOUND.
       TRY.
           lt_opt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = is_field-name ).
-        CATCH cx_root.
+          lv_vhsrc = COND string( WHEN lt_opt IS NOT INITIAL
+                                  THEN 'on_value_help'
+                                  ELSE 'on_value_help (empty)' ).
+        CATCH cx_root INTO DATA(lx_vh).
           CLEAR lt_opt.
+          lv_vhsrc = |on_value_help RAISED { lx_vh->get_text( ) }|.
       ENDTRY.
+    ELSEIF lt_opt IS INITIAL.
+*     No handler at all. Worth saying plainly: every list on a journey whose
+*     options are not configured depends on one, so an unbound handler is not
+*     a detail, it is the reason nothing has any options.
+      lv_vhsrc = 'no handler bound'.
     ENDIF.
     IF lt_opt IS INITIAL
        AND ( is_field-rollname IS NOT INITIAL OR is_field-shlp IS NOT INITIAL OR is_field-domname IS NOT INITIAL ).
       lt_opt = f4_opts( is_field ).
+      lv_vhsrc = |{ lv_vhsrc } -> DDIC resolver| .
+    ENDIF.
+
+*   Only for the field types that actually show a list, and only under trace.
+    IF mo_e->mv_trace = abap_true
+       AND ( is_field-type = 'SELECT' OR is_field-type = 'RADIO'
+          OR is_field-type = 'CHECKGROUP' OR is_field-type = 'SEGMENTED' ).
+      mo_e->trace( |LIST    { is_field-name } ({ is_field-type }) · { lines( lt_opt ) } option(s) · | &&
+                   COND string( WHEN lv_vhsrc IS NOT INITIAL THEN lv_vhsrc ELSE 'no source tried' ) ).
     ENDIF.
 
     CASE is_field-type.
@@ -1151,9 +1375,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             EXIT.
           ENDIF.
         ENDLOOP.
-        mo_e->val_set( iv_name = |{ is_field-name }_IX| iv_value = |{ lv_rsel }| ).
+        mo_e->val_set( iv_name = is_field-name iv_suffix = '_IX' iv_value = |{ lv_rsel }| ).
 
-        DATA(lo_rg) = io_form->radio_button_group( selectedindex = bind_of( |{ is_field-name }_IX| )
+        DATA(lo_rg) = io_form->radio_button_group( selectedindex = bind_of( iv_name = is_field-name iv_suffix = '_IX' )
                                                    editable      = lv_edit
                                                    select        = mo_e->change_evt( is_field-name )
                                                    width         = lv_w
@@ -1201,7 +1425,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       WHEN 'RO_PANEL'.
         DATA(lo_rop) = io_form->panel( headertext = zcl_rak_journey_util=>esc( is_field-label )
                                        expandable = abap_true
-                                       expanded   = bind_of( |{ is_field-name }_EXP| ) ).
+                                       expanded   = bind_of( iv_name = is_field-name iv_suffix = '_EXP' ) ).
         DATA(lo_ropc) = lo_rop->content( ).
         DATA ls_rot TYPE zif_rak_journey=>ty_table.
         IF mo_e->mo_logic IS BOUND.
@@ -1219,7 +1443,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
             LOOP AT lr_ror INTO DATA(lv_rocell).
               lv_roc = lv_roc + 1.
               lo_rorow->text( text  = zcl_rak_journey_util=>esc( lv_rocell )
-                              class = COND #( WHEN lv_roc = 1
+                              class = COND string( WHEN lv_roc = 1
                                               THEN 'rakRoLbl sapUiTinyMarginEnd'
                                               ELSE 'rakVal sapUiTinyMarginEnd' ) ).
             ENDLOOP.
@@ -1401,7 +1625,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           lo_cbx->text( text = `*` class = 'rakReqStar' ).
         ENDIF.
         lo_cbx->checkbox( class    = mo_e->mo_css->cls( 'CHECKBOX' )
-                          text     = zcl_rak_journey_util=>esc( is_field-label )
+                          text     = zcl_rak_journey_util=>esc( long_text( is_field ) )
                           selected = lv_bind
                           editable = lv_edit
                           wrapping = abap_true
@@ -1424,15 +1648,39 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 
       WHEN 'NUMBER'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Number' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( is_field-name ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Number'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'EMAIL'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Email' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( is_field-name ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Email'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'PHONE'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->input( class = mo_e->mo_css->cls( 'INPUT' ) value = lv_bind type = 'Tel' placeholder = is_field-placeholder editable = lv_edit change = mo_e->opt_evt( is_field-name ) valuestate = lv_vs valuestatetext = lv_vst width = lv_w ).
+        io_form->input( class          = mo_e->mo_css->cls( 'INPUT' )
+                        value          = lv_bind
+                        type           = 'Tel'
+                        placeholder    = is_field-placeholder
+                        editable       = lv_edit
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
+                        valuestate     = lv_vs
+                        valuestatetext = lv_vst
+                        width          = lv_w ).
 
       WHEN 'CURRENCY'.
         req_label( io_form = io_form is_field = is_field ).
@@ -1440,7 +1688,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         type           = 'Number'
                         placeholder    = COND string( WHEN is_field-placeholder IS NOT INITIAL THEN is_field-placeholder ELSE 'AED' )
                         editable       = lv_edit
-                        change         = mo_e->opt_evt( is_field-name )
+                        change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
                         valuestatetext = lv_vst
                         width          = lv_w ).
@@ -1505,9 +1753,71 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         req_label( io_form = io_form is_field = is_field ).
         io_form->input( value = lv_bind editable = abap_false width = lv_w class = mo_e->mo_css->cls( 'INPUT' ) ).
 
+      WHEN 'PDF'.
+*       sap.m.PDFViewer, emitted through _GENERIC( ) because Z2UI5_CL_XML_VIEW
+*       does not expose it directly - PDF_VIEWER( ) lives on the fragment class,
+*       which is not the one the renderer builds with. _GENERIC is public and
+*       takes the control name plus its properties, so nothing is lost.
+*
+*       WHERE THE DOCUMENT COMES FROM, in order:
+*         the field's VALUE      a URL a handler resolved at runtime - an
+*                                attachment just uploaded, a certificate the
+*                                backend generated for this request
+*         DEFAULT_VAL            a static URL from configuration - terms, a
+*                                specimen form, anything the same for everyone
+*
+*       Value first, because a handler that resolved a document for THIS case
+*       must outrank a default that describes the service in general.
+        DATA(lv_pdf) = mo_e->val_get( is_field-name ).
+        IF lv_pdf IS INITIAL.
+          lv_pdf = is_field-default.
+        ENDIF.
+
+        IF lv_pdf IS INITIAL.
+*         Say so rather than drawing an empty grey box. A viewer with no source
+*         renders as a blank panel that reads as a document still loading, and
+*         the citizen waits for something that is never coming.
+          req_label( io_form = io_form is_field = is_field ).
+          io_form->message_strip(
+            text     = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-pdf_none
+                                          iv_default = 'No document to display yet.' )
+            type     = 'Information'
+            showicon = abap_true ).
+        ELSE.
+*         ISTRUSTEDSOURCE only for a same-origin path. sap.m.PDFViewer shows a
+*         trust prompt before opening a cross-origin document, and suppressing
+*         that on an arbitrary URL from configuration would be deciding, on the
+*         citizen's behalf, that whatever DEFAULT_VAL points at is safe. A
+*         relative path is served by this system and needs no prompt.
+          DATA(lv_trusted) = COND string(
+            WHEN strlen( lv_pdf ) > 0 AND lv_pdf(1) = '/' THEN 'true' ELSE 'false' ).
+
+          io_form->_generic(
+            name   = 'PDFViewer'
+            t_prop = VALUE #(
+              ( n = 'source'             v = lv_pdf )
+              ( n = 'title'              v = zcl_rak_journey_util=>esc( is_field-label ) )
+              ( n = 'height'             v = COND string( WHEN is_field-width IS NOT INITIAL
+                                                          THEN is_field-width ELSE '45rem' ) )
+              ( n = 'width'              v = '100%' )
+              ( n = 'isTrustedSource'    v = lv_trusted )
+*             The download button is the one control a reader genuinely needs -
+*             a declaration they are agreeing to is one they may want to keep.
+              ( n = 'showDownloadButton' v = 'true' ) ) ).
+        ENDIF.
+
       WHEN 'DISPLAY'.
         req_label( io_form = io_form is_field = is_field ).
-        io_form->text( text = lv_bind ).
+*       A DISPLAY field has always taken its paragraph from DEFAULT_VAL by
+*       way of the model, which is why it never hit the 150-character
+*       ceiling. TEXT: is accepted here too, so one convention covers both
+*       and a bilingual paragraph can use the @ form; without it, nothing
+*       about the old route changes.
+        IF is_field-default CP 'TEXT:*'.
+          io_form->text( text = long_text( is_field ) ).
+        ELSE.
+          io_form->text( text = lv_bind ).
+        ENDIF.
 
       WHEN 'RESULT'.
         render_result( io_parent = io_form is_field = is_field ).
@@ -1527,7 +1837,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
           io_form->input( value          = lv_bind
                           placeholder    = is_field-placeholder
                           editable       = lv_edit
-                          change         = mo_e->opt_evt( is_field-name )
+                          change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                           valuestate     = lv_vs
                           valuestatetext = lv_vst
                           width          = lv_w ).
@@ -1839,6 +2149,10 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
     DATA lv_section TYPE string.
     DATA lv_group   TYPE string.
     DATA lv_taken   TYPE i.
+*   Indices already drawn out of order. LV_TAKEN is a high-water mark and can
+*   only skip a contiguous run; gathering uploads that are NOT adjacent needs to
+*   record each one it consumed.
+    DATA lt_used    TYPE STANDARD TABLE OF i WITH EMPTY KEY.
     DATA lv_flex    TYPE abap_bool.
 
     LOOP AT is_step-fields INTO DATA(ls_fx).
@@ -1898,6 +2212,9 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       IF lv_ix <= lv_taken.
         CONTINUE.
       ENDIF.
+      IF line_exists( lt_used[ table_line = lv_ix ] ).
+        CONTINUE.
+      ENDIF.
       IF mo_e->mo_rules->is_hidden( ls_f ) = abap_true.
         CONTINUE.
       ENDIF.
@@ -1925,36 +2242,57 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
         CLEAR lo_form.
 
         IF to_upper( ls_f-type ) = 'UPLOAD' AND is_step-columns BETWEEN 2 AND 4.
-          DATA(lv_upn) = lv_ix.
-          DATA(lv_upc) = 0.
-          WHILE lv_upn <= lines( is_step-fields ).
-            DATA(ls_upf) = is_step-fields[ lv_upn ].
-            IF to_upper( ls_upf-type ) <> 'UPLOAD' OR ls_upf-section <> ls_f-section.
+
+*         Uploads pair up by SECTION now, not by being neighbours.
+*
+*         The old scan walked forward and stopped at the FIRST field that was not
+*         an upload, so two uploads with anything at all between them each drew
+*         full width and COLUMNS on the step appeared to do nothing. On E142 that
+*         is CV Copy and Attested Certificate with Degree sitting between them -
+*         nothing an author could see explained it, and the only fix was to
+*         reorder SEQNR until the two happened to be adjacent.
+*
+*         Now it collects up to COLUMNS uploads from anywhere in the SAME section
+*         and draws them as one row where the first of them sits. The fields it
+*         skipped over are drawn afterwards in their own order, which is why
+*         LT_USED exists: LV_TAKEN can only skip a contiguous run.
+*
+*         The section boundary is still hard. A section emits a heading, so
+*         gathering an upload from the next one would file it under the wrong
+*         title - which is a worse bug than a full-width control.
+          DATA lt_upix TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+          CLEAR lt_upix.
+          APPEND lv_ix TO lt_upix.
+
+          DATA(lv_scan) = lv_ix + 1.
+          WHILE lv_scan <= lines( is_step-fields )
+                AND lines( lt_upix ) < is_step-columns.
+            DATA(ls_scan) = is_step-fields[ lv_scan ].
+            IF ls_scan-section <> ls_f-section.
               EXIT.
             ENDIF.
-            IF mo_e->mo_rules->is_hidden( ls_upf ) = abap_false.
-              lv_upc = lv_upc + 1.
-              IF lv_upc > is_step-columns.
-                EXIT.
-              ENDIF.
+            IF to_upper( ls_scan-type ) = 'UPLOAD'
+               AND mo_e->mo_rules->is_hidden( ls_scan ) = abap_false.
+              APPEND lv_scan TO lt_upix.
             ENDIF.
-            lv_upn = lv_upn + 1.
+            lv_scan = lv_scan + 1.
           ENDWHILE.
-          lv_upn = lv_upn - 1.
 
-          IF lv_upn > lv_ix.
-            lv_taken = lv_upn.
+          IF lines( lt_upix ) > 1.
             DATA(lo_uprow) = lo_target->hbox( class          = 'rakRow rakUpRow'
                                               alignitems     = 'Start'
                                               justifycontent = 'Start' ).
-            LOOP AT is_step-fields INTO DATA(ls_upr) FROM lv_ix TO lv_upn.
-              IF mo_e->mo_rules->is_hidden( ls_upr ) = abap_true.
-                CONTINUE.
-              ENDIF.
+            LOOP AT lt_upix INTO DATA(lv_upi).
+              DATA(ls_upr) = is_step-fields[ lv_upi ].
               DATA(lo_upcell) = lo_uprow->vbox( class = 'rakCell rakUpCell' ).
               before_field( io_view = lo_upcell is_field = ls_upr ).
               render_block( io_parent = lo_upcell is_field = ls_upr ).
               after_field( io_view = lo_upcell is_field = ls_upr ).
+*             Every one EXCEPT the field the outer loop is currently on, which it
+*             is about to leave by itself.
+              IF lv_upi <> lv_ix.
+                APPEND lv_upi TO lt_used.
+              ENDIF.
             ENDLOOP.
             CONTINUE.
           ENDIF.
@@ -2164,9 +2502,69 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD long_text.
+*   Two routes, in this order:
+*
+*     TEXT: on DEFAULT_VAL          explicit config, wins outright
+*     ZCL_RAK_TEXT=>LONG_TEXTS( )   journey + field, bilingual, in git
+*     ZLABEL                        whatever fits in 150 characters
+*
+*   The second is what a truncated legal declaration needs. The first is
+*   for text a consultant should be able to change without a transport.
+    rv_text = is_field-label.
+
+    IF is_field-default NP 'TEXT:*'.
+*     No TEXT: instruction - ask the text service whether it holds a
+*     paragraph for this journey and field. Returns the label unchanged
+*     when it does not, so nothing configured before this behaves
+*     differently.
+      rv_text = zcl_rak_text=>long( iv_journey = mo_e->ms_config-journey_id
+                                    iv_field   = is_field-name
+                                    iv_default = is_field-label ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_body) = substring( val = is_field-default off = 5 ).
+    CONDENSE lv_body.
+    IF lv_body IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    IF lv_body(1) <> '@'.
+*     A literal paragraph. Language-neutral: DEFAULT_VAL has no _AR twin,
+*     so an Arabic reader sees whatever was configured here. Use the @ form
+*     when that matters.
+      rv_text = lv_body.
+      RETURN.
+    ENDIF.
+
+*   TEXT:@nnn - a message number in ZRAK_T_CJ_TXT, which does have TEXT_EN
+*   and TEXT_AR and is picked by sy-langu. The label stays as the fallback,
+*   so a number that resolves to nothing shows the truncated text rather
+*   than an empty consent statement with a tick box beside it.
+    DATA(lv_no) = substring( val = lv_body off = 1 ).
+    CONDENSE lv_no.
+    TRY.
+        rv_text = zcl_rak_text=>get( iv_no      = CONV symsgno( lv_no )
+                                     iv_default = is_field-label
+                                     iv_journey = mo_e->ms_config-journey_id ).
+      CATCH cx_root.
+        rv_text = is_field-label.
+    ENDTRY.
+  ENDMETHOD.
+
+
   METHOD req_label.
     DATA(lv_req) = mo_e->mo_rules->is_required( is_field ).
-    io_form->label( text  = zcl_rak_journey_util=>esc( is_field-label )
+*   In a FLOW cell the label belongs to the cell, not to the row holding the
+*   control and its buttons - otherwise it lines up beside the input and that
+*   one field stops matching every other field on the step.
+    DATA lo_lbl TYPE REF TO z2ui5_cl_xml_view.
+    lo_lbl = io_form.
+    IF mo_lbl_tgt IS BOUND.
+      lo_lbl = mo_lbl_tgt.
+    ENDIF.
+    lo_lbl->label( text  = zcl_rak_journey_util=>esc( is_field-label )
                     class = COND string( WHEN lv_req = abap_true
                                          THEN 'rakReq sapUiFormLabelNoColon'
                                          ELSE 'sapUiFormLabelNoColon' ) ).
