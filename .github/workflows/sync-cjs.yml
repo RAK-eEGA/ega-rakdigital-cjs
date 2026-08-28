@@ -1,0 +1,39 @@
+name: Sync CJS public repo into feature/dev
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature/dev
+        uses: actions/checkout@v4
+        with:
+          ref: feature/dev
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "cjs-sync-bot"
+          git config user.email "actions@github.com"
+
+      - name: Add public repo and fetch
+        run: |
+          git remote add source https://github.com/ega-vk-5794/CJS.git || git remote set-url source https://github.com/ega-vk-5794/CJS.git
+          git fetch source main
+
+      - name: Merge public main into feature/dev
+        run: |
+          git merge source/main --no-edit --allow-unrelated-histories || {
+            echo "::error::Merge conflict - sync stopped. Resolve manually."
+            exit 1
+          }
+
+      - name: Push updates
+        run: git push origin feature/dev
