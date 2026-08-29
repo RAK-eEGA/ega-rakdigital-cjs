@@ -538,6 +538,9 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS render.
     METHODS render_toolbar  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_branding IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_hero     IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS brand_logo_ega RETURNING VALUE(rv) TYPE string.
+    METHODS brand_logo_rak RETURNING VALUE(rv) TYPE string.
     METHODS render_compose  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_style    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_theme    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
@@ -1604,6 +1607,21 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakHero { background: linear-gradient(135deg, rgb(196,30,38), rgb(166,18,22)); color:#fff; padding:22px 26px; border-radius:16px; margin:10px; box-shadow:0 10px 30px rgba(196,30,38,0.26); }` &&
       `.rakHero h1 { margin:0; font-size:1.6rem; font-weight:700; }` &&
       `.rakHero p { margin:6px 0 0; opacity:0.92; }` &&
+*     The two authority logos sit INSIDE this same card on Compose, one
+*     at each edge flanking the title, rather than grouped together on
+*     one side. Grid, not flex+space-between - with a logo now in BOTH
+*     outer columns the title has to stay centred regardless of whether
+*     the two logos happen to be the same width, and auto/1fr/auto is
+*     what guarantees that (the same trick RENDER_BRANDING( )'s thin bar
+*     already uses for its centred text). White chips behind each mark -
+*     both source images have a white/light background themselves, so
+*     placed directly on the dark red gradient they would read as two
+*     stray rectangles instead of a deliberate letterhead-style pairing.
+      `.rakHeroTop { display:grid; grid-template-columns: auto 1fr auto; align-items:center; gap:1.2rem; }` &&
+      `.rakHeroTitle { min-width:0; text-align:center; }` &&
+      `.rakHeroLogo { background:#fff; border-radius:8px; padding:0.35rem 0.6rem; ` &&
+      `display:inline-flex; align-items:center; line-height:0; }` &&
+      `.rakHeroLogo img { height:2.1rem; width:auto; display:block; }` &&
       `.rakSec { color: rgb(16,35,62); font-weight:700; font-size:1.05rem; margin:16px 14px 2px; }` &&
       `.rakCard { background:#fff; border:1px solid #eceff3; border-radius:14px; padding:14px; box-shadow:0 2px 10px rgba(16,35,62,0.06); }` &&
       `.rakCard:hover { box-shadow:0 10px 22px rgba(16,35,62,0.12); }` &&
@@ -1621,11 +1639,28 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
       `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
-      `.rakBrandBar { display:flex; align-items:center; gap:0.75rem; ` &&
-      `padding:0.5rem 0.9rem 0; }` &&
-      `.rakBrandLogo { height:2.4rem; width:auto; }` &&
-      `.rakBrandText { color: rgb(196,30,38); font-weight:800; ` &&
-      `font-size:1.15rem; letter-spacing:0.02em; }` &&
+*     A three-column GRID, not flex + absolute positioning - the first
+*     version put the text off left:50% with a -50% transform, meant to
+*     read relative to this bar, and it rendered pinned to the far edge
+*     of the PAGE instead: whatever UI5 control wrapping sap.m.Text sits
+*     inside was not the element POSITION:RELATIVE landed on, so the
+*     percentage resolved against a distant positioned ancestor instead.
+*     Flex itself was never the problem - the very first render already
+*     laid out three items in a row correctly - so GRID keeps that same
+*     mechanism and drops the fragile part. 1fr/auto/1fr forces the two
+*     outer columns to equal width, which is what makes the middle
+*     column - and the text inside it - sit on the bar's true center
+*     regardless of the two logos' different widths, with no transform
+*     trick needed. Transparent background: it sits directly on the
+*     page, not inside its own card.
+      `.rakBrandBar { display:grid; grid-template-columns: 1fr auto 1fr; ` &&
+      `align-items:center; column-gap:1rem; padding:0.5rem 1rem; background:transparent; }` &&
+      `.rakBrandBar > *:first-child { justify-self:start; }` &&
+      `.rakBrandBar > *:last-child { justify-self:end; }` &&
+      `.rakBrandLogo { height:2rem; width:auto; }` &&
+      `.rakBrandText { justify-self:center; white-space:nowrap; ` &&
+      `color: rgb(196,30,38); font-weight:800; ` &&
+      `font-size:1.05rem; letter-spacing:0.02em; }` &&
 *     Bottom right, not top: the toolbar and the panel headers are what the author
 *     is aiming at, and a banner across the top covers exactly those. z-index 90
 *     sits above the page and below UI5's own dialogs, which start around 1000 -
@@ -1742,10 +1777,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD render.
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
-    DATA(page) = view->shell( )->page( title = 'RAK Customer Journey Studio' class = 'sapUiSizeCompact' ).
+*   SHOWHEADER = FALSE, not a blank title - "RAK Customer Journey
+*   Studio" already appears in the hero banner below, and an empty
+*   sap.m.Page header still reserves its own row of vertical space even
+*   with no text in it.
+    DATA(page) = view->shell( )->page( showheader = abap_false class = 'sapUiSizeCompact' ).
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
-    render_branding( page ).
+*   Compose gets the hero card instead of the thin bar - and it goes
+*   first, above the toolbar and mode tabs, so it reads as the page's
+*   masthead rather than a banner sandwiched between two rows of
+*   buttons. RENDER_BRANDING( )'s bar would also just repeat both logos
+*   a moment later on the exact same page, so it only runs elsewhere.
+    IF mv_mode = 'COMPOSE'.
+      render_hero( page ).
+    ELSE.
+      render_branding( page ).
+    ENDIF.
     render_toolbar( page ).
 *   Floating, not in the flow. An inline strip appears and disappears between the
 *   toolbar and the panels, so every action that produced a message pushed the
@@ -1851,7 +1899,32 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   this yet, and a data URI needs neither. The EGA mark had its unused
 *   Photoshop/EXIF/ICC metadata stripped before encoding - same pixels,
 *   80% smaller - so the pair together stay under 13KB of source.
-    DATA(lv_brand_ega) =
+    DATA(lv_brand_ega) = brand_logo_ega( ).
+    DATA(lv_brand_rak) = brand_logo_rak( ).
+
+*   DOM order is the layout now (grid auto-placement, column 1/2/3, no
+*   transform trick) - left logo, center text, right logo, in that
+*   order, or the grid puts them in the wrong columns.
+    DATA(bar) = io->hbox( alignitems = 'Center' class = 'rakBrandBar' ).
+    bar->image( src        = |data:image/jpeg;base64,{ lv_brand_ega }|
+                height     = '2rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Electronic Government Authority' ).
+    bar->text( text = 'RAK Digital' class = 'rakBrandText' ).
+    bar->image( src        = |data:image/gif;base64,{ lv_brand_rak }|
+                height     = '2rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Government of Ras Al Khaimah' ).
+  ENDMETHOD.
+
+  METHOD brand_logo_ega.
+*   EGA mark, base64 JPEG data URI payload only (no 'data:image/...'
+*   prefix - callers add that, since they also pick the mime type).
+*   Metadata-stripped: same pixels as the source file, 80% smaller
+*   (38KB -> 7.5KB) after removing its unused Photoshop/EXIF/ICC blocks.
+    rv =
       `/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ` &&
       `EBAQEBAQEBD/wAARCACWAMgDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAYHBAUIAwkCAf/EAD8QAAEEAgIBAwIEAwQHCAMAAAECAwQFAAYHERIIEyEiMRQyQWEVI1EJFnGBJDNSV5GW1RcYQkNicoKhU5Lw/8QAGgEBAAIDAQAAAAAAAAAAAAAAAAIFAwQG` &&
       `Af/EADARAAIBAwMCBAQFBQAAAAAAAAABAgMEEQUhQRIxBlFhgRMicaFSkbHB8BQWMkLh/9oADAMBAAIRAxEAPwD6p4xjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMY` &&
@@ -1903,8 +1976,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `IPY8Rns76IGXWLGc9y/dSNhm8iVnJbdpIrY6kt2kNr2w2phHilTKkk/SCkp+nonr56hxgHNyfRXQlxTr+/2rhc5gTzA4DEZ6VMCPEwuv/wAJ/wBr8375jan6GtS1V3V6trd7WTrGgyryfqdQuM0DAkWYWFqde/NISz7rvtAhJHn9RX0OumsYBz9T+kKhp9G4X0ZrdrRx` &&
       `jhi5ZuIMhUdvzsFNpdSG3R9kp8XlDtPz8DIRyR6S4ddwfsHCddZ3t9F3jf2bmofjwvCTrT0ieJT8pUhvvpDKUvEOKCSe0t99rBzrjGAYdPU11BUQqKniNxYFdHbiRWGx0lpltIShA/YJAH+WMzMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMY` &&
       `AxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgH//2Q==`.
+  ENDMETHOD.
 
-    DATA(lv_brand_rak) =
+
+  METHOD brand_logo_rak.
+*   RAK Government mark, base64 GIF data URI payload only.
+    rv =
       `R0lGODlhywBCAMQQAPGRlPjIyepbX/3x8uUyNuhNUfvk5PStruc/RPrW1+52eu+Eh/Ofofa6vOxpbOMkKf///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAABAALAAAAADLAEIAAAX/ICSOZGmeaKqubOu+cCzPdG3feK7v` &&
       `fO//wKBwSCwaj8ikcslsOp/QqLSZmFqvzASigO16hwJG9Usu5xYFgnnNhg0a4bb8ZnhqEYA5K3DQmwp9Jgt1SABjfiUJBA1CAwICAwoEhzsHDwInDwpJCA6NC4wLC0ENBA+EQA4Pq6tqPQIPriQBsQNHBquoPgWrsA+jPZGxCEOKDwG8gTsDrLYkDKvKRLQPDEEKqwCr` &&
       `1jsGAKYFC57FjAMBPg0FCMcl2g/jRdAPXEADC30H0jYGB6rZEA7yIBIBgIGqcyTcySLi7oGzMgYUrFuFYJGIAgh9mAvAkQ88G5EOCQigLSNBAqYo/wnRZspkDgMdOTIARqfjgAEEEDr8sYBVrDAPbfCaJMKTtqAQAAjoqS9IgDAPBOZw5LNT0xy0ziH7IZGBSx28HjCC` &&
@@ -1920,25 +1997,34 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `qIMicjJFXRkSTI0RwFDsNlFY6EoqIvybJbY1p6yeI6AluaVbwTpXF2hjqmWtDVwxWgdiiuaGUnyrTzFx09bWBhv1yetPFWfVguZOiRTFBFynKKnRigABewEbVFOLLmm+lK7cOUdlOcqOgyiKO33I50vDukMAeasK2/MhC9nechja/WkeCUjANhEiW9bStbO0WITyvOFT` &&
       `gM5UQzfShjX+makOhgtdDjDGOaTmGWXQAhXYwMRwf8sOselwrtzRi23ryY4p/k1A1KANWsTaglaxAm8iSEdFFPAQao2Aa5npwwLH4NU+nHQUNKpDigEigDrcKRbz/AscRkEYApTKRGkQSIkToZ0FcpgX+ZmTA6IT24/AARInLsEjqnDkc/RYAMIyhTiauhQIjNjKUMZy` &&
       `eGcJW9uEFYj/C7OYx0zmMpv5zGhOs5rXzOY2u/nNcI6znOdMZy+EAAA7`.
+  ENDMETHOD.
 
-    DATA(bar) = io->hbox( alignitems = 'Center' class = 'rakBrandBar' ).
-    bar->image( src        = |data:image/jpeg;base64,{ lv_brand_ega }|
-                height     = '2.4rem'
-                class      = 'rakBrandLogo'
-                decorative = abap_false
-                alt        = 'Electronic Government Authority' ).
-    bar->image( src        = |data:image/gif;base64,{ lv_brand_rak }|
-                height     = '2.4rem'
-                class      = 'rakBrandLogo'
-                decorative = abap_false
-                alt        = 'Government of Ras Al Khaimah' ).
-    bar->text( text = 'rak digital' class = 'rakBrandText' ).
+
+  METHOD render_hero.
+*   Compose's masthead - called from RENDER( ), above the toolbar and
+*   mode tabs, not from RENDER_COMPOSE( ) itself, so it is the first
+*   thing on the page rather than a banner sandwiched between two rows
+*   of buttons. One logo at each edge, title centred between them
+*   (RAKHEROTOP's grid does the centring - see CSS( )). Every other tab
+*   (Author, Preview, Migrate, Audit, Design) has no hero of its own, so
+*   RENDER_BRANDING( ) still runs there unchanged. Subtitle trimmed to
+*   one clause - "theme, colours and branding, the full configuration
+*   lives in Author" was telling the author something the Author tab
+*   itself already shows.
+    io->html(
+      content = `<div class="rakHero"><div class="rakHeroTop">` &&
+                `<span class="rakHeroLogo"><img src="data:image/jpeg;base64,` && brand_logo_ega( ) &&
+                `" alt="Electronic Government Authority"/></span>` &&
+                `<div class="rakHeroTitle"><h1>RAK Customer Journey Studio</h1>` &&
+                `<p>Pick a pattern to start a new service, or restyle the one you have.</p></div>` &&
+                `<span class="rakHeroLogo"><img src="data:image/gif;base64,` && brand_logo_rak( ) &&
+                `" alt="Government of Ras Al Khaimah"/></span>` &&
+                `</div></div>`
+      sanitizecontent = abap_false ).
   ENDMETHOD.
 
 
   METHOD render_compose.
-    io->html( content         = `<div class="rakHero"><h1>RAK Customer Journey Studio</h1><p>Pick a pattern to start a new service, or restyle the one you have &mdash; theme, colours and branding. The full configuration lives in Author.</p></div>`
-              sanitizecontent = abap_false ).
     DATA(split) = io->hbox( alignitems = 'Stretch' class = 'sapUiSmallMargin' ).
     DATA(left)  = split->vbox( width = '60%' class = 'sapUiSmallMarginEnd' ).
     DATA(right) = split->vbox( width = '26rem' ).
