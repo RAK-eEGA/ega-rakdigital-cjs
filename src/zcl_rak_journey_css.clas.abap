@@ -786,7 +786,19 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPcl\{width:100%;gap:.6rem;\}| &&
         |.rakPclBar\{width:100%;gap:.5rem;flex-wrap:wrap;\}| &&
         |.rakPclBar .sapMSF\{margin-inline-start:auto;\}| &&
-        |.rakPclCard\{width:100%;background:#fff;border:1px solid { g-line_clr };| &&
+*     BOX-SIZING, and it is what closes THE RECTANGLE. width:100% with the
+*     padding and the border OUTSIDE it renders the card wider than the
+*     space it is given - 2.2rem of padding plus 5px of border - so the
+*     right-hand border lands past the edge and is never drawn. The red
+*     left edge survives because it sits at the START of the box, which is
+*     why the card reads as OPEN ON THE RIGHT rather than as simply too
+*     wide, and why the fault looks like a missing border rather than an
+*     overflow. .rakPrjCard and .rakRecCard are the same shape and both
+*     already carry this; the parcel card was missed. width:auto rather
+*     than 100% so whatever margin .rakCard supplies stays outside the box
+*     instead of adding to it - .rakRecCard's form, for the same reason.
+        |.rakPclCard\{width:auto;box-sizing:border-box;background:#fff;| &&
+        |border:1px solid { g-line_clr };| &&
         |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
         |padding:.85rem 1.1rem;\}| &&
         |.rakPclTop\{width:100%;align-items:center;gap:.6rem;\}| &&
