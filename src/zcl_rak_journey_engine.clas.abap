@@ -209,6 +209,53 @@ CLASS zcl_rak_journey_engine DEFINITION
 *   are not.
     DATA mv_pcl_view  TYPE string.
 
+*   ---- THE PARCEL READ, KEPT ACROSS ROUND TRIPS ----------------------
+*   THE READ WAS REPEATED ON EVERY ROUND TRIP, AND A TICK IS A ROUND
+*   TRIP. ZCL_RAK_CJ_PARCEL caches its rows in MT_ROWS, but ENSURE_PARTS( )
+*   creates that control FRESH every round trip, so the cache never
+*   survived one: paging re-read, searching re-read, and ticking a box
+*   re-read the citizen's entire property list to redraw a list that had
+*   not changed. Measured on a 24-parcel citizen that is most of a second
+*   of greyed-out page per tick - which is what the flicker report was
+*   actually about once the repaint itself had been dealt with.
+*
+*   Its own TRACE_GATE( ) has been asking for this in words: "at this size
+*   that wants a cross-round-trip cache keyed on partner, mode and owner."
+*   This is that cache. The engine survives the round trip - the draft is
+*   persisted server side - so the rows live here and the control reads
+*   through them.
+*
+*   REF TO DATA, NOT THE TYPED TABLE, and that is the same reason MO_PCL
+*   below is an interface reference: the row type is
+*   ZCL_RAK_PROPERTY_API=>TT_PROP_ROWS, which reaches the generated legacy
+*   DPC, and naming it here would drag that whole chain into the engine's
+*   load graph for every journey including the ones with no parcel field
+*   at all. The control names the type; the engine only holds the box.
+*
+*   KEYED, AND THE KEY IS THE CONTROL'S OWN. Mode and owner both change
+*   what the read returns, so both are in it - a key that matched across a
+*   switch from Owned to Grants would serve the wrong list. Search and
+*   Favourites are NOT in it and must not be: they are applied after the
+*   read, in HITS( ), so they filter these rows rather than changing them.
+*
+*   STALE ONLY IF THE CITIZEN'S PROPERTY CHANGES MID-JOURNEY, which is not
+*   something a journey can do to itself - it reads property, it does not
+*   create it. CLEARing MV_PCL_ROWKEY forces the next read, if a step ever
+*   does need to see new rows.
+    DATA mr_pcl_rows   TYPE REF TO data.
+    DATA mv_pcl_rowkey TYPE string.
+
+*   THE MANAGED-OWNER LIST, THE SAME WAY AND FOR THE SAME REASON. It is a
+*   SECOND backend call with the same per-round-trip lifetime, so the
+*   Property Agent tab paid for two reads on every tick where the other
+*   tabs paid for one. No key: it is the citizen's own list of the people
+*   they act for, and nothing on the step changes it - a flag is enough to
+*   tell "read and empty" from "not read yet", which matters because an
+*   agent with nobody to act for would otherwise re-read on every round
+*   trip forever.
+    DATA mr_pcl_own    TYPE REF TO data.
+    DATA mv_pcl_ownrd  TYPE abap_bool.
+
 *   The control that draws it. An INTERFACE reference on purpose - the
 *   implementing class reaches the generated legacy DPC through
 *   ZCL_RAK_PROPERTY_API, and naming it here would put that whole chain in

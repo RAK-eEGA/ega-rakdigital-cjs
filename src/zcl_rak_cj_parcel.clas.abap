@@ -446,6 +446,31 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       rt = mt_own.
       RETURN.
     ENDIF.
+
+*   ---- KEPT ACROSS ROUND TRIPS, EXACTLY AS ROWS( ) IS -----------------
+*   THE AGENT TAB WAS PAYING TWICE. MV_OWNRD above is this control's own
+*   and dies with it every round trip - ENSURE_PARTS( ) rebuilds the
+*   control - so on the Property Agent tab a tick read the managed-owner
+*   list AND the full parcel list, both from the legacy backend, to redraw
+*   a toolbar and a list that had not changed. See the note on the engine
+*   attributes for the whole argument; this is the second half of it.
+*
+*   NO KEY, UNLIKE ROWS( ). Mode and owner change what the PARCEL read
+*   returns; nothing on the step changes who the citizen may act for. The
+*   flag is what distinguishes "read, and the answer was none" from "not
+*   read yet" - without it an agent with an empty list would re-read on
+*   every round trip forever, which is the case that needs this most.
+    FIELD-SYMBOLS <lt_own> TYPE zcl_rak_property_api=>tt_partner_rows.
+    IF mo_e->mv_pcl_ownrd = abap_true AND mo_e->mr_pcl_own IS BOUND.
+      ASSIGN mo_e->mr_pcl_own->* TO <lt_own>.
+      IF sy-subrc = 0.
+        mt_own   = <lt_own>.
+        mv_ownrd = abap_true.
+        rt       = mt_own.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     mv_ownrd = abap_true.
     TRY.
         DATA(ls) = api( )->managed_owners( ).
@@ -453,6 +478,16 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       CATCH cx_root.
         CLEAR mt_own.
     ENDTRY.
+
+    CREATE DATA mo_e->mr_pcl_own TYPE zcl_rak_property_api=>tt_partner_rows.
+    ASSIGN mo_e->mr_pcl_own->* TO <lt_own>.
+    IF sy-subrc = 0.
+      <lt_own> = mt_own.
+      mo_e->mv_pcl_ownrd = abap_true.
+    ELSE.
+      CLEAR: mo_e->mr_pcl_own, mo_e->mv_pcl_ownrd.
+    ENDIF.
+
     rt = mt_own.
   ENDMETHOD.
 
@@ -466,21 +501,64 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       rt = mt_rows.
       RETURN.
     ENDIF.
+
+*   ---- THE SAME ROWS THE LAST ROUND TRIP READ ------------------------
+*   BEFORE THE READ, BECAUSE THE READ IS THE THING BEING AVOIDED. The
+*   cache above is this control's own and dies with it - ENSURE_PARTS( )
+*   builds the control fresh every round trip - so on its own it only ever
+*   saved a SECOND call within ONE round trip. This one lives on the
+*   engine, which the draft carries across, so a tick that changes nothing
+*   about which rows exist does not go back to the legacy DPC for them.
+*   That read is most of a second on a real citizen and it ran on every
+*   tick, every page press and every search.
+*
+*   THE KEY IS MODE AND OWNER, matching the local cache above: those two
+*   are what change the READ. Search and Favourites are applied after it in
+*   HITS( ) and must stay out of the key, or every keystroke would look
+*   like a different list and re-read the lot.
+*
+*   A FAILED ASSIGN FALLS THROUGH TO THE READ rather than returning
+*   nothing. The reference is only ever created here, so a type that does
+*   not match means the cache is from an older session shape - in which
+*   case the right answer is to read again and overwrite it, not to draw
+*   an empty list.
+    FIELD-SYMBOLS <lt_cache> TYPE zcl_rak_property_api=>tt_prop_rows.
+    IF mo_e->mr_pcl_rows IS BOUND AND mo_e->mv_pcl_rowkey = lv_key.
+      ASSIGN mo_e->mr_pcl_rows->* TO <lt_cache>.
+      IF sy-subrc = 0.
+        mt_rows = <lt_cache>.
+        mv_read = abap_true.
+        mv_key  = lv_key.
+        CLEAR mv_note.
+*       GUARDED, like the timed trace further down and unlike TICKS( )'s
+*       per-slot line: the string template is built before TRACE( ) is
+*       entered, so an unguarded call costs the concatenation on every
+*       round trip of every journey whether or not anyone is tracing.
+        IF mo_e->mv_trace = abap_true.
+          mo_e->trace( |PARCEL  read { mode( ) } served from the engine cache | &&
+                       |· { lines( mt_rows ) } row(s) · no backend call| ).
+        ENDIF.
+        rt = mt_rows.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     mv_read = abap_true.
     mv_key  = lv_key.
     CLEAR: mt_rows, mv_note.
 
 *   ---- TIMED, BECAUSE THIS READ IS THE SELECTOR'S WHOLE COST ----------
 *
-*   THE CACHE ABOVE IS PER ROUND TRIP, NOT PER SESSION, and that is the
-*   performance characteristic worth knowing about rather than guessing
-*   at. ZCL_RAK_JOURNEY_ENGINE->ENSURE_PARTS( ) creates this control fresh
-*   on EVERY round trip, so MV_READ and MT_ROWS start empty every time:
-*   the full parcel read happens again on every page press, every search,
-*   every owner switch and - now that the cards carry checkboxes - every
-*   single tick.
+*   REACHED ONCE PER MODE PER SESSION NOW, NOT ONCE PER ROUND TRIP. Both
+*   caches above had to miss to get here: MV_READ, which is this control's
+*   own and dies with it every round trip, and MV_PCL_ROWKEY on the engine,
+*   which does not. What used to stand here recorded the opposite - that
+*   ENSURE_PARTS( ) rebuilds the control every round trip, so MT_ROWS
+*   started empty every time and the full read ran again on every page
+*   press, every search, every owner switch and every single tick. That is
+*   what the engine-level cache is for.
 *
-*   AND THE READ IS UNBOUNDED. PROPERTIES( ) sends Partner, Partnerguid,
+*   AND THE READ IS STILL UNBOUNDED. PROPERTIES( ) sends Partner, Partnerguid,
 *   Partnerrole and Type as filters and no $top or $skip, so a partner
 *   with two hundred parcels fetches two hundred rows to render five.
 *   Paging and search are applied AFTER this, in HITS( ) and PAGER( ) -
@@ -521,7 +599,25 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         mv_note = lx->get_text( ).
     ENDTRY.
 
+*   ---- AND KEPT, SO THE NEXT ROUND TRIP DOES NOT REPEAT IT ------------
+*   UNCONDITIONALLY, INCLUDING AN EMPTY RESULT. A citizen with no property
+*   reads nothing every time otherwise, which is the same cost for the
+*   same answer. MV_NOTE is deliberately NOT cached: it is recomputed from
+*   the rows on the next render, and a message from a failed read has no
+*   business outliving the read that produced it.
+*
+*   A FAILED READ IS STILL CACHED, and that is the one thing here worth
+*   arguing about. It is the right side to err on: the alternative is a
+*   backend that is down being asked again on every tick, which is the
+*   behaviour this whole change exists to remove. MV_PCL_ROWKEY is a
+*   CLEAR away from forcing a fresh read when a step needs one.
     DATA(lv_ms) = mo_e->tock( lv_t0 ).
+
+*   AFTER TOCK( ), SO THE NUMBER STAYS THE READ'S. Filling the cache is a
+*   table copy and costs almost nothing, but "almost nothing" is not the
+*   same as nothing and this figure is the one the gate below judges and
+*   the one anyone tuning the DPC will quote. It measures the backend call
+*   and only the backend call.
     IF mo_e->mv_trace = abap_true.
       mo_e->trace( |PARCEL  read { mode( ) }| &&
                    COND string( WHEN owner( ) IS NOT INITIAL THEN |/{ owner( ) }| ELSE `` ) &&
@@ -529,24 +625,45 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                    | · page size { c_page_size }| ).
       mo_e->trace_perf( iv_label = |PARCEL read { mode( ) }| iv_ms = lv_ms ).
 
-*     A GATE, NOT A TRACE LINE, ONCE IT IS BIG ENOUGH TO FEEL. The number
-*     that matters is not the read on its own - it is the read multiplied
-*     by the round trips, and a multi-select list turns one selection into
-*     one round trip PER PARCEL. Fifty rows at 40ms is invisible; two
-*     hundred rows at 400ms is four seconds spent across ten ticks.
+*     A GATE, NOT A TRACE LINE, ONCE IT IS BIG ENOUGH TO FEEL.
+*
+*     WHAT IT USED TO SAY IS NOW DONE. It asked for "a cross-round-trip
+*     cache keyed on partner, mode and owner" because the read ran again on
+*     every round trip, which turned a multi-select list into one full
+*     property read PER TICK. The cache above is that cache, so this is no
+*     longer a cost multiplied by the round trips.
+*
+*     WHAT IS LEFT IS THE FIRST READ OF A MODE, once per mode per session,
+*     and it is still worth seeing: it is the wait before the list appears,
+*     and it is still UNBOUNDED - PROPERTIES( ) sends no $top or $skip, so
+*     a partner with two hundred parcels fetches two hundred rows to render
+*     five. Paging and search are applied after it, in HITS( ) and PAGER( ),
+*     which is correct and matches the legacy control - neither is a filter
+*     the DPC accepts - but it means neither reduces what is read. Fixing
+*     THAT means a DPC that pages, which is a backend change.
 *
 *     The threshold is deliberately generous. This is here to make a real
 *     problem visible on a real partner, not to complain about a
 *     development client with three parcels.
       IF lines( mt_rows ) > 60 OR lv_ms > 300.
         mo_e->trace_gate( |The parcel read returned { lines( mt_rows ) } row(s) in | &&
-                          |{ lv_ms } ms, and it is repeated on EVERY round trip - | &&
-                          |the control is recreated per round trip, so its row | &&
-                          |cache never survives one. Paging and search are applied | &&
-                          |after the read and do not reduce it. At this size that | &&
-                          |wants a cross-round-trip cache keyed on partner, mode | &&
-                          |and owner.| ).
+                          |{ lv_ms } ms. It is now cached across round trips, so | &&
+                          |this is the FIRST read of this mode in the session and | &&
+                          |not a per-tick cost - but it is still the wait before | &&
+                          |the list appears, and it is still unbounded: paging and | &&
+                          |search are applied after it and do not reduce it. | &&
+                          |Reducing it further means a DPC that accepts $top and | &&
+                          |$skip.| ).
       ENDIF.
+    ENDIF.
+
+    CREATE DATA mo_e->mr_pcl_rows TYPE zcl_rak_property_api=>tt_prop_rows.
+    ASSIGN mo_e->mr_pcl_rows->* TO <lt_cache>.
+    IF sy-subrc = 0.
+      <lt_cache> = mt_rows.
+      mo_e->mv_pcl_rowkey = lv_key.
+    ELSE.
+      CLEAR: mo_e->mr_pcl_rows, mo_e->mv_pcl_rowkey.
     ENDIF.
 
     rt = mt_rows.
