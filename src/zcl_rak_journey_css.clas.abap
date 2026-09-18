@@ -802,6 +802,34 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
         |padding:.85rem 1.1rem;\}| &&
         |.rakPclTop\{width:100%;align-items:center;gap:.6rem;\}| &&
+*     ---- THE TICK BOX, LINED UP WITH THE PARCEL NUMBER -----------------
+*     ALIGN-ITEMS:CENTER ABOVE IS NOT ENOUGH ON ITS OWN, and that is why
+*     the box sat low against the number it belongs to. A sap.m.CheckBox
+*     is a TALL WRAPPER around a small square: .sapMCb reserves a full
+*     input row's height so a box with a caption lines up with the text
+*     fields beside it, and .sapMCbBg is pushed DOWN inside that wrapper
+*     to meet the caption's baseline. The flex row was centring the
+*     wrapper correctly - the square inside it was the thing off centre.
+*
+*     SO THE WRAPPER IS COLLAPSED TO THE SQUARE, rather than the square
+*     being nudged with a margin. A margin would have to be re-guessed
+*     every time the row's font size or the badge's padding changed;
+*     with the wrapper the size of its own content, align-items:center
+*     keeps the box centred on the number by itself.
+*
+*     SCOPED TO .rakPclTop. The global .sapMCb rules further down are
+*     what a checkbox WITH a caption in a form row needs, and they are
+*     right there - this is the one place the box is bare and sits beside
+*     a title rather than above a field.
+        |.rakPclTop .sapMCb\{height:auto;min-height:0;padding:0;margin:0;\}| &&
+        |.rakPclTop .sapMCb .sapMCbBg\{top:0;margin:0;\}| &&
+*     THE EMPTY CAPTION STILL TOOK ITS PADDING. The box is drawn with no
+*     text, but .sapMCb .sapMCbLabel below adds .4rem of inline-start
+*     padding to every caption - on an empty one that is a strip of blank
+*     between the box and the number that the .6rem gap was already
+*     providing. Removed rather than zeroed so it cannot take part in the
+*     row's height either.
+        |.rakPclTop .sapMCbLabel\{display:none;\}| &&
         |.rakPclNo .sapMTitle\{font-size:1.05rem;letter-spacing:.01em;\}| &&
         |.rakPclBadge .sapMObjStatusText\{font-weight:600;font-size:.75rem;\}| &&
         |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&

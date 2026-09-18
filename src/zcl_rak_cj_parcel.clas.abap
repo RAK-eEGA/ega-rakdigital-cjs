@@ -283,6 +283,8 @@ CLASS zcl_rak_cj_parcel DEFINITION
                      RETURNING VALUE(rv) TYPE abap_bool.
     METHODS sel_now  IMPORTING iv_key    TYPE string
                      RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS sel_tog  IMPORTING iv_field  TYPE string
+                               iv_key    TYPE string.
     METHODS toggle   IMPORTING iv_field  TYPE string
                                iv_key    TYPE string.
 
@@ -628,8 +630,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_cur) = mo_e->val_get( mv_fld ).
     IF lv_cur IS NOT INITIAL.
       DATA(lo_cur) = lo_box->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
+*     BOUND, NOT WRITTEN, FOR THE REASON THE TICK BOXES ARE. Writing
+*     LV_CUR here put the chosen parcel number into the MARKUP, so moving
+*     the choice from one card to another changed the XML and SEND_VIEW( )
+*     could not take the quiet path - the tick went quiet and this line
+*     repainted the page underneath it. The binding is the same string
+*     whatever the value is.
+*
+*     BIND( ) RATHER THAN A SHARED MV_PCL_ SLOT, and that is what keeps
+*     two selectors on one step apart: it resolves the JOURNEY FIELD's own
+*     model component through COMP_NAME( ), the same component VAL_SET( )
+*     writes, so each selector binds to its own field. An engine-level
+*     scalar would have been the shorter route and would have made both
+*     headers show whichever field rendered last.
       lo_cur->object_status( title = t( iv_en = `Selected` iv_ar = `المحدد` )
-                             text  = lv_cur
+                             text  = mo_e->zif_rak_journey~bind( mv_fld )
                              state = 'Success'
                              icon  = 'sap-icon://accept' ).
       lo_cur->button( text  = t( iv_en = `Clear` iv_ar = `مسح` )
@@ -979,12 +994,12 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   box in both modes now, in this one place, and the button is gone.
 *
 *   WHAT DID NOT CHANGE IS THE SELECTION RULE. Single select still means
-*   ONE parcel: the event below sends PICK_, which REPLACES the stored
-*   value, so ticking a second card moves the choice rather than adding
-*   to it and the first card unticks on the next paint. Making the box
-*   send TOG_ in both modes would have been the smaller diff and would
-*   have written a separator-joined LIST into a field every single-select
-*   journey reads as one key.
+*   ONE parcel: the event below sends SEL_, which SEL_TOG( ) turns into a
+*   REPLACE of the stored value, so ticking a second card moves the choice
+*   rather than adding to it and the first card unticks on the next paint.
+*   Making the box send TOG_ in both modes would have been the smaller
+*   diff and would have written a separator-joined LIST into a field every
+*   single-select journey reads as one key.
 *   ---- BOUND, NOT WRITTEN, AND THAT IS THE FLICKER FIX ---------------
 *   `selected = xsdbool( lv_sel )` put the tick state into the MARKUP, so
 *   every tick changed the XML - and SEND_VIEW( ) takes the quiet path
@@ -1011,25 +1026,47 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   attributes, then behaves exactly as it used to instead of losing its
 *   tick state altogether.
 *
-*   TICKING AN ALREADY-TICKED BOX IN SINGLE MODE CLEARS IT, and it clears
-*   it through the payload the Clear button beside the heading already
-*   sends - PICK_<field>~ with an empty key. Sending the key again, which
-*   is what the Select button did on every press, would re-select what the
-*   citizen just unticked and the box would spring back under their finger.
-*   A check box has two directions where a button had one; this is the
-*   second one.
+*   TICKING AN ALREADY-TICKED BOX IN SINGLE MODE CLEARS IT. A check box
+*   has two directions where the old Select button had one, and sending
+*   the key again - which is what the button did on every press - would
+*   re-select what the citizen just unticked and the box would spring back
+*   under their finger.
 *
-*   DECIDED HERE, AT RENDER, NOT IN THE EVENT HANDLER, and that is not a
-*   preference. MV_MULTI is assigned in RENDER( ), and the control is
-*   rebuilt every round trip by ENSURE_PARTS( ) - so at event-dispatch
-*   time it is still blank whatever the journey is, exactly as MV_FLD is
-*   (see TOGGLE( )'s header). Branching on the mode inside ON_EVENT( )
-*   would read single-select on a multi journey and every tick would
-*   replace the list instead of extending it.
+*   WHICH DIRECTION IT IS, IS DECIDED IN THE HANDLER, NOT HERE. An earlier
+*   pass read LV_SEL at this point and sent the Clear payload from a ticked
+*   card, which put the selection back into the MARKUP by the back door
+*   after the binding above had just taken it out: the two cards involved
+*   in a move both changed their event string, the view could not hash
+*   equal, and the flicker survived the binding. SEL_TOG( ) reads the
+*   STORED VALUE instead, so the payload here never varies.
+*
+*   THE MODE IS STILL READ HERE, AT RENDER, AND IT HAS TO BE. MV_MULTI is
+*   assigned in RENDER( ), and the control is rebuilt every round trip by
+*   ENSURE_PARTS( ) - so at event-dispatch time it is still blank whatever
+*   the journey is, exactly as MV_FLD is (see TOGGLE( )'s header). That is
+*   why the mode is carried down as a PREFIX, SEL_ against TOG_: reading
+*   MV_MULTI inside ON_EVENT( ) would report single-select on a multi
+*   journey and every tick would replace the list instead of extending it.
+*   THE SAME STRING WHATEVER THE CARD'S STATE IS, and that is the rest of
+*   the flicker fix. This read LV_SEL and sent PICK_<field>~ - the Clear
+*   payload - for a card that was already ticked, so a tick CHANGED THE
+*   MARKUP of both cards involved and the view could never hash equal.
+*   Binding the tick state bought nothing while the event beside it moved.
+*
+*   SO THE UNTICK DECISION MOVED TO THE HANDLER, where it is made against
+*   the STORED VALUE rather than against render state: SEL_TOG( ) clears
+*   when the key it is handed is already the chosen one and picks
+*   otherwise. Same two directions, decided from the same fact, off a
+*   payload that never varies.
+*
+*   A PREFIX OF ITS OWN RATHER THAN A MODE TEST. SEL_ means single-select
+*   by its own name, so ON_EVENT( ) never has to ask MV_MULTI - which is
+*   blank at event-dispatch time, the reason TOGGLE( )'s header gives for
+*   IS_SEL( ) staying mode-blind. The mode is still read HERE, at render,
+*   exactly as before.
     DATA(lv_ev) = COND string(
       WHEN mv_multi = abap_true THEN |{ c_pfx }TOG_{ mv_fld }~{ lv_key }|
-      WHEN lv_sel   = abap_true THEN |{ c_pfx }PICK_{ mv_fld }~|
-      ELSE                           |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ).
+      ELSE                           |{ c_pfx }SEL_{ mv_fld }~{ lv_key }| ).
 
     DATA(lo_cbx) = lo_top.
     CASE iv_slot.
@@ -1151,6 +1188,64 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       rv = is_sel( iv_key ).
     ELSE.
       rv = xsdbool( mo_e->val_get( mv_fld ) = iv_key ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD sel_tog.
+*   THE SINGLE-SELECT TICK, and TOGGLE( )'s opposite number: that one adds
+*   or removes one key and leaves the rest, this one holds ONE parcel and
+*   the tick either moves it or clears it.
+*
+*   WHY THE DECISION IS HERE AND NOT AT RENDER. The box used to carry the
+*   Clear payload in its markup when it was already ticked, which made the
+*   markup move with the selection and cost the quiet path - see CARD( )'s
+*   note. Reading the stored value at event time gives the same two
+*   directions off a payload that never varies.
+*
+*   NO MODE TEST, AND NONE IS POSSIBLE HERE. MV_MULTI is blank at event
+*   dispatch - RENDER( ) assigns it and ENSURE_PARTS( ) rebuilds this
+*   control every round trip - so the mode is carried by the EVENT PREFIX
+*   instead: SEL_ is only ever written by a single-select card.
+    DATA(lv_f) = iv_field.
+    IF lv_f IS INITIAL.
+      lv_f = mo_e->mv_pcl_field.
+    ENDIF.
+    IF lv_f IS INITIAL OR iv_key IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   RESOLVED BEFORE IT IS COMPARED, for PICK( )'s reason: a card press
+*   carries the padded PARCELID and a map click the trimmed one, and what
+*   is STORED is always the row's own form. Comparing the raw payload
+*   against the stored value would read "not the chosen one" for the very
+*   parcel that is chosen, and the tick would re-pick instead of clearing.
+    DATA(lv_key) = iv_key.
+    LOOP AT rows( ) INTO DATA(ls_pr).
+      DATA(lv_pk) = cell( is_row = ls_pr iv_comp = 'PARCELID' ).
+      IF lv_pk IS INITIAL.
+        lv_pk = cell( is_row = ls_pr iv_comp = 'BUILDING' ).
+      ENDIF.
+      IF lv_pk IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_pt) = lv_pk.
+      SHIFT lv_pt LEFT DELETING LEADING '0'.
+      IF lv_pk = lv_key OR lv_pt = lv_key.
+        lv_key = lv_pk.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*   BOTH DIRECTIONS GO THROUGH PICK( ), so the field state reset and the
+*   ON_CHANGE( ) call happen on a clear exactly as they do on a pick - an
+*   untick that skipped them would leave a stale validation message on a
+*   field that is now empty. PICK( ) resolves the key again and that is
+*   harmless: it is a lookup, not a write.
+    IF mo_e->val_get( lv_f ) = lv_key.
+      pick( iv_field = lv_f iv_key = `` ).
+    ELSE.
+      pick( iv_field = lv_f iv_key = lv_key ).
     ENDIF.
   ENDMETHOD.
 
@@ -1465,7 +1560,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *
 *   THREE ROUNDS WENT ON THE REPAINT because the symptom looks like one.
 *   It was never the repaint: the tick never reached the field.
-    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP 'TOG_*' AND lv CS '~'.
+*
+*   SEL_ IS IN THIS LIST FOR THE REASON TOG_ HAD TO BE ADDED TO IT - see
+*   the paragraphs above, which are about exactly this bug. SEL_ carries
+*   SEL_<field>~<parcel>, so a tilde that separates a PAYLOAD and not an
+*   owner; left out, the SPLIT below would throw the parcel key into
+*   LV_OWN, reset the browse state against MV_PCL_FIELD, and hand
+*   SEL_TOG( ) an empty key to return on.
+    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP 'TOG_*'
+       AND lv NP 'SEL_*' AND lv CS '~'.
 *     NOT "SPLIT lv ... INTO lv ..." - the same variable as source and as
 *     first target is not something to rely on. Split into two of its own.
       SPLIT lv AT '~' INTO DATA(lv_ev) DATA(lv_own).
@@ -1543,6 +1646,30 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     it cannot force a stale view. A tick that really does change the
 *     page - crossing M012's two-parcel rule and enabling Next - changes
 *     the markup, fails the hash, and repaints as before.
+      mo_e->mv_quiet_evt = abap_true.
+
+    ELSEIF lv CP 'SEL_*'.
+*     <field>~<key>, the single-select tick box. OFFSET 4, not 5 - 'SEL_'
+*     is four characters, the same trap TOG_ carries a note about.
+      SPLIT substring( val = lv off = 4 ) AT '~' INTO DATA(lv_sfld) DATA(lv_skey).
+      IF lv_sfld IS NOT INITIAL.
+        mo_e->mv_pcl_field = lv_sfld.
+      ENDIF.
+      sel_tog( iv_field = lv_sfld iv_key = lv_skey ).
+
+*     ELIGIBLE FOR THE QUIET PATH, on the same terms as TOG_ above. Both
+*     things a single-select tick moves are now bound - the six slots and
+*     the chosen-parcel line at the top of the list - so the markup holds
+*     still across a tick and VIEW_MODEL_UPDATE( ) pushes the new state
+*     without tearing the control tree down.
+*
+*     IT STILL DEGRADES TO A REPAINT rather than going stale: the hash is
+*     compared either way, and the round trip that ADDS or REMOVES the
+*     chosen-parcel line changes the markup for real - the line is drawn
+*     under IF LV_CUR IS NOT INITIAL - so the first tick on an empty field
+*     and the one that clears it repaint, as they should. What no longer
+*     repaints is every tick in between, which is the one the citizen
+*     repeats.
       mo_e->mv_quiet_evt = abap_true.
 
     ELSEIF lv CP 'PICK_*'.
