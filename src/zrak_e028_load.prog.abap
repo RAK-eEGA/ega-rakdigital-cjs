@@ -369,11 +369,11 @@ START-OF-SELECTION.
 *   is ever removed, the citizen still sees a complete declaration.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 50
       field_name = 'DECLARATION_NAME' ftype = 'DISPLAY' zsection = 'Declaration'
-      default_val = 'As the company owner, I hereby declare that all information provided in ' &&
-                    'this application and in attached documents are true and accurate, that I ' &&
-                    'will be responsible for any consequences of them, and I will be abide by ' &&
-                    'all relevant regular conditions, instructions and guidelines to avoid ' &&
-                    'legal action in case of violations and that I authorize our representative ' &&
+      default_val = `As the company owner, I hereby declare that all information provided in ` &&
+                    `this application and in attached documents are true and accurate, that I ` &&
+                    `will be responsible for any consequences of them, and I will be abide by ` &&
+                    `all relevant regular conditions, instructions and guidelines to avoid ` &&
+                    `legal action in case of violations and that I authorize our representative ` &&
                     'to follow up all the related to the activity.' )
 
 *   The legacy screen wires APPROVE as 'NEXT-E' - it ENABLES the Next

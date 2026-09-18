@@ -392,12 +392,12 @@ START-OF-SELECTION.
       tech_name = 'P6' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 50
       field_name = 'DECLARATION_L1' ftype = 'DISPLAY' zsection = 'Declaration'
-      default_val = 'as the company owner, hereby declare that all information provided in ' &&
-                    'this application and in attached documents are true and accurate and ' &&
+      default_val = `as the company owner, hereby declare that all information provided in ` &&
+                    `this application and in attached documents are true and accurate and ` &&
                     'in compliance with the law' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 60
       field_name = 'DECLARATION_L2' ftype = 'DISPLAY' zsection = 'Declaration'
-      default_val = 'And I will be abide by all relevant regular conditions, instructions ' &&
+      default_val = `And I will be abide by all relevant regular conditions, instructions ` &&
                     'and guidelines to avoid legal action in case of violations' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP3' seqnr = 70
       field_name = 'DISCLAIMER_TXT' ftype = 'DISPLAY' zsection = 'Declaration'

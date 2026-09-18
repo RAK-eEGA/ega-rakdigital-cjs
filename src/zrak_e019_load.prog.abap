@@ -233,18 +233,18 @@ START-OF-SELECTION.
 
   lv_dcl1_en = lcl_txt=>en(
     iv_code = 'E003_DECLARATION_TEXT1'
-    iv_fb   = 'as the company owner, hereby declare that all information ' &&
-              'provided in this application and in attached documents are ' &&
-              'true and accurate, that I will be responsible for any ' &&
+    iv_fb   = `as the company owner, hereby declare that all information ` &&
+              `provided in this application and in attached documents are ` &&
+              `true and accurate, that I will be responsible for any ` &&
               'consequences of them,' ).
   lv_dcl1_ar = lcl_txt=>ar( iv_code = 'E003_DECLARATION_TEXT1'
                             iv_fb   = lv_dcl1_en ).
 
   lv_dcl2_en = lcl_txt=>en(
     iv_code = 'E003_DECLARATION_TEXT2'
-    iv_fb   = 'and I will be abide by all relevant regular conditions, ' &&
-              'instructions and guidelines to avoid legal action in case ' &&
-              'of violations and that I authorize our representative to ' &&
+    iv_fb   = `and I will be abide by all relevant regular conditions, ` &&
+              `instructions and guidelines to avoid legal action in case ` &&
+              `of violations and that I authorize our representative to ` &&
               'follow up all the related to the activity.' ).
   lv_dcl2_ar = lcl_txt=>ar( iv_code = 'E003_DECLARATION_TEXT2'
                             iv_fb   = lv_dcl2_en ).
