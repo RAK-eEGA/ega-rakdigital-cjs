@@ -179,6 +179,34 @@ CLASS zcl_rak_migrator DEFINITION
     " so the UI journey code never collides with the legacy raw code space.
     CONSTANTS c_sandbox TYPE string VALUE 'MIG_'.
 
+*   The portal tile is NOT the CJS journey id, and it is far shorter.
+*   ZEGA_T_CJ_GRP-JOURNEYID and ZRAK_T_JNY-TILE_CODE are both
+*   ZDE_CJ_JOURNEYID = CHAR(4), so the old <prefix><code> form
+*   ('MIG_' && 'M011') was cut to 'MIG_' ON THE INSERT, silently: every
+*   journey in a batch wrote the SAME tile and each MODIFY overwrote the
+*   one before it, which is why a fifteen-journey run left one leaf.
+*   TILE_CODE( ) builds a real four-character code instead.
+    CONSTANTS c_tile_pfx TYPE string VALUE 'AI'.
+    CONSTANTS c_tile_len TYPE i      VALUE 4.
+
+*   Default portal group for migrated journeys. NEVER default this to a code
+*   that already exists: '901' - the old default - is a live group carrying
+*   ~25 production journeys, and the previous MODIFY relabelled it
+*   "AI Driven Journeys" and rewrote its LEVELNO/ORDERNO from blank to 0/99.
+*   MIGRATE( ) now refuses any group it did not create.
+    CONSTANTS c_main_grp TYPE string VALUE 'AI00'.
+
+*   THE POST PATH, WHICH THE MIGRATOR USED TO LEAVE OFF ENTIRELY.
+*   Every hand-authored feeder in this repository - E014, E015, E027,
+*   E028, E029, D009 - writes these three columns, and a migrated journey
+*   wrote none of them: BKND_ACTIVE stayed blank and both function-module
+*   names stayed empty. The result renders, validates, collects every
+*   answer and then posts NOTHING, with no error anywhere, because the
+*   engine has no backend to call. That is the whole of the "the M
+*   journeys do not submit" problem - not missing plumbing, three columns.
+    CONSTANTS c_fm_post TYPE string VALUE 'ZFM_EGA_CJ_FW_POST_N'.
+    CONSTANTS c_fm_read TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_N'.
+
     " one row per journey to migrate in a batch
     TYPES:
       BEGIN OF ty_job,
@@ -200,8 +228,13 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS migrate_many
       IMPORTING it_jobs   TYPE tt_job
                 iv_dept   TYPE string
-                iv_main   TYPE string DEFAULT '901'
-                iv_prefix TYPE string DEFAULT c_sandbox
+                iv_main     TYPE string DEFAULT c_main_grp
+                iv_prefix   TYPE string DEFAULT c_sandbox
+                iv_tile_pfx TYPE string DEFAULT c_tile_pfx
+                iv_bknd_active TYPE abap_bool DEFAULT abap_true
+                iv_handler  TYPE string DEFAULT ''
+                iv_badi     TYPE abap_bool DEFAULT abap_true
+                iv_badi_all TYPE abap_bool DEFAULT abap_false
       EXPORTING et_report TYPE tt_report
                 ev_log    TYPE string.
 
@@ -219,8 +252,25 @@ CLASS zcl_rak_migrator DEFINITION
                 iv_title_ar      TYPE string
                 iv_tile          TYPE string
                 iv_dept          TYPE string
-                iv_main          TYPE string DEFAULT '901'
+                iv_main          TYPE string DEFAULT c_main_grp
                 iv_prefix        TYPE string DEFAULT c_sandbox
+                iv_tile_pfx      TYPE string DEFAULT c_tile_pfx
+*               ON by default, the way every feeder has it. Blank migrates
+*               a journey that renders but cannot post - useful only for
+*               looking at a screen, never for testing one.
+                iv_bknd_active   TYPE abap_bool DEFAULT abap_true
+                iv_handler       TYPE string DEFAULT ''
+*               Ask the BAdI what each screen really looks like - step
+*               names and required flags the export does not carry. ON by
+*               default; a journey whose BAdI is not registered simply
+*               gets nothing back and migrates as before.
+                iv_badi          TYPE abap_bool DEFAULT abap_true
+*               Probe EVERY screen rather than the first. The stage list
+*               is identical across a journey's screens, so this buys only
+*               the per-screen MANDATORY flags - at one backend READ per
+*               screen. Off by default: a fifteen-journey batch is sixty
+*               reads with it on.
+                iv_badi_all      TYPE abap_bool DEFAULT abap_false
                 iv_steps         TYPE string DEFAULT ''   " optional step titles, positional
 *               One legacy SCREEN_NAME (e.g. 'E023') can carry more than one
 *               sub-flow under the SAME journey_of_screen( ) code - NE014_1_*
@@ -233,13 +283,34 @@ CLASS zcl_rak_migrator DEFINITION
 *               that sub-flow as its own journey while iv_journey/bknd_journey
 *               keep recording the shared raw legacy code.
                 iv_screen_prefix TYPE string DEFAULT ''
+*               The journey card's one-line subtitle, EN and AR. Defaulted
+*               rather than derived: nothing in /QNV/ or the BAdI carries a
+*               subtitle, so a caller who has better wording passes it and
+*               everyone else gets a neutral line rather than an invented
+*               description of a service this class has not read.
+                iv_subtitle      TYPE string DEFAULT ''
+                iv_subtitle_ar   TYPE string DEFAULT ''
       EXPORTING ev_ok       TYPE abap_bool
                 ev_msg      TYPE string
                 et_report   TYPE tt_report.
 
+*   THIS TOUCHES CJS CONFIGURATION ONLY. It does NOT delete the portal tile
+*   rows - see the note in the implementation. Do not add that back.
     METHODS teardown
       IMPORTING iv_cjs_id TYPE string
       EXPORTING ev_msg    TYPE string.
+
+*   Four-character portal tile code for a legacy journey code, e.g.
+*   'M011' -> 'AI11', 'E023' -> 'AI23'. The prefix names the space the tile
+*   lives in; whatever room is left is filled from the END of the code,
+*   because that is the part that distinguishes one journey from the next.
+*   The result is never longer than C_TILE_LEN, so nothing is truncated by
+*   the INSERT - and MIGRATE( ) refuses a code that is already taken rather
+*   than writing over it.
+    CLASS-METHODS tile_code
+      IMPORTING iv_journey TYPE string
+                iv_prefix  TYPE string DEFAULT c_tile_pfx
+      RETURNING VALUE(rv)  TYPE string.
     " Post-projection layout pass. Pairs fields onto shared rows (ROW: tokens
     " in FGROUP - see the engine's row_key( )) and settles the step column
     " count. iv_two_up = abap_false restricts pairing to affinity pairs only
@@ -342,11 +413,89 @@ CLASS zcl_rak_migrator DEFINITION
     METHODS step_title
       IMPORTING it_rows   TYPE tt_row iv_screen TYPE /qnv/sb_ui_defin-screen_name iv_no TYPE i
       EXPORTING ev_en     TYPE string ev_ar TYPE string.
+*   ---- composite control -> wrapper API binding ----------------------
+*   A ShapeIt composite does NOT post through the QNV item pipeline. Its
+*   TECHNICAL_NAME is blank in /QNV/SB_UI_DEFIN on purpose, because the
+*   control writes through its own OData service rather than through
+*   ct_item_data. So the field needs to say WHICH service instead - which
+*   is what this binding is, and why no TECH_NAME is invented for it.
+*
+*   It rides DEFAULT_VAL behind an API: prefix, the same way TEXT:, OTR:
+*   and SEL: already do. No DDIC column, no activation, no table adjust.
+*
+*       API:<api>:<entityset>[:<domain>[:<filter>]]
+*
+*   <api>       the CJS wrapper - PROPERTY, TENANCY, FEES, SIGN, VALUEHELP
+*   <entityset> what it reads, so the wrapper needs no per-field CASE
+*   <domain>    ValueHelp DomainName, where ValueHelp is the source
+*   <filter>    ValueHelp DomainFilter - only ZCJ_BTYPE uses one ('10BU')
+    TYPES: BEGIN OF ty_bind,
+             ftype   TYPE string,
+             api     TYPE string,
+             eset    TYPE string,
+             domain  TYPE string,
+             dfilter TYPE string,
+           END OF ty_bind.
+    TYPES tt_bind TYPE STANDARD TABLE OF ty_bind WITH EMPTY KEY.
+
+    METHODS bind_table
+      RETURNING VALUE(rt) TYPE tt_bind.
+
+*   The API: directive for one field, or blank when the ftype is not a
+*   composite. Blank is the overwhelmingly common answer.
+    METHODS api_bind
+      IMPORTING iv_ftype  TYPE string
+                iv_field  TYPE string OPTIONAL
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS combobox_options
       IMPORTING is_row    TYPE ty_row
       RETURNING VALUE(rt) TYPE tt_kv.
     METHODS build_name_map
       IMPORTING it_rows TYPE tt_row.
+*   ---- what the BAdI says, gathered at migrate time ------------------
+*   THE EXPORT IS HALF THE CONFIGURATION. /QNV/SB_UI_DEFIN describes the
+*   screen as it was DESIGNED; ZIF_EGA_FW_CJI~READ describes it as it is
+*   SERVED - the implementation mutates the definition rows it is handed,
+*   and two of the things it writes are not in the export at all:
+*
+*     ADDITIONALDATA3 on the STAGES row - the step names the citizen sees
+*         ("Parcel Selection,Documents,Fees & Payment" on M016), which is
+*         why derived titles never matched the live service
+*     MANDATORY per field - the required flags as the screen actually
+*         enforces them, which can differ from the design-time column
+*
+*   The engine already reads this on every round trip (see
+*   ZCL_RAK_QNV_BRIDGE->CTRL_OF). Reading it ONCE here, at migrate time,
+*   is what lets a migrated journey start out right rather than be
+*   corrected on first render.
+    TYPES: BEGIN OF ty_badi_fld,
+             screen TYPE string,
+             field  TYPE string,
+             mand   TYPE abap_bool,
+           END OF ty_badi_fld,
+           tt_badi_fld TYPE SORTED TABLE OF ty_badi_fld WITH UNIQUE KEY screen field.
+
+    DATA mt_badi  TYPE tt_badi_fld.
+    DATA mt_stage TYPE string_table.
+    DATA mv_badi_ok TYPE abap_bool.
+
+*   One screen, one call. Fills MT_BADI and - the first time a screen
+*   answers one - MT_STAGE. Silent on failure: a journey whose BAdI is not
+*   registered migrates exactly as it did before.
+    METHODS badi_probe
+      IMPORTING iv_category TYPE string
+                iv_journey  TYPE string
+                iv_screen   TYPE string
+                it_rows     TYPE tt_row.
+
+*   Is this legacy screen the post-submit confirmation page rather than a
+*   step the citizen fills in? See the call site.
+    METHODS is_confirmation
+      IMPORTING it_rows   TYPE tt_row
+                iv_screen TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
+
     METHODS norm_name
       IMPORTING iv_name TYPE string iv_is_table TYPE abap_bool DEFAULT abap_false
       RETURNING VALUE(rv) TYPE string.
@@ -664,6 +813,131 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD bind_table.
+*   Every row verified against the serving DPC, not inferred from a name.
+*   CUSTOMERJOURNEY unless marked otherwise.
+    rt = VALUE #(
+*     ---- parcels and property: ZCL_RAK_PROPERTY_API -------------------
+*     TAKEN FROM THE CONTROLS' OWN READS, not from the entity-set names.
+*     Each ShapeIt control issues one doRead for its list and that is the
+*     binding:
+*
+*       RAKPARCELSELECTOR / RAK_PARCELS / ADDPARCELS  /PropertiesSet
+*       RAK_PROPERTIES                                /PropertiesSet
+*       RAK_TITLEDEED                                 /PropertiesSet
+*       RAK_FLOORUNIT                                 /FloorSet
+*
+*     PARCEL IS NOT FINDPARCELSET, which is what this table said first and
+*     which would have been a real defect. FindParcel has no
+*     _GET_ENTITYSET at all - it is a CREATE_DEEP_ENTITY target that opens
+*     a ZGCF "I cannot find my property" case, refuses when one is already
+*     open, and takes attachments. Binding a selector to it would have
+*     posted a case every time a citizen looked at a list.
+*
+*     The three parcel controls differ only by the Type filter, which is
+*     why they share a row and carry it in DFILTER: PROPERTIESSET reads
+*     Type = 'Parcel' / 'Unit', and omits the filter for 'All'.
+      ( ftype = 'PARCEL'    api = 'PROPERTY' eset = 'PropertiesSet'
+        dfilter = 'Type=Parcel' )
+      ( ftype = 'PROPERTY'  api = 'PROPERTY' eset = 'PropertiesSet' )
+      ( ftype = 'TITLEDEED' api = 'PROPERTY' eset = 'PropertiesSet' )
+
+*     FLOORUNIT IS BOUND BUT NOT YET SERVEABLE. FloorSet has no
+*     _GET_ENTITYSET either - it exists only inside GET_EXPANDED_ENTITYSET
+*     under iv_entity_name = GC_FLOOR, and that method dereferences
+*     IO_EXPAND->GET_CHILDREN( ), an object this layer cannot yet build.
+*     The binding is written so the field is not silently blank and so the
+*     gap is visible in config rather than only in a comment.
+      ( ftype = 'FLOORUNIT' api = 'PROPERTY' eset = 'FloorSet' )
+
+*     ---- tenancy: ZCL_RAK_TENANCY_API ---------------------------------
+      ( ftype = 'CONTRACT'  api = 'TENANCY'  eset = 'LeaseContractSet' )
+
+*     ---- signing: ZCL_RAK_SIGN_API, on ZUAEPASS_SRV -------------------
+*     Keyed on Intreno throughout. The flow state is NOT in the entity set -
+*     it is in SAPscript text CJ01/CJ20/CJ22/CJ23 - so the wrapper owns it,
+*     not the config.
+      ( ftype = 'SIGN'      api = 'SIGN'     eset = 'SignMethodSet' )
+
+*     ---- value help: ZCL_RAK_VALUEHELP_API, on zega_fw_fnd_srv --------
+*     DOMAIN is NOT derivable from /QNV/SB_UI_DEFIN - it lives in the
+*     ShapeIt control's own JS - so it is carried here, the same way
+*     ZRAK_M_MUNI_LOAD carries the M-code map. ZDE_EGA_ENTITY additionally
+*     depends on FILTER_DOMAIN( ), which moves index 22 to the front and
+*     drops value '29'; the wrapper reproduces that, not this table.
+      ( ftype = 'SELECT'    api = 'VALUEHELP' eset = 'ValueHelpSet'
+        domain = 'ZDE_EGA_ENTITY' )
+
+*     M028's building dialog is ONE control with five dropdowns inside it,
+*     not five configurable fields - so the five domains belong to the
+*     wrapper that draws it, not to this table. Recorded here so they are
+*     not re-derived, and they go in as constants when ZCL_RAK_VALUEHELP_API
+*     is written:
+*
+*       ZCJ_CTYPE  construction types  TIVBDAROBJTYPET aotype IN 10BU/10SB/50PF
+*       ZCJ_FTYPE  foundation types    TIVBDCHARACTT   005301/005302/005303
+*       ZCJ_BTYPE  building types      TIVBDARFUNCT    aotype = DomainFilter '10BU'
+*       ZCJ_BSYS   system types        TIVBDCHARACTT   003100..003104
+*       ZCJ_MUSGT  structure types     TIVBDCHARACTT   >= MU00 AND < MU25
+*
+*     None of the five is a domain: VALUEHELPSET_GET_ENTITYSET finds no
+*     fixed values, falls through to FILL_CUSTOM_DOMAIN( ) and selects from
+*     the real-estate tables. ZCJ_BTYPE is the only one that consults
+*     DomainFilter; the rest accept one and ignore it.
+      ( ftype = 'BUILDINGS' api = 'VALUEHELP' eset = 'ValueHelpSet' )
+
+*     ---- EPDA composites on journeys already migrated -----------------
+*     ChemicalHistorySet returns the citizen's PREVIOUS declarations for a
+*     permit and trade licence. E016/E017/E018 hand-built the dialog and
+*     none of them carries this lookup.
+*     ChemicalHistorySet is on zega_fw_fnd_srv, NOT on CUSTOMERJOURNEY -
+*     its row type is ZCL_ZEGA_FW_FND_MPC=>TS_CHEMICALHISTORY. Naming the
+*     wrong service here would send the column derivation to the wrong MPC.
+      ( ftype = 'CHEMICALS' api = 'FND'      eset = 'ChemicalHistorySet' )
+*     PortAccommodationSet and WorkersListSet are on a FIFTH service,
+*     ZEGA_EPDA_MAPLET_I_SRV, which is in no repository read so far. The
+*     binding is written so the field is not silently blank; the wrapper
+*     behind it does not exist yet and must report that rather than
+*     returning no rows.
+      ( ftype = 'ACCOM'     api = 'MAPLET'   eset = 'PortAccommodationSet' ) ).
+  ENDMETHOD.
+
+
+  METHOD api_bind.
+    DATA(lv_ft) = to_upper( iv_ftype ).
+
+*   SELECT is the one ftype that is usually NOT a composite - most selects
+*   are a search help or a domain and resolve through the engine's own F4.
+*   Only the handful named here are ValueHelp-backed, so a bare SELECT must
+*   fall through rather than pick up the ZDE_EGA_ENTITY row by its ftype.
+    IF lv_ft = 'SELECT'.
+      IF to_upper( iv_field ) NS 'ENTITY'.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    READ TABLE bind_table( ) INTO DATA(ls_b) WITH KEY ftype = lv_ft.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    rv = |API:{ ls_b-api }:{ ls_b-eset }|.
+
+*   THE SLOTS ARE POSITIONAL. PARSE_DIR( ) reads segment 3 as the domain
+*   and segment 4 as the filter, so a row that has a filter and NO domain
+*   still has to emit the empty domain slot - 'API:PROPERTY:PropertiesSet::
+*   Type=Parcel'. Skipping it would deliver the filter as the domain and
+*   the field would silently query the wrong thing, which is exactly the
+*   class of failure this file is full of.
+    IF ls_b-domain IS NOT INITIAL OR ls_b-dfilter IS NOT INITIAL.
+      rv = |{ rv }:{ ls_b-domain }|.
+      IF ls_b-dfilter IS NOT INITIAL.
+        rv = |{ rv }:{ ls_b-dfilter }|.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD classify.
     DATA(ct) = to_upper( cs_row-control_type ).
 
@@ -728,6 +1002,88 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       WHEN 'GENERIC_CSS' OR 'HSEPARATOR'. cs_row-ftype = ''. cs_row-role = c_decor.
       WHEN 'SCRIPT'.  cs_row-ftype = 'SCRIPT'.  cs_row-role = c_backend.
       WHEN ''.        cs_row-ftype = 'BACKEND'. cs_row-role = c_backend.
+
+*     ---- ShapeIt composite controls ------------------------------------
+*     Every control below fell through to WHEN OTHERS until now, which
+*     turned a parcel selector into a text box and a signature pad into a
+*     label - and left DEFAULTED set, so the count said "reviewed" when
+*     nothing had been.
+*
+*     NONE of them may be mapped to 'TABLE', however grid-like they look.
+*     The grid pipeline at the end of MIGRATE( ) keys off ftype 'TABLE',
+*     calls GRID_SPEC( ) for the LEVEL_CON='T' descendants, and DROPS a
+*     table that yields no usable columns. Checked against the export:
+*     CHEMICALS_DETAILS, ACCOMODATIONS, RAK_BUILDINGCONTROL,
+*     RAKPARCELSELECTOR, RAK_PARCELS, RAK_PROPERTIES and RAK_CONTRACTS
+*     have ZERO 'T' children between them, because their rows come from an
+*     entity set rather than from the legacy screen definition. Calling
+*     them TABLE would delete them.
+*
+*     An ftype the engine does not draw yet is safe: ZCL_RAK_JOURNEY_RENDER
+*     ends its field CASE on an input, which is exactly what WHEN OTHERS
+*     produced before. So naming them here is never worse than the default,
+*     and the config stops being wrong - the renderer branch and the domain
+*     API can be added later WITHOUT re-migrating the journey.
+      WHEN 'RAKPARCELSELECTOR' OR 'RAK_PARCELS' OR 'ADDPARCELS'.
+        cs_row-ftype = 'PARCEL'.    cs_row-role = c_interact.
+      WHEN 'RAK_PROPERTIES'.
+        cs_row-ftype = 'PROPERTY'.  cs_row-role = c_interact.
+      WHEN 'RAK_FLOORUNIT'.
+        cs_row-ftype = 'FLOORUNIT'. cs_row-role = c_interact.
+      WHEN 'RAK_TITLEDEED'.
+        cs_row-ftype = 'TITLEDEED'. cs_row-role = c_interact.
+      WHEN 'RAK_FINDCONTRACT' OR 'RAK_CONTRACTS'.
+        cs_row-ftype = 'CONTRACT'.  cs_row-role = c_interact.
+      WHEN 'RAK_SIGNCONTRACT' OR 'RAK_SIGNATURE' OR 'SIGNATURE' OR 'SIGN_CONTRACT'.
+        cs_row-ftype = 'SIGN'.      cs_row-role = c_interact.
+      WHEN 'RAK_BUILDINGCONTROL'.
+        cs_row-ftype = 'BUILDINGS'. cs_row-role = c_interact.
+
+*     A dropdown whose options ShapeIt decides client-side. It is still a
+*     select here; the dependent behaviour belongs in a rule or on_change.
+      WHEN 'RAKSELECTUSAGETYPE' OR 'RAK_PROJECTLIST' OR 'ENTITY_SELECT'.
+        cs_row-ftype = 'SELECT'.    cs_row-role = c_interact.
+
+*     THE ONE GROUP THAT WORKS ON FIRST MIGRATION. All five are the same
+*     business-partner search - person and company alike, which is what
+*     BusinessPartnerSet is - and the engine already draws it, fed by
+*     ZCL_RAK_BP_SEARCH. No new renderer branch, no new API.
+*
+*     'SEARCH', NOT 'BP'. This said 'BP' first, on the strength of a
+*     WHEN 'BP' in ZCL_RAK_JOURNEY_RENDER - which is in RENDER_POPUP( ),
+*     the search DIALOG, not in the field renderer. A field typed 'BP'
+*     reaches RENDER_ONE( )'s WHEN OTHERS and draws a plain input box: the
+*     citizen gets a text field where a partner search belongs, and
+*     nothing reports it. The field ftype that draws the search - id-type
+*     dropdown, input, Search and Browse, wired to SEARCH_ and BPOPEN_ -
+*     is 'SEARCH', and it is a BLOCK type, so it also gets its own row.
+      WHEN 'RAK_SINGLEID' OR 'RAK_MULTIID' OR 'CUSTOMER_IDENTIFICATION'
+        OR 'RAK_VALIDATE_RB' OR 'RAK_CONTRACTORCONTROL'.
+        cs_row-ftype = 'SEARCH'.    cs_row-role = c_interact.
+
+*     The journey's own progress, which the engine draws as the stage bar
+*     already. Chrome, not a field the citizen fills.
+      WHEN 'TRACKER'.
+        cs_row-ftype = 'STAGE'.     cs_row-role = c_stage.
+
+*     ---- composites on journeys ALREADY migrated -----------------------
+*     CHEMICALS_DETAILS is backed by ChemicalHistorySet, which returns the
+*     citizen's previous declarations for a permit and trade licence.
+*     E016/E017/E018 hand-built its dialog because this branch did not
+*     exist, and none of them carries the lookup. ACCOMODATIONS is the same
+*     shape on E030/E130 (PortAccommodationSet + WorkersListSet), and
+*     RAK_BOATCONTROL the same on NE001/NE002, not yet migrated.
+      WHEN 'CHEMICALS_DETAILS'.
+        cs_row-ftype = 'CHEMICALS'. cs_row-role = c_interact.
+      WHEN 'ACCOMODATIONS'.
+        cs_row-ftype = 'ACCOM'.     cs_row-role = c_interact.
+      WHEN 'RAK_BOATCONTROL'.
+        cs_row-ftype = 'BOATS'.     cs_row-role = c_interact.
+*     DATA3 = 'X' is the multiple-files flag; ZRAK_E015_LOAD found this by
+*     hand and mapped it to UPLOAD + ATTACH_MULTI. Same answer here.
+      WHEN 'MASS_UPLOADER'.
+        cs_row-ftype = 'UPLOAD'.    cs_row-role = c_interact.
+
       WHEN OTHERS.
         IF cs_row-technical_name IS NOT INITIAL OR cs_row-tosave = 'X'.
           cs_row-ftype = 'INPUT'.   cs_row-role = c_interact.
@@ -1210,6 +1566,109 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD badi_probe.
+    DATA ls_hdr TYPE /qnv/sbuild_getheader_st.
+    DATA lt_def TYPE /qnv/sbuild_definition_tt.
+    DATA lt_att TYPE /qnv/sbuild_attachments_tt.
+
+*   Seeded exactly as ZCL_RAK_QNV_BRIDGE->READ( ) seeds it, because the
+*   BAdI answers BY FIELD NAME: a row it is not given is a branch that
+*   never fires.
+    LOOP AT it_rows INTO DATA(ls_r) WHERE screen_name = iv_screen.
+      DATA(lv_f) = to_upper( ls_r-field_name ).
+      IF lv_f IS INITIAL OR line_exists( lt_def[ fieldname = lv_f ] ).
+        CONTINUE.
+      ENDIF.
+      APPEND VALUE #( fieldname     = lv_f
+                      technicalname = COND #( WHEN ls_r-technical_name IS NOT INITIAL
+                                              THEN ls_r-technical_name ELSE lv_f )
+                      screenname    = iv_screen
+                      categoryname  = iv_category ) TO lt_def.
+    ENDLOOP.
+
+*   THE STAGES ROW IS NOT IN THE EXPORT and has to be asked for by name.
+*   ZCL_EGA_CJ_ENH_IMPL_E028->READ does
+*
+*       WHEN 'STAGES'. <definition>-additionaldata3 = 'Lease Details,...'
+*
+*   so with no row called STAGES the step names never come back at all.
+    IF NOT line_exists( lt_def[ fieldname = 'STAGES' ] ).
+      APPEND VALUE #( fieldname     = 'STAGES'
+                      technicalname = 'STAGES'
+                      screenname    = iv_screen
+                      categoryname  = iv_category ) TO lt_def.
+    ENDIF.
+
+*   PARAM2 names the journey when PARAM1 misses, which it does here -
+*   there is no case and no draft at migrate time, and that is the normal
+*   cold-read shape the bridge already relies on.
+    ls_hdr-param2       = iv_journey.
+    ls_hdr-param5       = 'CJS'.
+    ls_hdr-screenname   = iv_screen.
+    ls_hdr-categoryname = iv_category.
+
+    TRY.
+        CALL FUNCTION c_fm_read
+          CHANGING cs_header     = ls_hdr
+                   ct_definition = lt_def
+                   ct_attacments = lt_att.
+      CATCH cx_root ##NO_HANDLER.
+*       A journey whose BAdI is not registered, or a screen it refuses,
+*       migrates exactly as it did before this method existed.
+        RETURN.
+    ENDTRY.
+
+    mv_badi_ok = abap_true.
+
+    LOOP AT lt_def INTO DATA(ls_d).
+      DATA(lv_name) = to_upper( CONV string( ls_d-fieldname ) ).
+
+*     The stage list, taken from the FIRST screen that answers one. Every
+*     screen of a journey returns the same list, and asking each of them
+*     to overwrite it would only let a blank one win.
+      IF lv_name = 'STAGES' AND mt_stage IS INITIAL.
+        ASSIGN COMPONENT 'ADDITIONALDATA3' OF STRUCTURE ls_d TO FIELD-SYMBOL(<st>).
+        IF sy-subrc = 0 AND <st> IS NOT INITIAL.
+          SPLIT CONV string( <st> ) AT ',' INTO TABLE mt_stage.
+        ENDIF.
+        CONTINUE.
+      ENDIF.
+
+      ASSIGN COMPONENT 'MANDATORY' OF STRUCTURE ls_d TO FIELD-SYMBOL(<mn>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      INSERT VALUE #( screen = iv_screen
+                      field  = lv_name
+                      mand   = xsdbool( <mn> = 'X' OR <mn> = 'x' ) )
+             INTO TABLE mt_badi. "#EC CI_SUBRC
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD is_confirmation.
+*   CONSERVATIVE ON PURPOSE. A screen with ANY interactive row is never a
+*   confirmation page, whatever it is called - so a real step that happens
+*   to display an application number keeps its inputs and survives. Only a
+*   screen that asks for nothing AND announces a submitted application is
+*   dropped.
+    DATA lv_marker TYPE abap_bool.
+
+    LOOP AT it_rows INTO DATA(ls) WHERE screen_name = iv_screen.
+      IF ls-role = c_interact.
+        RETURN.
+      ENDIF.
+      DATA(lv_n) = to_upper( ls-field_name ).
+      IF lv_n CS 'APPLICATION_NUMBER' OR lv_n CS 'NOTIFICATION_SENT'
+         OR lv_n CS 'APPLICATION_TYPE'.
+        lv_marker = abap_true.
+      ENDIF.
+    ENDLOOP.
+
+    rv = lv_marker.
+  ENDMETHOD.
+
+
   METHOD load_text_caches.
     CLEAR: mt_val, mt_lbl.
     SELECT spras, value_code, value_desc FROM /qnv/sb_valuet INTO TABLE @DATA(lt_v).
@@ -1229,12 +1688,70 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     " ---- ENFORCE the UI journey-name prefix (never the raw legacy code)
     DATA(pfx)  = COND string( WHEN iv_prefix IS INITIAL THEN c_sandbox ELSE iv_prefix ).
     DATA(jid)  = to_upper( pfx && iv_cjs_id ).
-    DATA(tile) = to_upper( pfx && iv_tile ).
+*   The journey id is CHAR(30) and keeps the long prefix; the TILE is a
+*   separate CHAR(4) namespace and must be built, not concatenated.
+    DATA(tile) = tile_code( iv_journey = iv_tile iv_prefix = iv_tile_pfx ).
     IF jid IS INITIAL OR tile IS INITIAL.
       ev_msg = 'CJS journey ID and tile code are required'. RETURN.
     ENDIF.
+    IF strlen( tile ) > c_tile_len.
+      ev_msg = |Tile { tile } is longer than { c_tile_len } characters - | &&
+               |ZDE_CJ_JOURNEYID would truncate it. Shorten the tile prefix.|.
+      RETURN.
+    ENDIF.
     SELECT SINGLE @abap_true FROM zrak_t_jny WHERE journey_id = @jid INTO @DATA(lv_ex).
     IF lv_ex = abap_true. ev_msg = |{ jid } already exists - teardown first|. RETURN. ENDIF.
+
+*   ---- the portal tables are the LIVE portal's, so every write below has to
+*   prove the row is ours first. Nothing here is a MODIFY over an unknown key.
+    DATA(lv_tile4) = CONV zrak_t_jny-tile_code( tile ).
+    SELECT SINGLE journey_id FROM zrak_t_jny WHERE tile_code = @lv_tile4
+      INTO @DATA(lv_towner).
+    IF sy-subrc = 0.
+      ev_msg = |Tile { tile } is already used by { lv_towner } - two journeys | &&
+               |cannot share one portal code. Teardown first, or migrate under | &&
+               |a different tile prefix.|.
+      RETURN.
+    ENDIF.
+    SELECT SINGLE @abap_true FROM zega_t_cj_id WHERE journeyid = @lv_tile4
+      INTO @DATA(lv_tex).
+    IF lv_tex = abap_true.
+      ev_msg = |Tile { tile } exists in the portal and was not created by CJS - | &&
+               |refusing to write over a live journey.|.
+      RETURN.
+    ENDIF.
+
+*   ---- and the group it will hang under. A group CJS did not create keeps
+*   its own rows: this is the check that '901' needed and did not have.
+    DATA(lv_dept4) = CONV zega_t_cj_grp-department( iv_dept ).
+    DATA(lv_main4) = CONV zega_t_cj_grp-journeyid( iv_main ).
+    IF lv_main4 IS INITIAL.
+      ev_msg = 'Portal group code (IV_MAIN) is required'. RETURN.
+    ENDIF.
+    IF strlen( iv_main ) > c_tile_len.
+      ev_msg = |Portal group { iv_main } is longer than { c_tile_len } characters | &&
+               |- it would be truncated to { lv_main4 }.|.
+      RETURN.
+    ENDIF.
+    DATA lv_alien TYPE i.
+    SELECT journeyid FROM zega_t_cj_grp WHERE groupid = @lv_main4
+      INTO TABLE @DATA(lt_kids).
+    IF lt_kids IS NOT INITIAL.
+      SELECT tile_code FROM zrak_t_jny WHERE tile_code <> @space
+        INTO TABLE @DATA(lt_ours).
+      LOOP AT lt_kids INTO DATA(lv_kid).
+        IF NOT line_exists( lt_ours[ table_line = lv_kid ] ).
+          lv_alien = lv_alien + 1.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+    IF lv_alien > 0.
+      ev_msg = |Portal group { lv_main4 } already carries { lv_alien } journey(s) | &&
+               |CJS did not migrate - it is a live group, and relabelling it would | &&
+               |rename what is already on the citizen's home screen. Pass a free | &&
+               |code in IV_MAIN (the default is { c_main_grp }).|.
+      RETURN.
+    ENDIF.
 
     DATA(lt) = extract_rows( iv_category = iv_category iv_journey = iv_journey
                              iv_screen_prefix = iv_screen_prefix ).
@@ -1246,15 +1763,50 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
     stage_rows( iv_cjs_id = jid it_rows = lt ).
 
+*   ---- the Arabic title, READ rather than invented -------------------
+*   ZEGA_T_CJ_IDT keyed on the LEGACY journey code and SPRAS 'A' is where
+*   the portal reads a service's Arabic name from - ZCL_CJ_DEMO_P001 does
+*   exactly this SELECT to fill its own description. Every loader so far
+*   passed IV_TITLE_AR blank "on purpose, because the authoritative text is
+*   ZEGA_T_CJ_IDT" and then left it blank, so every migrated journey shows
+*   an Arabic reader an empty title.
+*
+*   Reading it is not inventing it: this is the same row the legacy service
+*   renders from. A caller that supplies IV_TITLE_AR still wins, and a code
+*   with no row simply leaves the column blank as before. Nothing is
+*   written to the legacy table by this read - the MODIFYs further down
+*   address the NEW tile code, never this one.
+    DATA lv_title_ar TYPE string.
+    DATA lv_leg_id   TYPE zega_t_cj_idt-journeyid.
+    lv_title_ar = iv_title_ar.
+    IF lv_title_ar IS INITIAL AND iv_journey IS NOT INITIAL.
+      lv_leg_id = to_upper( iv_journey ).
+      SELECT SINGLE description FROM zega_t_cj_idt
+        WHERE spras = 'A' AND journeyid = @lv_leg_id
+        INTO @lv_title_ar.
+      IF sy-subrc <> 0.
+        CLEAR lv_title_ar.
+      ENDIF.
+    ENDIF.
+
     " cj_type DROPPED. bknd_journey carries the raw BE code (one-code model).
     INSERT zrak_t_jny FROM @( VALUE #(
-      mandt = sy-mandt journey_id = jid title = iv_title title_ar = iv_title_ar
+      mandt = sy-mandt journey_id = jid title = iv_title title_ar = lv_title_ar
       layout_mode = 'WIZARD' theme_variant = 'PORTAL'
       accent_type = 'Emphasized' brand_color = 'rgb(196,30,38)' navy_color = 'rgb(16,35,62)'
       density = 'Cozy'
-      subtitle    = |Apply and track your request — one guided flow|
-      subtitle_ar = |قدّم طلبك وتابعه في مسار واحد|
-      show_actions = 'X' active = 'X' bknd_active = ' '
+      subtitle    = COND #( WHEN iv_subtitle IS NOT INITIAL THEN iv_subtitle
+                            ELSE |Apply and track your request — one guided flow| )
+      subtitle_ar = COND #( WHEN iv_subtitle_ar IS NOT INITIAL THEN iv_subtitle_ar
+                            ELSE |قدّم طلبك وتابعه في مسار واحد| )
+      show_actions = 'X' active = 'X'
+      handler_class = to_upper( iv_handler )
+*     See C_FM_POST. A journey migrated with BKND_ACTIVE blank and no
+*     function modules is a journey that silently discards the citizen's
+*     application at submit.
+      bknd_active  = COND #( WHEN iv_bknd_active = abap_true THEN 'X' ELSE ' ' )
+      bknd_fm_post = COND #( WHEN iv_bknd_active = abap_true THEN c_fm_post )
+      bknd_fm_read = COND #( WHEN iv_bknd_active = abap_true THEN c_fm_read )
       bknd_category = iv_category bknd_journey = iv_journey tile_code = tile ) ).
 
     " ---- name map + quality passes FIRST (steps, rules & fields use them)
@@ -1273,11 +1825,71 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lt_screens TYPE SORTED TABLE OF /qnv/sb_ui_defin-screen_name WITH UNIQUE KEY table_line.
     LOOP AT lt INTO DATA(l0). INSERT l0-screen_name INTO TABLE lt_screens. ENDLOOP.
 
+*   THE LAST LEGACY SCREEN IS USUALLY NOT A STEP. NE028_1_4 and its
+*   equivalents carry E003_APPLICATION_NUMBER, E003_APPLICATION_TYPE and a
+*   "notification sent" message - a confirmation page the legacy framework
+*   shows AFTER the post. The engine appends its own Review-and-submit step
+*   below, so keeping this one gives every migrated journey two terminal
+*   steps, the first of which asks the citizen to submit a screen whose
+*   only content is a case number that does not exist yet. Every feeder
+*   drops it by hand; this does it by rule.
+    DATA lv_conf_drp TYPE i.
+    DATA lt_conf     TYPE string_table.
+    LOOP AT lt_screens INTO DATA(lv_cs).
+      IF is_confirmation( it_rows = lt iv_screen = CONV #( lv_cs ) ) = abap_true.
+        APPEND CONV string( lv_cs ) TO lt_conf.
+      ENDIF.
+    ENDLOOP.
+    LOOP AT lt_conf INTO DATA(lv_cd).
+      DELETE lt_screens WHERE table_line = lv_cd.
+      lv_conf_drp = lv_conf_drp + 1.
+    ENDLOOP.
+
+*   ---- ask the BAdI what this screen really looks like ---------------
+*   After the confirmation drop, so a screen that is not going to be a
+*   step is not asked about either.
+*   ONE CALL PER JOURNEY BY DEFAULT, not one per screen. Each probe is a
+*   real backend READ through the legacy BAdI, and fifteen journeys of
+*   four screens is sixty of them in a single batch - which is what turned
+*   a migration that used to finish while you watched into one that looks
+*   hung.
+*
+*   The stage list is the same on every screen of a journey, so the first
+*   screen answers it and the rest add nothing. What the rest WOULD add is
+*   per-screen MANDATORY, and that is what IV_BADI_ALL buys - useful, and
+*   priced honestly rather than charged to everyone by default.
+    CLEAR: mt_badi, mt_stage, mv_badi_ok.
+    IF iv_badi = abap_true.
+      LOOP AT lt_screens INTO DATA(lv_ps).
+        badi_probe( iv_category = iv_category
+                    iv_journey  = iv_journey
+                    iv_screen   = CONV #( lv_ps )
+                    it_rows     = lt ).
+        IF iv_badi_all = abap_false.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+*   THE STAGE LIST IS USED ONLY WHEN IT LINES UP. E028's list names three
+*   stages for a journey whose first screen is a licence picker the legacy
+*   framework does not count as one - so a positional map from step 1
+*   would put "Documents" on the parcel step and be confidently wrong.
+*   Equal lengths is the one case where the mapping cannot be ambiguous;
+*   anything else is reported and the derived titles stand.
+    DATA(lv_stage_fit) = xsdbool( mt_stage IS NOT INITIAL
+                                  AND lines( mt_stage ) = lines( lt_screens ) ).
+
     DATA lv_stepno TYPE i.
     DATA lv_ten    TYPE string.
     DATA lv_tar    TYPE string.
+*   Set on every screen and therefore holding the LAST screen's answer when
+*   the loop ends: does the journey finish on a payment step? See the
+*   REVIEW block below for what it decides.
+    DATA lv_pay_last TYPE abap_bool.
     LOOP AT lt_screens INTO DATA(lv_scr).
       lv_stepno = lv_stepno + 1.
+      lv_pay_last = xsdbool( line_exists( lt[ screen_name = lv_scr ftype = 'PAYFEE' ] ) ).
       DATA(sid) = |STP{ lv_stepno }|.
       CLEAR: lv_ten, lv_tar.
 
@@ -1291,6 +1903,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         ELSE.
           lv_ten = ovr.
         ENDIF.
+      ENDIF.
+
+      " 1.5) the legacy STAGES list - the names the citizen actually reads
+      IF lv_ten IS INITIAL AND lv_stage_fit = abap_true.
+        lv_ten = condense( VALUE #( mt_stage[ lv_stepno ] OPTIONAL ) ).
       ENDIF.
 
       " 2) else derive the section heading (chrome-aware)
@@ -1324,6 +1941,63 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         bknd_screen = lv_scr ) ).
       APPEND VALUE #( screen = lv_scr step_id = sid title = lv_ten ) TO et_report.
     ENDLOOP.
+
+*   ---- REVIEW step ----------------------------------------------------
+*   Listed as "not derivable" in this class's own header since v6, and it
+*   is not derivable - the legacy screens have no review page, because
+*   ShapeIt never had one. But the engine does: ftype REVIEW walks
+*   MS_CONFIG-STEPS itself and renders every OTHER step's filled fields,
+*   skipping the display-only types and anything a rule has hidden. So the
+*   step needs exactly one field and no configuration at all - no labels,
+*   no column spec, nothing to maintain.
+*
+*   It is appended AFTER the screen loop so it is always last, and it
+*   carries NO BKND_SCREEN: there is no legacy screen behind it, so it must
+*   never post. A step with a blank bknd_screen renders and validates and
+*   creates nothing, which everywhere else in CJS is a bug - here it is the
+*   whole point, and it is written down so nobody "fixes" it by filling the
+*   column in.
+*   AND IT DOES NOT GO AFTER A PAYMENT STEP. M016's citizen has three
+*   steps and the last one is Pay - append a Review step behind it and the
+*   service asks them to check their answers AFTER taking their money, and
+*   the submit press moves from the payment screen to a screen with nothing
+*   on it. When the last legacy screen carries a PAYFEE control the Review
+*   step is inserted BEFORE it instead: review, then pay, then submit on
+*   the payment screen under the PAID gate, which is the live order.
+*
+*   Its SEQNR is the payment step's minus five, so it lands between the two
+*   without renumbering anything - ZCL_RAK_JOURNEY_REPO reads the steps
+*   ORDER BY SEQNR. The step id is STPR rather than STPn for the same
+*   reason: nothing has to shift to make room for it.
+    DATA lv_rvsid TYPE string.
+    DATA lv_rvseq TYPE i.
+    IF lv_pay_last = abap_true.
+      lv_rvsid = 'STPR'.
+      lv_rvseq = lv_stepno * 10 - 5.
+    ELSE.
+      lv_stepno = lv_stepno + 1.
+      lv_rvsid = |STP{ lv_stepno }|.
+      lv_rvseq = lv_stepno * 10.
+    ENDIF.
+
+    INSERT zrak_t_jny_step FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid seqnr = lv_rvseq
+      title    = 'Review and submit'
+      title_ar = 'مراجعة وإرسال'
+      icon     = 'sap-icon://survey'
+      columns  = 0
+      bknd_screen = '' ) ).
+
+    INSERT zrak_t_jny_fld FROM @( VALUE #(
+      mandt = sy-mandt journey_id = jid step_id = lv_rvsid
+      field_name = 'REVIEW' seqnr = 10
+      ftype = 'REVIEW' ) ).
+
+    APPEND VALUE #( screen = '' step_id = lv_rvsid
+                    title = COND string( WHEN lv_pay_last = abap_true
+                                         THEN 'Review and submit (before the payment step)'
+                                         ELSE 'Review and submit' ) )
+           TO et_report.
 
     " ---- rules: DATA4/DATA5 container visibility + UI_FIELD_LOGICS ------
     CLEAR mt_hidden.
@@ -1382,11 +2056,30 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DATA lv_oseq TYPE i.
     DATA lv_shlp_cnt TYPE i.
     DATA lv_grid_cnt TYPE i.
+    DATA lv_bind_cnt TYPE i.
+    DATA lv_comp_drp TYPE i.
     DATA lv_grid_drp TYPE i.
     DATA lv_pick_cnt TYPE i.
     DATA lv_pay_drp  TYPE i.
+    DATA lv_pay_kept TYPE i.
 
     LOOP AT lt INTO DATA(r).
+
+*     THE BADI'S MANDATORY WINS WHEN IT SAYS YES, and it is applied HERE,
+*     at the top of the loop, because three separate branches below build
+*     a row from R-MANDATORY - the grid column, the pick target and the
+*     field itself - and two of them CONTINUE before the bottom is
+*     reached. Applied lower down it would have reached one of the three.
+*
+*     A UNION, not a replacement: the export's flag stands where the BAdI
+*     said nothing, so an unregistered BAdI never makes a journey LESS
+*     strict than it was.
+      READ TABLE mt_badi INTO DATA(ls_bd)
+           WITH TABLE KEY screen = CONV string( r-screen_name )
+                          field  = to_upper( r-field_name ).
+      IF sy-subrc = 0 AND ls_bd-mand = abap_true.
+        r-mandatory = 'X'.
+      ENDIF.
       ASSIGN et_report[ screen = r-screen_name ] TO FIELD-SYMBOL(<rep>).
       IF sy-subrc <> 0. CONTINUE. ENDIF.
       <rep>-src_rows = <rep>-src_rows + 1.
@@ -1522,17 +2215,46 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " ---- payment needs a handler class - report, do not ship a stub ---
-      IF r-ftype = 'PAYFEE'.
+      " ---- payment needs a handler class ---------------------------------
+*     AND NOW IT CAN HAVE ONE. The field was dropped unconditionally
+*     because without a handler the engine renders a red "payment
+*     unavailable" strip AT the citizen - true, but it made the drop
+*     permanent: twelve of the fifteen Municipality journeys are
+*     fee-bearing and ended up with no pay control at all, so the fee step
+*     rendered empty and the journey could not be completed.
+*
+*     ZCL_RAK_JOURNEY_LOGIC is CREATE PUBLIC and concrete: it supplies the
+*     payment card and the PAID gate with no subclass. So a caller that
+*     names a handler gets the field, and one that does not keeps the old
+*     behaviour exactly.
+      IF r-ftype = 'PAYFEE' AND iv_handler IS INITIAL.
         lv_pay_drp = lv_pay_drp + 1.
         <rep>-discarded = <rep>-discarded + 1.
         CONTINUE.
+      ENDIF.
+      IF r-ftype = 'PAYFEE'.
+        lv_pay_kept = lv_pay_kept + 1.
       ENDIF.
 
       DATA(rawkey) = |{ r-screen_name }/{ to_upper( r-field_name ) }|.
 
       DATA(lv_rt) = render_ftype( r-ftype ).
       IF lv_rt IS INITIAL.
+*       COUNTED SEPARATELY WHEN IT IS A COMPOSITE. The four below are real
+*       controls CLASSIFY( ) recognised and this gate still drops, because
+*       nothing draws them yet - SIGN, and the three EPDA composites. Lumping
+*       them into DISCARDED hides them among the logos and breadcrumbs, and
+*       the whole reason the last round went wrong is that a dropped control
+*       looks exactly like a screen that never had one. They show in the run
+*       log instead, by name, so the gap is a number somebody can act on.
+        CASE to_upper( r-ftype ).
+*         ACCOM has come off this list - it renders now. CHEMICALS stays on
+*         it deliberately: E016/E017/E018 draw that dialog themselves from
+*         ON_RENDER_END( ), so a field for it would be a second, empty
+*         control beside the real one.
+          WHEN 'SIGN' OR 'CHEMICALS' OR 'BOATS'.
+            lv_comp_drp = lv_comp_drp + 1.
+        ENDCASE.
         <rep>-discarded = <rep>-discarded + 1. CONTINUE.
       ENDIF.
 
@@ -1622,6 +2344,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 
       DATA(is_hidden) = xsdbool( line_exists( mt_hidden[ table_line = fname ] ) ).
 
+      DATA(lv_dir) = api_bind( iv_ftype = lv_ftype iv_field = CONV #( r-field_name ) ).
+      IF lv_dir IS NOT INITIAL.
+        lv_bind_cnt = lv_bind_cnt + 1.
+      ENDIF.
+
       INSERT zrak_t_jny_fld FROM @( VALUE #(
         mandt = sy-mandt journey_id = jid step_id = step
         field_name = fname seqnr = lv_fseq * 10
@@ -1647,6 +2374,11 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
 *       froze each one at the old floor and left an author to edit them one by
 *       one - which nobody ever did.
         attach_maxmb = 0
+*       A ShapeIt composite carries no TECHNICAL_NAME because it does not
+*       post through ct_item_data - it writes through its own service. So
+*       nothing is invented here; the DEFAULT_VAL directive says which
+*       service instead, and the run log counts the fields that got one.
+        default_val = lv_dir
         tech_name = tech ) ).
 
       " SELECT: static JSON options in DATA1 (else engine uses shlp/rollname)
@@ -1663,26 +2395,45 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
-    " ---- portal: main "AI Driven Journeys" tile (99, idempotent) + leaf
-    MODIFY zega_t_cj_grp FROM @( VALUE #(
-      mandt = sy-mandt department = iv_dept groupid = ''
-      journeyid = iv_main levelno = 0 orderno = 99 drilldown = 'Y' ) ).
-    MODIFY zega_t_cj_id  FROM @( VALUE #(
-      mandt = sy-mandt journeyid = iv_main sip_code = iv_main ) ).
-    MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'E' journeyid = iv_main description = 'AI Driven Journeys' ) ).
-    MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'A' journeyid = iv_main description = |الرحلات الرقمية الذكية| ) ).
+    " ---- portal: main "AI Driven Journeys" tile - INSERTED ONCE, never
+    " written over. It was checked free (or CJS-owned) at the top of the
+    " method; an existing group keeps its own description, LEVELNO and
+    " ORDERNO, because those belong to whoever created it.
+    SELECT SINGLE @abap_true FROM zega_t_cj_grp
+      WHERE department = @lv_dept4 AND groupid = @space AND journeyid = @lv_main4
+      INTO @DATA(lv_mgrp).
+    IF lv_mgrp <> abap_true.
+      INSERT zega_t_cj_grp FROM @( VALUE #(
+        mandt = sy-mandt department = lv_dept4 groupid = ''
+        journeyid = lv_main4 levelno = 0 orderno = 99 drilldown = 'Y' ) ).
+    ENDIF.
+    SELECT SINGLE @abap_true FROM zega_t_cj_id WHERE journeyid = @lv_main4
+      INTO @DATA(lv_mid).
+    IF lv_mid <> abap_true.
+      INSERT zega_t_cj_id  FROM @( VALUE #(
+        mandt = sy-mandt journeyid = lv_main4 sip_code = lv_main4 ) ).
+      INSERT zega_t_cj_idt FROM @( VALUE #(
+        mandt = sy-mandt spras = 'E' journeyid = lv_main4
+        description = 'AI Driven Journeys' ) ).
+      INSERT zega_t_cj_idt FROM @( VALUE #(
+        mandt = sy-mandt spras = 'A' journeyid = lv_main4
+        description = |الرحلات الرقمية الذكية| ) ).
+    ENDIF.
 
+*   ---- this journey's own leaf. LEVELNO is the depth of the ROW, not a
+*   constant: a journey sitting directly under a top-level group is level 1,
+*   the way every child of 901/280/282 is in the live table. It was written
+*   as 2 here, which is the depth of a journey under a SUB-group (D001 under
+*   R160 under 280) - one level too deep to be found under its own parent.
     MODIFY zega_t_cj_grp FROM @( VALUE #(
-      mandt = sy-mandt department = iv_dept groupid = iv_main
-      journeyid = tile levelno = 2 orderno = lv_stepno * 10 drilldown = 'N' ) ).
+      mandt = sy-mandt department = lv_dept4 groupid = lv_main4
+      journeyid = lv_tile4 levelno = 1 orderno = lv_stepno * 10 drilldown = 'N' ) ).
     MODIFY zega_t_cj_id  FROM @( VALUE #(
-      mandt = sy-mandt journeyid = tile sip_code = tile ) ).
+      mandt = sy-mandt journeyid = lv_tile4 sip_code = lv_tile4 ) ).
     MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'E' journeyid = tile description = iv_title ) ).
+      mandt = sy-mandt spras = 'E' journeyid = lv_tile4 description = iv_title ) ).
     MODIFY zega_t_cj_idt FROM @( VALUE #(
-      mandt = sy-mandt spras = 'A' journeyid = tile description = iv_title_ar ) ).
+      mandt = sy-mandt spras = 'A' journeyid = lv_tile4 description = lv_title_ar ) ).
 
     COMMIT WORK.
     ev_ok = abap_true.
@@ -1696,12 +2447,71 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
              |{ lines( lt_rules ) } rules, { lv_shlp_cnt } shlp-F4, { tb } backend, | &&
              |{ td } defaulted-REVIEW (attach maxMB 2 - raise per field where a | &&
              |screen notice says more); { lines( lt ) } rows staged in ZRAK_T_MIG_RAW|.
+    IF lv_bind_cnt > 0.
+      ev_msg = ev_msg && | { lv_bind_cnt } composite field(s) bound to a wrapper API | &&
+                         |through DEFAULT_VAL 'API:...' - those post through their own | &&
+                         |service, not through ct_item_data, so a blank TECH_NAME on them | &&
+                         |is correct.|.
+    ENDIF.
+    IF lv_comp_drp > 0.
+      ev_msg = ev_msg && | { lv_comp_drp } composite control(s) DROPPED - signature, | &&
+                         |chemicals or boats. Recognised but not drawn by any renderer | &&
+                         |branch yet, so the step is missing that control.|.
+    ENDIF.
     IF lv_pick_cnt > 0.
       ev_msg = ev_msg && | { lv_pick_cnt } of those are pick lists (DATA3 select mode): | &&
                          |READONLY, with a SEL: column and a _PICK target field each.|.
     ENDIF.
     IF lv_grid_drp > 0.
       ev_msg = ev_msg && | ** { lv_grid_drp } table(s) dropped: no LEVEL_CON='T' columns.|.
+    ENDIF.
+*   ---- SOURCES, named. -----------------------------------------------
+*   A journey is built from seven artifacts and each carries something none
+*   of the others do - see doc/migration/sources.md. A run that does not
+*   say which of them answered cannot be reviewed: an empty step title
+*   looks identical whether the BAdI was silent or the screen genuinely
+*   has none, and a composite with no API directive looks identical
+*   whether the model was consulted or the control was simply dropped.
+*   So the log names them, answered or not.
+    ev_msg = ev_msg && | SOURCES: export { lines( lt ) } row(s)| &&
+             |; BAdI { COND string( WHEN iv_badi = abap_false THEN 'not asked'
+                                    WHEN mv_badi_ok = abap_true THEN 'answered'
+                                    ELSE 'SILENT' ) }| &&
+             |{ COND string( WHEN iv_badi = abap_true AND iv_badi_all = abap_false
+                             THEN ' (first screen only)' ) }| &&
+             |; OData bindings { lv_bind_cnt }| &&
+             |; captions { lines( mt_val ) + lines( mt_lbl ) } cached| &&
+             |; portal group { lv_main4 }| &&
+             |. Control sources and the live screens are read by hand - | &&
+             |doc/controls/shapeit-reads.md and doc/journeys/.|.
+
+    IF iv_badi = abap_true.
+      IF mv_badi_ok = abap_false.
+        ev_msg = ev_msg && | ** The BAdI answered nothing for this journey: | &&
+                           |step names and required flags are the export's own.|.
+      ELSEIF mt_stage IS INITIAL.
+        ev_msg = ev_msg && | BAdI read OK, no STAGES row - step names derived.|.
+      ELSEIF lv_stage_fit = abap_true.
+        ev_msg = ev_msg && | Step names from the legacy STAGES list: | &&
+                           |{ concat_lines_of( table = mt_stage sep = ` / ` ) }.|.
+      ELSE.
+        ev_msg = ev_msg && | ** REVIEW: the STAGES list has | &&
+                           |{ lines( mt_stage ) } name(s) for { lines( lt_screens ) } step(s) - | &&
+                           |{ concat_lines_of( table = mt_stage sep = ` / ` ) } - so it was NOT | &&
+                           |applied. Map them by hand or pass IV_STEPS.|.
+      ENDIF.
+    ENDIF.
+    IF lv_conf_drp > 0.
+      ev_msg = ev_msg && | { lv_conf_drp } confirmation screen(s) dropped: the engine | &&
+                         |appends its own Review and submit step.|.
+    ENDIF.
+    IF iv_bknd_active = abap_false.
+      ev_msg = ev_msg && | ** BKND_ACTIVE is blank: this journey renders but | &&
+                         |POSTS NOTHING at submit.|.
+    ENDIF.
+    IF lv_pay_kept > 0.
+      ev_msg = ev_msg && | { lv_pay_kept } payment field(s) kept, handled by | &&
+                         |{ to_upper( iv_handler ) }.|.
     ENDIF.
     IF lv_pay_drp > 0.
       ev_msg = ev_msg && | ** { lv_pay_drp } payment step(s) dropped: set handler_class | &&
@@ -1732,8 +2542,13 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
           iv_title_ar = job-title_ar
           iv_dept     = iv_dept
           iv_main     = iv_main
-          iv_prefix   = iv_prefix
-          iv_steps    = job-steps
+          iv_prefix      = iv_prefix
+          iv_tile_pfx    = iv_tile_pfx
+          iv_bknd_active = iv_bknd_active
+          iv_handler     = iv_handler
+          iv_badi        = iv_badi
+          iv_badi_all    = iv_badi_all
+          iv_steps       = job-steps
         IMPORTING
           ev_ok       = DATA(lv_ok)
           ev_msg      = DATA(lv_msg)
@@ -1817,7 +2632,26 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
                 CLEAR has_pend.
               ELSE.
                 DATA(cap) = COND string( WHEN r-lbl_en IS NOT INITIAL THEN r-lbl_en ELSE r-text_en ).
-                IF cap IS NOT INITIAL AND is_code_label( cap ) = abap_false.
+*               A PARAGRAPH IS NOT A CAPTION, and consuming one as a caption
+*               loses it twice over. IS_NOTICE( ) is the same predicate the
+*               field loop uses to decide a row is guidance text rather than
+*               a label; a row it answers TRUE for is written as a DISPLAY
+*               row with the wording in DEFAULT_VAL (CHAR 1000) precisely
+*               because ZLABEL is CHAR(150) and would cut it.
+*
+*               Left pending, that row became the NEXT control's ZLABEL - so
+*               M011's "Please select the property from the different lists.
+*               Notes: - If the property is mortgaged..." arrived as the
+*               parcel selector's label, cut mid-word at 150 characters,
+*               sitting in its own grid cell beside a selector squeezed into
+*               the other half of the row. Worse, MT_CONSUMED then hid the
+*               row, so the full wording appeared nowhere at all.
+*
+*               Skipping it also RESTORES the real caption: the short
+*               "Parcel Selection:" row above stays pending and reaches the
+*               control, which is what it was always meant to label.
+                IF cap IS NOT INITIAL AND is_code_label( cap ) = abap_false
+                   AND is_notice( cap ) = abap_false.
                   pend_raw = to_upper( r-field_name ).
                   pend_en  = cap.
                   pend_ar  = COND string( WHEN r-lbl_ar IS NOT INITIAL THEN r-lbl_ar ELSE r-text_ar ).
@@ -1834,6 +2668,20 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
             ENDIF.
           WHEN c_container.
             " keep pending - a label often sits in an HBOX just before its field
+
+          WHEN c_backend OR c_stage.
+*           AN INVISIBLE ROW DOES NOT BREAK A PAIR. A legacy screen
+*           interleaves its JOURNEYTYPE / INTRENO_JOURNEY carriers and its
+*           stage list between the visible controls. Clearing the pending
+*           caption on one of those is how "Parcel Selection:" ended up
+*           rendering as a field of its own - a grey disabled box - while
+*           RAKPARCELSELECTOR next to it was labelled "Parcelselector",
+*           from its own field name, because it never received the caption
+*           sitting two rows above it.
+*
+*           The citizen cannot see these rows, so they cannot be what
+*           separates a caption from the control it belongs to.
+
           WHEN OTHERS.
             CLEAR has_pend.
         ENDCASE.
@@ -1897,6 +2745,37 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
         OR 'SELECT' OR 'CHECKBOX' OR 'RADIO' OR 'STEPPER' OR 'SEGMENTED'
         OR 'UPLOAD' OR 'SEARCH' OR 'DISPLAY' OR 'LINK' OR 'STATUS'.
         rv = to_upper( iv_ftype ).
+*     THE API-BACKED COMPOSITES PASS THROUGH UNCHANGED, and until they did,
+*     nothing else in this file mattered. This method is a WHITELIST and its
+*     WHEN OTHERS clears RV; the caller reads a cleared RV as "discard the
+*     row". So every RAKPARCELSELECTOR, RAK_PROPERTIES, RAK_TITLEDEED,
+*     RAK_FLOORUNIT, RAK_CONTRACTS and RAK_BUILDINGCONTROL that CLASSIFY( )
+*     had just correctly identified was thrown away one gate later - and
+*     because the row was gone, API_BIND( ) never saw it either, so no
+*     DEFAULT_VAL directive was ever written for any of them.
+*
+*     What reached the screen was the control's CAPTION, which is a separate
+*     display row and survives on its own: the grey "Parcel Selection:" box
+*     on M011 step 1 is a label with its control deleted out from under it.
+*     That is why the journey looked empty rather than broken.
+*
+*     They are here now because they RENDER: ZCL_RAK_JOURNEY_RENDER draws all
+*     six through the SELECT branch, fed by ZCL_RAK_CJ_OPTS off the directive.
+*     The TABLE/PAYFEE reasoning above does not apply - those are dropped
+*     because they would render WRONGLY without a handler, and these do not.
+      WHEN 'PARCEL' OR 'PROPERTY' OR 'TITLEDEED'
+        OR 'FLOORUNIT' OR 'CONTRACT' OR 'BUILDINGS'
+*       ACCOM joins them now that ZCL_RAK_ACCOM_API serves it. It was in the
+*       counted-drop list below while nothing could answer a port
+*       accommodation query; ZEGA_CJ_EPDA_PORT_OBJECTS answers it.
+        OR 'ACCOM'.
+        rv = to_upper( iv_ftype ).
+*     PAYFEE passes through. The field loop above decides whether to keep
+*     it - it has IV_HANDLER and this method does not - so a blanket drop
+*     here would overrule that decision one gate later, which is exactly
+*     how the API-backed composites were lost.
+      WHEN 'PAYFEE'.
+        rv = 'PAYFEE'.
       WHEN 'DATERANGE' OR 'CALENDAR'.
         rv = 'DATE'.
       WHEN 'HOURS'.
@@ -2044,6 +2923,26 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD tile_code.
+    DATA(lv_p) = to_upper( COND string( WHEN iv_prefix IS INITIAL
+                                        THEN c_tile_pfx ELSE iv_prefix ) ).
+    DATA(lv_j) = to_upper( iv_journey ).
+*   '_' and '-' are legal in a CJS journey id and meaningless in a tile.
+    REPLACE ALL OCCURRENCES OF REGEX '[^A-Z0-9]' IN lv_j WITH ``.
+    IF strlen( lv_p ) >= c_tile_len.
+      rv = substring( val = lv_p off = 0 len = c_tile_len ).
+      RETURN.
+    ENDIF.
+    DATA(lv_room) = c_tile_len - strlen( lv_p ).
+    IF strlen( lv_j ) > lv_room.
+*     keep the TAIL: 'M011' and 'M035' differ in their last characters,
+*     their heads are identical.
+      lv_j = substring( val = lv_j off = strlen( lv_j ) - lv_room len = lv_room ).
+    ENDIF.
+    rv = lv_p && lv_j.
+  ENDMETHOD.
+
+
   METHOD teardown.
     DATA(jid) = to_upper( iv_cjs_id ).
     SELECT SINGLE tile_code FROM zrak_t_jny INTO @DATA(lv_tile) WHERE journey_id = @jid.
@@ -2054,13 +2953,44 @@ CLASS ZCL_RAK_MIGRATOR IMPLEMENTATION.
     DELETE FROM zrak_t_jny_opt  WHERE journey_id = @jid.
     DELETE FROM zrak_t_jny_rule WHERE journey_id = @jid.
     DELETE FROM zrak_t_mig_raw  WHERE cjs_id     = @jid.
-    IF lv_tile IS NOT INITIAL.
-      DELETE FROM zega_t_cj_grp WHERE journeyid = @lv_tile.
-      DELETE FROM zega_t_cj_id  WHERE journeyid = @lv_tile.
-      DELETE FROM zega_t_cj_idt WHERE journeyid = @lv_tile.
-    ENDIF.
+
+*   THE DESIGN TAB'S LAYOUT WENT WITH IT, AND IT DID NOT USED TO. Its column
+*   is JOURNEY rather than JOURNEY_ID, which is most of why it was missed.
+*   PERSIST( ) does a full MODIFY, so a layout row left behind re-attaches on
+*   the next migration - to a field that may have been renamed or dropped in
+*   between. A teardown that leaves them is not a teardown; it is a journey
+*   with invisible furniture still in it.
+    DELETE FROM zrak_cj_layout  WHERE journey    = @jid.
+
+*   ---- THE PORTAL TILE ROWS ARE NOT OURS TO DELETE, AND THIS METHOD USED
+*   ---- TO DELETE THEM ---------------------------------------------------
+*
+*   There were three DELETEs here, against ZEGA_T_CJ_GRP, _ID and _IDT,
+*   keyed on the tile code. RUN OVER A FAMILY PREFIX IN QUALITY THEY TOOK OUT
+*   THE LANDING PAGE. They are gone and they are not coming back behind a
+*   flag, because a flag is something somebody ticks by accident.
+*
+*   WHY IT WAS SO MUCH WORSE THAN IT LOOKED. LV_TILE comes from ZRAK_T_JNY,
+*   so the blast radius is decided by a CJS config row - but the rows deleted
+*   belong to the PORTAL, are shared with services CJS has nothing to do
+*   with, and carry their own language texts in _IDT. A CJS teardown is
+*   reversible by re-running a load report. That is not.
+*
+*   TEARDOWN MEANS "REMOVE THE CJS CONFIGURATION" AND NOTHING ELSE. If a tile
+*   genuinely has to go, ZRAK_CJ_PORTAL_FIX is where that conversation
+*   belongs - one group, listed and confirmed by hand - never a loop over a
+*   prefix that nobody reads before pressing execute.
     COMMIT WORK.
-    ev_msg = |{ jid } and tile { lv_tile } removed|.
+
+*   AND THE CACHE, HERE RATHER THAN AT THE CALL SITE. ZRAK_M_MUNI_LOAD has
+*   always invalidated after each teardown and nothing else did, so every
+*   other caller left the cache serving a journey whose rows had just been
+*   deleted. Invalidating where the delete happens means the next caller
+*   cannot forget; the Municipality loader's own call is now redundant and
+*   harmless.
+    zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV string( jid ) ).
+
+    ev_msg = |{ jid } config removed, portal tile { lv_tile } untouched|.
   ENDMETHOD.
 
 

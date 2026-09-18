@@ -10,12 +10,6 @@
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>
    </VSEOINTERF>
-   <DESCRIPTIONS_INTERFACE>
-    <SEOCLASSTX>
-     <LANGU>묩</LANGU>
-     <DESCRIPT>AJSON common types</DESCRIPT>
-    </SEOCLASSTX>
-   </DESCRIPTIONS_INTERFACE>
   </asx:values>
  </asx:abap>
 </abapGit>

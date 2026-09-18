@@ -11,6 +11,21 @@ CLASS zcl_rak_qnv_bridge DEFINITION
                 it_items       TYPE zif_rak_journey=>tt_item
                 it_tables      TYPE /qnv/sb_tabl_def_tt OPTIONAL
                 it_attachments TYPE /qnv/sbuild_attachments_tt OPTIONAL
+"               The partner this session resolved, for the same reason READ
+"               needed it - and on POST the consequence is larger.
+"
+"               ZCL_EGA_CJ_FW_RO_ABS_V1->MAPPER( ) derives BOTH Municipality
+"               partners from an item called BP and nothing else, and
+"               CREATE( ) validates the TR0800 one BEFORE creating the RE
+"               rental object. A blank partner therefore stops the create
+"               (ZMSG_EGA_CJ 009 and 010), no INTRENO comes back, and the
+"               engine reports "The backend did not return a draft
+"               reference. The application cannot be started." - which names
+"               none of the cause.
+"
+"               Optional, and blank falls back to LOGINBP_DEV, so a journey
+"               that never passes it sends exactly what it sent before.
+                iv_loginbp     TYPE string OPTIONAL
       EXPORTING ev_guid        TYPE string
 "               The container case number, when THIS post created one. Blank on every
 "               post that did not - which is every post on a journey with no case, and
@@ -71,6 +86,12 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 *               bridge was discarding it.
                 ev_guid        TYPE string
                 ev_case        TYPE string
+*               Field control as the BAdI left it, one row per attribute:
+*               KEY is |<FIELDNAME>/<ATTRIBUTE>| and VALUE is the flag it
+*               carried. A KV table rather than a typed structure so a
+*               newly interesting column - an ADDITIONALDATA slot, say -
+*               costs a line here and nothing anywhere else.
+                et_ctrl        TYPE zif_rak_journey=>tt_kv
                 et_msg         TYPE zif_rak_journey=>tt_msg.
 
     " One grid's rows. The legacy read does NOT return table data: the OData layer
@@ -105,7 +126,86 @@ CLASS zcl_rak_qnv_bridge DEFINITION
 
   PROTECTED SECTION.
   PRIVATE SECTION.
+
+*   One definition row's field control, flattened into KV rows. The shape
+*   is READ( )'s business and nobody else's.
+*   TYPED, not generic. IS_DEF was TYPE ANY and the static read of
+*   IS_DEF-FIELDNAME is then illegal - "does not have a structure and
+*   therefore does not have a component called FIELDNAME".
+*
+*   LINE OF the TABLE type, never a guessed row-type name. The table type
+*   is already named in READ( )'s own LT_DEF, so it is proven to exist;
+*   /QNV/SBUILD_DEFINITION_ST would only be the conventional spelling of
+*   its row, and this environment cannot open a /QNV/ object to check. The
+*   rule that keeps being re-learned here: do not hand-write the shape of
+*   a standard object you cannot open - derive it.
+*
+*   The columns this method is UNCERTAIN of stay dynamic. That was always
+*   the point of ASSIGN COMPONENT here, not the parameter's type.
+    METHODS ctrl_of
+      IMPORTING is_def  TYPE LINE OF /qnv/sbuild_definition_tt
+                is_seed TYPE LINE OF /qnv/sbuild_definition_tt
+      CHANGING  ct_ctrl TYPE zif_rak_journey=>tt_kv.
+
+*   SEED THE FIELD CONTROL WITH WHAT CJS ALREADY BELIEVES, so what comes
+*   back is the BAdI's FINAL WORD rather than a half-answer.
+*
+*   The rows sent into ZIF_EGA_FW_CJI~READ used to carry nothing but a
+*   field name, so every flag came back blank unless the implementation
+*   wrote one - and blank is ambiguous in the worst direction: it reads
+*   identically as "the BAdI cleared this" and "the BAdI never looked at
+*   it". BACKEND_READ( ) consequently called SET_REQUIRED( abap_false ) on
+*   every field the implementation did not name, which silently removed the
+*   required marker from every migrated mandatory field on any screen the
+*   BAdI answered at all.
+*
+*   Seeded with the journey's own configuration instead, an untouched row
+*   comes back saying exactly what CJS already thought and applying it is a
+*   no-op; a row the implementation changed says so unambiguously, in both
+*   directions. That is what makes ENABLED and VISIBLE safe to apply and
+*   not only to trace.
+*
+*   Written through ASSIGN COMPONENT because the definition structure is a
+*   legacy DDIC type: a column this release does not have is skipped rather
+*   than failing activation.
+    METHODS seed_ctrl
+      IMPORTING iv_screen TYPE string
+                iv_field  TYPE string
+      CHANGING  cs_def    TYPE LINE OF /qnv/sbuild_definition_tt.
+
     CONSTANTS c_fm_read_table TYPE string VALUE 'ZFM_EGA_CJ_FW_READ_TABLE_DATAN'.
+
+*   The Municipality categories - PLURAL, and that is the whole point. This
+*   was one constant holding 'MML', and Municipality has at least three:
+*
+*       MML     the land journeys      M011, M012, M016
+*       CI      comprehensive investigation   M017
+*       GRANTS  the grants family      M018, M019, M020
+*
+*   All of them post through ZCL_EGA_CJ_FW_RO_ABS_V1 or its grants
+*   subclass, and both derive BOTH partners from a bare 'BP' item in
+*   ZIF_EGA_FW_CJI~MAPPER. With the guard matching 'MML' alone, M017 and
+*   the three grants journeys never got the item, MT_PARTNER came back
+*   empty, and their own VALIDATE( ) refused the first post with
+*   "Business Partner is mandatory" - on a screen that asks the citizen
+*   for no partner at all, because the partner is meant to come from the
+*   session.
+*
+*   A LIST AND NOT A PATTERN, deliberately. The tempting shorthand is
+*   "journey code starts with M", and it is wrong twice: MP00..MP04 are
+*   Municipality-prefixed but are a different contract, and the value that
+*   decides which BAdI runs is the CATEGORY, not the journey id. Sending a
+*   bare two-letter identifier to the wrong family is not a harmless miss -
+*   MAPPER does ASSIGN (<ms_item_data>-technicalname) and writes into
+*   whatever that name resolves to in its own program, which is exactly how
+*   an item called LOGINBP dumped every DOK journey. So the set is explicit
+*   and each member is one somebody checked.
+*
+*   ADD A CATEGORY HERE when a new Municipality service arrives, and only
+*   after confirming its BAdI inherits one of the two RO abstracts.
+    CONSTANTS c_cat_muni  TYPE string VALUE 'MML'.
+    CONSTANTS c_cat_ci    TYPE string VALUE 'CI'.
+    CONSTANTS c_cat_grant TYPE string VALUE 'GRANTS'.
 *   The name the fee list answers to. Part of the read FM's contract with every
 *   department, not a per-journey configuration value - which is precisely why it
 *   belongs here as a constant and not in ZRAK_T_JNY_FLD.
@@ -144,6 +244,67 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     ls_hdr-screenname   = iv_screen.
     ls_hdr-functionin   = ms_config-backend-fm_post.
 
+*   ---- PARAM3 IS THE PARTNER, AND THE POST WAS NOT SENDING IT --------
+*   READ( ) HAS ALWAYS SET IT AND POST( ) NEVER DID. That asymmetry is
+*   the whole defect: reads resolved the citizen, posts arrived with
+*   LOGINBP blank, and ZFM_EGA_CJ_FW_POST_N returns before it ever gets
+*   to the BAdI:
+*
+*       IF loginbp IS INITIAL AND anonymous <> 'X'.
+*         RETURN.                       "Authentication not valid
+*       ENDIF.
+*       GET BADI cj_badi FILTERS journey_type = journeytype.
+*
+*   WHICH IS WHY THIS LOOKED LIKE A MISSING BAdI IMPLEMENTATION. The FM
+*   returns with no messages and no draft reference in about a
+*   millisecond - exactly what a filter matching nothing looks like from
+*   outside - and CJS's own blocker text said so, sending three people to
+*   SE18 to check a registration that was never the problem. Confirmed in
+*   the debugger instead: stack frame 18, the arrow on the RETURN at line
+*   67, LOGINBP holding spaces.
+*
+*   IT WORKED THIS MORNING because the FM filled the gap itself:
+*
+*       * IF loginbp IS INITIAL AND sy-sysid <> 'E30'.
+*       *   loginbp = lc_test_bp.
+*       * ENDIF.
+*
+*   That block is commented out now, and CJS was relying on it without
+*   anything saying so. A dev-only hardcode in a legacy FM is not a
+*   channel to depend on - the FM is not in this repository and cannot be
+*   changed from here - so the partner travels in the payload where the
+*   read already put it.
+*
+*   NOT ON THE HEADER, THOUGH - THAT WAS THE FIRST ATTEMPT AND IT DOES
+*   NOT COMPILE. READ( )'s header and POST( )'s are different structures:
+*   POST( ) uses /QNV/SBUILD_SAVEHEADER_ST, which carries CATEGORYNAME,
+*   SCREENNAME and FUNCTIONIN and has no PARAM1..PARAM4 at all. "The data
+*   object LS_HDR does not have a component called PARAM3" is the whole of
+*   it, and assuming the two headers matched because both are called
+*   LS_HDR is the same class of mistake as the rest of today.
+*
+*   IT IS AN FM PARAMETER. The FM's own source separates the two cases:
+*   JOURNEYTYPE it has to dig out of the payload -
+*
+*       journeytype = VALUE #( ct_item_data[ technicalname = 'JOURNEYTYPE' ]-value ).
+*
+*   - while LOGINBP and ROLEBP it simply uses, at line 61, with no
+*   extraction anywhere above. A value used bare like that arrives as a
+*   parameter, and CJS's CALL FUNCTION below passed only the four CHANGING
+*   tables.
+*
+*   SAME PRECEDENCE AS READ( ): the session's resolved partner first, the
+*   dev `&loginbp=` override second. Computed HERE rather than inside the
+*   BP-item guard below, because both that item and the parameter need it
+*   and the guard may not run.
+*   DEVELOPMENT STUB, gated. LV_PARTNER feeds both the BP item and PARAM3
+*   below, so this one COND decides who the whole post says is applying.
+    DATA(lv_partner) = COND string( WHEN iv_loginbp IS NOT INITIAL
+                                    THEN iv_loginbp
+                                    WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true
+                                    THEN ms_config-backend-loginbp_dev
+                                    ELSE space ).
+
     CONSTANTS c_caller_fld TYPE string VALUE 'ZCJS_CALLER'.
     CONSTANTS c_caller_id  TYPE string VALUE 'CJS'.
 
@@ -153,11 +314,190 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     APPEND VALUE #( fieldname = c_caller_fld technicalname = c_caller_fld
                         value = c_caller_id ) TO lt_item.
 
+*   ---- THE CALLER MARKER IS HALF A CONTRACT, AND WE WERE SENDING THE
+*   ---- HALF THAT DOES NOTHING ON ITS OWN --------------------------------
+*
+*   ZIF_EGA_FW_CJI~MAPPER HAS A CJS BRANCH and it reads TWO items, not one:
+*
+*     IF gs_data-caseid IS INITIAL.
+*       READ TABLE item_data ASSIGNING FIELD-SYMBOL(<fs>)
+*                            WITH KEY technicalname = 'ZCJS_CALLER'.
+*       IF <fs> IS ASSIGNED AND <fs>-value = 'CJS'.
+*         READ TABLE item_data ASSIGNING <fs>
+*                              WITH KEY technicalname = 'CASEID'.
+*         IF <fs> IS ASSIGNED AND <fs>-value IS NOT INITIAL.
+*           gs_data-caseid = <fs>-value.
+*
+*   THE SECOND ITEM IS THIS ONE. We sent ZCJS_CALLER and never sent CASEID,
+*   so the second READ failed - and a failed READ ... ASSIGNING LEAVES THE
+*   FIELD SYMBOL ON THE PREVIOUS ROW rather than unassigning it. IS ASSIGNED
+*   was therefore true, stale, still pointing at the ZCJS_CALLER row, and the
+*   BAdI copied ITS value: GS_DATA-CASEID came out holding the string 'CJS'.
+*   Caught in the debugger with SY-SUBRC 4 on that READ.
+*
+*   WHAT THAT COST, because it is not a cosmetic wrong value. CREATE_CASE
+*   reads CASEID twice: IF GS_DATA-CASEID IS INITIAL decides whether a case is
+*   created at all - 'CJS' is not initial, so none was - and then
+*   ME->GV_GUID = GS_DATA-CASEID made 'CJS' the INDX(CJ) key, so every CJS
+*   journey shared ONE buffer row regardless of case, citizen or department.
+*   That is what the engine trace reported as "row existed" on launches that
+*   had never run before.
+*
+*   THE NAME IS BARE ON PURPOSE, AND IT IS THE ONE EXCEPTION TO THE CJS_
+*   PREFIX RULE. Everything else we invent is prefixed so MAPPER's
+*   ASSIGN-by-name cannot resolve it - that is what dumped every DOK journey
+*   on LOGINBP. CASEID is not ours to name: the BAdI reads that exact literal,
+*   so a prefixed one would miss and we would be back to the stale field
+*   symbol. If this ever dumps with MOVE_TO_LIT_NOTALLOWED_NODATA, the cause
+*   is that assign finding a read-only CASEID in the BAdI's own program, and
+*   the fix belongs there rather than in a different name here.
+*
+*   ONLY WHEN THE KEY IS A CONFIRMED CASE. "Not blank" is not good enough and
+*   the first version of this got it wrong: MV_INTRENO on a journey that has
+*   not created anything yet is the pre-first-key GUID_22, which is none of
+*   the three things this field may be. Sending it put 0298oqJ{7z6i into
+*   GS_DATA-CASEID - and CREATE_CASE gates on IF GS_DATA-CASEID IS INITIAL, so
+*   a non-blank wrong value SKIPS THE CREATE ENTIRELY. No case, no open item,
+*   and a payment poll that runs all 48 ticks waiting for one. Exactly the
+*   failure the string 'CJS' caused, with a value that looks plausible.
+*
+*   SO WE CONFIRM IT FIRST. This is the same SELECT as the first branch of
+*   ZCL_RAK_JOURNEY_LOGIC->CASE_KEY_OF( ), and not a new lookup - it is not
+*   called through that method only because CASE_KEY_OF( ) is an instance
+*   method on the handler base and needs an IO_CTX the bridge does not hold.
+*   A miss means "no case yet", which is the normal state of a fresh journey
+*   and is exactly when the BAdI must be left to create one.
+*
+*   WRAPPED, AND NOT OPTIONALLY. A journey key can be a GUID_22 carrying
+*   punctuation - 0298oqJ{7z6i has a brace in it - and comparing one against
+*   SCMG_EXT_KEY raises CX_SY_OPEN_SQL_DATA_ERROR rather than simply missing.
+*   Uncaught, that would dump every fresh journey on its first post.
+    IF iv_guid IS NOT INITIAL.
+      TRY.
+          DATA(lv_ek) = CONV scmg_ext_key( |{ CONV scmg_ext_key( iv_guid ) ALPHA = IN }| ).
+          SELECT SINGLE ext_key FROM scmg_t_case_attr
+            WHERE ext_key = @lv_ek
+            INTO @DATA(lv_case).
+          IF sy-subrc = 0 AND lv_case IS NOT INITIAL.
+            APPEND VALUE #( fieldname = 'CASEID' technicalname = 'CASEID'
+                            value = iv_guid ) TO lt_item.
+          ENDIF.
+        CATCH cx_root ##NO_HANDLER.
+*         A key that cannot even be compared is certainly not a case. Say
+*         nothing and let the BAdI create one.
+      ENDTRY.
+    ENDIF.
+
+*   The item is named LOGINBP_DEV and is exactly what it says. Gated with
+*   the rest: a stub that reaches the BAdI as an item is no different from
+*   one that reaches it as a header parameter.
     IF ms_config-backend-userdata IS INITIAL
-       AND ms_config-backend-loginbp_dev IS NOT INITIAL.
+       AND ms_config-backend-loginbp_dev IS NOT INITIAL
+       AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
       APPEND VALUE #( fieldname = 'LOGINBP_DEV' technicalname = 'LOGINBP_DEV'
                       value = ms_config-backend-loginbp_dev ) TO lt_item.
     ENDIF.
+
+*   ---- BP: the item the Municipality BAdI derives its partners FROM ----
+*
+*   WITHOUT THIS A MUNICIPALITY JOURNEY CANNOT START AT ALL, and the error
+*   names none of it: "The backend did not return a draft reference. The
+*   application cannot be started."
+*
+*   The chain, end to end, in ZCL_EGA_CJ_FW_RO_ABS_V1:
+*
+*     MAPPER( )   derives BOTH partners from ONE item and nothing else -
+*                   mt_partner = VALUE #(
+*                     ( role_type = 'TR0800'
+*                       partner = VALUE #( mt_item_data[
+*                                   technicalname = 'BP' ]-value OPTIONAL ) )
+*                     ( role_type = 'TR0640' partner = ...same... ) ).
+*     CREATE( )   calls validate( mode = 'C' ) FIRST
+*     VALIDATE( ) with a blank TR0800 partner appends ZMSG_EGA_CJ 009, and
+*                   ZCL_EGA_MUN_CJ_ODATA_API( partner = blank )->properties
+*                   is then empty too, which appends 010
+*     CREATE( )   raise_message( ) -> stop -> RETURN, BEFORE create( )
+*
+*   so no RE rental object is created, no INTRENO comes back, the
+*   INTRENO_JOURNEY item below stays blank, and the engine correctly
+*   reports that it has no draft reference. Every symptom is one missing
+*   item.
+*
+*   THE PAYLOAD CARRIED CJS_LOGINBP AND NOT BP. Those are not the same
+*   name and the BAdI reads only the second. LOGINBP_DEV, CJS_ROLEBP and
+*   CJS_ROLE were all here; the one the Municipality abstract actually
+*   keys on was not.
+*
+*   IV_LOGINBP FIRST, LOGINBP_DEV SECOND. IV_LOGINBP is the partner the
+*   engine resolved for this session; LOGINBP_DEV is the dev-only
+*   `&loginbp=` override and is what CJS_LOGINBP above sends. Preferring
+*   the resolved one means a real session posts the real partner and a dev
+*   override still works.
+*
+*   GUARDED, so a journey that configures its own BP field wins. A second
+*   item with the same technical name would make
+*   `mt_item_data[ technicalname = 'BP' ]` ambiguous - it reads the FIRST -
+*   and which one that is would depend on insertion order.
+*
+*   NOT SAFE FOR THE OTHER FAMILIES, and this comment used to say it was:
+*   "the DOK and EPDA abstracts map items to characteristics through their
+*   own config table by TECHNICALNAME, so an item no row names is ignored
+*   rather than written anywhere." The D002 dump disproved it. They do map
+*   by config table - SECOND. First ZIF_EGA_FW_CJI~MAPPER does
+*   ASSIGN (<ms_item_data>-technicalname) TO <value> and writes to
+*   whatever that name resolves to in its own program. See the block below
+*   for the whole mechanism.
+*
+*   So a two-letter identifier goes ONLY to the family that asks for it.
+*   BP is what ZCL_EGA_CJ_FW_RO_ABS_V1 derives both Municipality partners
+*   from and nothing else will do there; on DOK and EPDA it is a name
+*   their programs may well have, for no benefit at all.
+    IF ( ms_config-backend-category = c_cat_muni
+      OR ms_config-backend-category = c_cat_ci
+      OR ms_config-backend-category = c_cat_grant )
+       AND lv_partner IS NOT INITIAL
+       AND NOT line_exists( lt_item[ technicalname = 'BP' ] ).
+      APPEND VALUE #( fieldname = 'BP' technicalname = 'BP'
+                      value = lv_partner ) TO lt_item.
+    ENDIF.
+
+*   ---- NO LOGINBP OR ROLEBP ITEM. THE HEDGE WAS NOT FREE ------------
+*
+*   An item named LOGINBP was added here as a "cheap hedge" beside the FM
+*   parameter, on the reasoning that an item costs a table row and needs
+*   nothing to be right. It killed every DOK journey, and the dump names
+*   the mechanism exactly - MOVE_TO_LIT_NOTALLOWED_NODATA in
+*   ZCL_EGA_CJ_DOK_ABS, ZIF_EGA_FW_CJI~MAPPER, on D002:
+*
+*       ASSIGN (<ms_item_data>-technicalname) TO <value>.
+*       IF sy-subrc EQ 0.
+*         ...
+*         <value> = <ms_item_data>-value.      "<-- here
+*
+*   THAT IS ASSIGN BY NAME, NOT ASSIGN COMPONENT. It resolves the item's
+*   TECHNICALNAME as the name of a data object VISIBLE IN THE BADI'S OWN
+*   PROGRAM - and LOGINBP is visible there, because it is the FM's own
+*   IMPORTING parameter. So the ASSIGN SUCCEEDS, sy-subrc is 0, the
+*   sy-subrc guard passes, and the write lands on a read-only formal
+*   parameter: "Overwriting of a protected field... Declare the parameter
+*   as a VALUE."
+*
+*   THE ASSUMPTION THAT MADE IT LOOK SAFE was written one screen above:
+*   "the DOK and EPDA abstracts map items to characteristics through their
+*   own config table by TECHNICALNAME, so an item no row names is
+*   ignored". They do that SECOND. First they assign by name and write to
+*   whatever they find.
+*
+*   SO THE RULE, and it is not about these two names: NEVER SEND AN ITEM
+*   WHOSE TECHNICALNAME COULD BE THE NAME OF A DATA OBJECT IN THE BADI'S
+*   PROGRAM. A bare identifier - LOGINBP, ROLEBP, ROLE, GUID, STATUS - is
+*   a name that program plausibly has. The CJS_ prefix below exists for
+*   exactly this reason: nothing is called CJS_LOGINBP, so the ASSIGN
+*   fails, sy-subrc is not 0, and the row is skipped as intended.
+*
+*   The partner still reaches the backend. It travels as the FM PARAMETER,
+*   which is the route the FM's own source settled - it uses LOGINBP bare
+*   at line 61 with no extraction from the payload anywhere above it.
 
     APPEND VALUE #( fieldname = 'CJS_LOGINBP' technicalname = 'CJS_LOGINBP'
                     value = ms_config-backend-loginbp_dev ) TO lt_item.
@@ -210,14 +550,129 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
     lt_tab = it_tables.
     lt_att = it_attachments.
 
+*   ---- LOGINBP GOES OUT AS A PARAMETER, WITH A WAY BACK -------------
+*   TWO CALLS, AND THE SECOND IS THE OLD ONE. The FM name is dynamic, so
+*   a parameter it does not declare is a RUNTIME error rather than a
+*   syntax error - CX_SY_DYN_CALL_ILLEGAL_PARAM, raised while binding and
+*   therefore BEFORE the function body runs, so a failed attempt has no
+*   side effects and nothing is posted twice.
+*
+*   That is what makes this safe to ship without an ADT connection. The
+*   parameter names are read off the FM's source rather than its
+*   signature - the source shows LOGINBP, ROLEBP and ROLE used bare and
+*   passed on to the BAdI's MAPPER, which is strong but not the same as
+*   reading the interface - so if any of the three is named differently
+*   the retry posts exactly what it posted before this change and the
+*   trace says so. A wrong guess costs a message, not a broken create.
+    DATA(lv_dyn) = abap_false.
     TRY.
-        CALL FUNCTION ms_config-backend-fm_post
-          CHANGING
-            cs_general_data = ls_hdr
-            ct_item_data    = lt_item
-            ct_attacments   = lt_att
-            ct_tabledata    = lt_tab.
+        TRY.
+            CALL FUNCTION ms_config-backend-fm_post
+              EXPORTING
+                loginbp         = lv_partner
+                rolebp          = ms_config-backend-rolebp
+                role            = ms_config-backend-role
+              CHANGING
+                cs_general_data = ls_hdr
+                ct_item_data    = lt_item
+                ct_attacments   = lt_att
+                ct_tabledata    = lt_tab.
+          CATCH cx_sy_dyn_call_error INTO DATA(lx_dyn).
+*           THE FAMILY ROOT, AND ONE NAME INSTEAD OF THREE. This caught
+*           CX_SY_DYN_CALL_ILLEGAL_PARAM, CX_SY_DYN_CALL_PARAM_MISSING and
+*           CX_SY_DYN_CALL_PARAM_NOT_FOUND, and the first of those does not
+*           exist - "Type CX_SY_DYN_CALL_ILLEGAL_PARAM is unknown". Three
+*           guessed class names in a CATCH is three chances to fail
+*           activation for no benefit, so this catches the superclass the
+*           whole CX_SY_DYN_CALL_* family derives from.
+*
+*           CX_SY_DYN_CALL_ILLEGAL_CLASS, a sibling, is used and activates
+*           in Z2UI5_CL_UTIL_ABAP in this same repository - which is the
+*           evidence that the family and its root are real rather than
+*           remembered.
+*
+*           CAUGHT SEPARATELY FROM THE CX_ROOT BELOW, deliberately: a
+*           dynamic-call binding failure happens BEFORE the function body
+*           runs, so retrying it is free. A genuine backend failure must
+*           never be retried - re-posting a create that half ran is how
+*           duplicate cases are made - and it does not land here.
+            lv_dyn = abap_true.
+            CALL FUNCTION ms_config-backend-fm_post
+              CHANGING
+                cs_general_data = ls_hdr
+                ct_item_data    = lt_item
+                ct_attacments   = lt_att
+                ct_tabledata    = lt_tab.
+        ENDTRY.
+
+        IF lv_dyn = abap_true.
+*         TYPE / TEXT, not TYPE / MESSAGE. ET_MSG is
+*         ZIF_RAK_JOURNEY=>TT_MSG and its words are the engine's -
+*         'Warning', not the BAPIRET2 'W' this was first written with.
+          APPEND VALUE #( type = 'Warning' text =
+            |{ ms_config-backend-fm_post } does not declare LOGINBP/ROLEBP/ROLE | &&
+            |as parameters - posted without them, so the partner did not reach it. | &&
+            |{ lx_dyn->get_text( ) }| ) TO et_msg.
+        ENDIF.
+
       CATCH cx_root INTO DATA(lx).
+
+*       NAME THE ONE THAT LOOKS LIKE NOTHING. Every other exception here reads as
+*       what it is; CX_SY_IMPORT_MISMATCH_ERROR arrives as the runtime's generic
+*       "an exception was raised but was not handled locally" text, which says
+*       neither what failed nor whether anything can be done about it.
+*
+*       WHAT IT IS. Confirmed in the debugger, not guessed:
+*
+*         ZCL_EGA_CJ_DOK_ABS->ACCESS_STUDENT_EXIT_BUFFER
+*           IMPORT student_exit = cs_student_exit
+*             FROM SHARED BUFFER indx(cj) ID lv_id.
+*
+*       The row under that id was EXPORTed from a DIFFERENT shape of the
+*       structure than it is now imported into. A type mismatch on a CACHE - not
+*       a missing key, and nothing to do with what the citizen typed.
+*
+*       AND THE KEY IS THE STUDENT, NOT THE DRAFT:
+*
+*         LV_ID = student_exit_2013196053
+*
+*       That is the part worth writing down, because the obvious advice is wrong.
+*       Deleting the application and starting again does NOT help - the new draft
+*       builds the same id from the same student and hits the same poisoned row.
+*       SHARED BUFFER is cross-session too, so it is not one citizen: everyone
+*       who touches that student on this app server gets it, until the row is
+*       cleared or the buffer is flushed.
+*
+*       So this message must NOT send anybody round the retry loop. It says the
+*       truth - the same student will keep failing, and somebody has to clear the
+*       cache - because a citizen told to try again will try again, twice, and
+*       then telephone.
+*
+*       The real fix is four lines in ACCESS_STUDENT_EXIT_BUFFER: catch
+*       CX_SY_IMPORT_MISMATCH_ERROR, DELETE the row, report a miss. A cache must
+*       never be able to stop the application it is only there to speed up. That
+*       class is not in this repository - it lives in the BAdI chain and is
+*       maintained in ADT - so this bridge reports it as clearly as it can and
+*       does not pretend to have fixed it.
+        DATA(lv_cls) = cl_abap_classdescr=>get_class_name( lx ).
+        IF lv_cls CS 'CX_SY_IMPORT_MISMATCH_ERROR'.
+          APPEND VALUE #( type = 'Error'
+            text = |This service cannot continue for this student right now. The | &&
+                   |backend is holding cached data for them in an older format. | &&
+                   |Nothing you entered caused it, and starting the application | &&
+                   |again will not clear it - please report it to support.| ) TO et_msg.
+
+*         The technical half, separately, so the citizen-facing line above does not
+*         have to carry any of it.
+          APPEND VALUE #( type = 'Information'
+            text = |INDX(CJ) SHARED BUFFER type mismatch · screen { iv_screen } · | &&
+                   |guid { iv_guid } · { lv_cls }. Raised by | &&
+                   |ZCL_EGA_CJ_DOK_ABS->ACCESS_STUDENT_EXIT_BUFFER, whose buffer id is | &&
+                   |student_exit_<SID> - keyed by STUDENT, so a new draft hits the same | &&
+                   |row. Clear that id from the buffer, and catch the exception there.| ) TO et_msg.
+          RETURN.
+        ENDIF.
+
         APPEND VALUE #( type = 'Error' text = |Backend POST failed: { lx->get_text( ) }| ) TO et_msg.
         RETURN.
     ENDTRY.
@@ -242,6 +697,96 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
                                      ELSE 'Information' )
                       text = ls_err-messagedesc ) TO et_msg.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD seed_ctrl.
+    DATA(lv_f) = to_upper( condense( iv_field ) ).
+    IF lv_f IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   The field as this journey configures it. A field the config does not
+*   know (INTRENO_JOURNEY, seeded unconditionally below) gets the neutral
+*   defaults: visible, enabled, not mandatory.
+    DATA lv_req TYPE abap_bool.
+    DATA lv_ena TYPE abap_bool VALUE abap_true.
+    DATA lv_vis TYPE abap_bool VALUE abap_true.
+
+    LOOP AT ms_config-steps INTO DATA(ls_s) WHERE bknd_screen = iv_screen.
+      READ TABLE ls_s-fields INTO DATA(ls_f) WITH KEY name = lv_f.
+      IF sy-subrc = 0.
+        lv_req = xsdbool( ls_f-validation-required = abap_true ).
+        lv_ena = xsdbool( ls_f-readonly = abap_false ).
+        lv_vis = xsdbool( ls_f-hidden   = abap_false ).
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    DATA(lt_set) = VALUE zif_rak_journey=>tt_kv(
+      ( key = `MANDATORY` value = COND string( WHEN lv_req = abap_true THEN 'X' ) )
+      ( key = `ENABLED`   value = COND string( WHEN lv_ena = abap_true THEN 'X' ) )
+      ( key = `VISIBLE`   value = COND string( WHEN lv_vis = abap_true THEN 'X' ) ) ).
+
+    LOOP AT lt_set INTO DATA(ls_set).
+      ASSIGN COMPONENT ls_set-key OF STRUCTURE cs_def TO FIELD-SYMBOL(<v>).
+      IF sy-subrc = 0.
+        <v> = ls_set-value.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD ctrl_of.
+    DATA(lv_fld) = to_upper( CONV string( is_def-fieldname ) ).
+    IF lv_fld IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Every attribute the legacy field control is known to travel in. A name
+*   that is not a component of this release's structure is skipped, so the
+*   list can name more than any one system has.
+    DATA(lt_want) = VALUE string_table(
+      ( `MANDATORY` ) ( `ENABLED` ) ( `VISIBLE` ) ( `READONLY` )
+      ( `ADDITIONALDATA1` ) ( `ADDITIONALDATA2` )
+      ( `ADDITIONALDATA3` ) ( `ADDITIONALDATA4` ) ).
+
+    LOOP AT lt_want INTO DATA(lv_want).
+      ASSIGN COMPONENT lv_want OF STRUCTURE is_def TO FIELD-SYMBOL(<v>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_val) = condense( CONV string( <v> ) ).
+*     A blank ADDITIONALDATA is noise - there are four of them on every row.
+      IF lv_val IS INITIAL AND lv_want CP 'ADDITIONALDATA*'.
+        CONTINUE.
+      ENDIF.
+
+*     A SEEDED FLAG IS REPORTED ONLY WHEN THE BADI CHANGED IT.
+*
+*     SEED_CTRL( ) sent MANDATORY, ENABLED and VISIBLE out carrying the
+*     journey's own configuration, so a row that comes back agreeing with
+*     what went out says nothing - the implementation did not touch it.
+*     Reporting it anyway would be actively harmful, because
+*     ZCL_RAK_JOURNEY_BE->APPLY_CTRL( ) applies these through SET_HIDDEN /
+*     SET_READONLY / SET_REQUIRED, and an override written there OUTRANKS
+*     ZRAK_T_JNY_RULE - ZCL_RAK_JOURNEY_RULES->IS_HIDDEN( ) checks the
+*     override before MT_RULEHIDE. An echo of the seed would therefore
+*     un-hide every field a rule hides, on every screen the BAdI answers:
+*     one silent failure traded for a worse one.
+*
+*     What survives this gate is a genuine difference between what CJS
+*     believes and what the legacy field-control engine says, which is
+*     exactly what the BAdI is the authority on.
+      IF lv_want = `MANDATORY` OR lv_want = `ENABLED` OR lv_want = `VISIBLE`.
+        ASSIGN COMPONENT lv_want OF STRUCTURE is_seed TO FIELD-SYMBOL(<s>).
+        IF sy-subrc = 0 AND condense( CONV string( <s> ) ) = lv_val.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
+      APPEND VALUE #( key = |{ lv_fld }/{ lv_want }| value = lv_val ) TO ct_ctrl.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -275,10 +820,16 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 *   journey comes back empty and nothing is reported. Hence EV_GUID / EV_CASE below.
     ls_hdr-param1       = iv_guid.
     ls_hdr-param2       = ms_config-backend-journey.
-*   PARAM3 is the partner. Falls back to the dev BP override so a direct launch
-*   without a portal session still resolves an applicant on E10 / E20.
+*   PARAM3 is the partner, and the fallback below is a DEVELOPMENT STUB.
+*   This comment used to say it resolves an applicant "on E10 / E20", and
+*   it did - nothing gated it, so a direct launch without a portal session
+*   posted the dev BP as the applicant on quality as well. The BAdI reads
+*   PARAM3 as the person applying, so that is a real request filed under a
+*   partner nobody chose.
     ls_hdr-param3       = COND #( WHEN iv_loginbp IS NOT INITIAL THEN iv_loginbp
-                                  ELSE ms_config-backend-loginbp_dev ).
+                                  WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true
+                                  THEN ms_config-backend-loginbp_dev
+                                  ELSE space ).
     ls_hdr-param4       = ms_config-backend-rolebp.
     ls_hdr-screenname   = iv_screen.
     ls_hdr-categoryname = ms_config-backend-category.
@@ -288,7 +839,11 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
       APPEND VALUE #( fieldname     = ls_i-field
                       technicalname = COND #( WHEN ls_i-tech IS NOT INITIAL THEN ls_i-tech ELSE ls_i-field )
                       screenname    = iv_screen
-                      categoryname  = ms_config-backend-category ) TO lt_def.
+                      categoryname  = ms_config-backend-category ) TO lt_def
+             ASSIGNING FIELD-SYMBOL(<ls_def>).
+      seed_ctrl( EXPORTING iv_screen = iv_screen
+                           iv_field  = CONV string( ls_i-field )
+                 CHANGING  cs_def    = <ls_def> ).
     ENDLOOP.
 
 *   Seed INTRENO_JOURNEY unconditionally. The BAdI answers it by field name:
@@ -313,6 +868,12 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
 
     ls_hdr-param5 = 'CJS'.
 
+*   WHAT WENT OUT, kept so what comes back can be told apart from it.
+*   CT_DEFINITION is a CHANGING parameter - the implementation mutates the
+*   very rows seeded above - so without this copy there is no way to
+*   distinguish the BAdI's answer from an echo of the seed. See CTRL_OF( ).
+    DATA(lt_seed) = lt_def.
+
     TRY.
         CALL FUNCTION ms_config-backend-fm_read
           CHANGING
@@ -324,8 +885,31 @@ CLASS ZCL_RAK_QNV_BRIDGE IMPLEMENTATION.
         RETURN.
     ENDTRY.
 
+*   THE BADI ANSWERS MORE THAN A VALUE, and for as long as this has
+*   existed only the value was kept.
+*
+*   ZIF_EGA_FW_CJI~READ hands the implementation the whole definition
+*   table and the implementation mutates it: values, yes, but also the
+*   FIELD CONTROL - which fields are mandatory, enabled, visible on this
+*   screen in this state - and the ADDITIONALDATA slots that carry the
+*   stage list and BAdI-filled option lists. That is the legacy service's
+*   field-control engine, and CJS was throwing all of it away on every
+*   round trip. It is why a migrated journey's required markers, read-only
+*   states and step titles do not match the live one.
+*
+*   Read BY NAME through ASSIGN COMPONENT rather than named in a MOVE: the
+*   definition structure is a legacy DDIC type that cannot be opened from
+*   the environment this was written in, and a column that turns out not
+*   to exist yields nothing instead of failing activation. The engine
+*   decides what to DO with each - see BACKEND_READ( ).
     LOOP AT lt_def INTO DATA(ls_d).
       APPEND VALUE #( key = ls_d-fieldname value = ls_d-value ) TO et_values.
+      DATA ls_seed TYPE LINE OF /qnv/sbuild_definition_tt.
+      CLEAR ls_seed.
+      READ TABLE lt_seed INTO ls_seed WITH KEY fieldname = ls_d-fieldname.
+      ctrl_of( EXPORTING is_def  = ls_d
+                         is_seed = ls_seed
+               CHANGING  ct_ctrl = et_ctrl ).
     ENDLOOP.
 
 *   Same rule as POST, and stated the same way so the two cannot drift.

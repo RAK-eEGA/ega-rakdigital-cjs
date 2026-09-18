@@ -18,6 +18,25 @@ CLASS zcl_rak_cjs DEFINITION
 *       this step. Blank on nearly every step - it exists for the payment one.
         next_requires TYPE string,
         no_forward    TYPE abap_bool,
+*       Draws the footer with no primary action at all - Back and the message
+*       strip and nothing else. NO_FORWARD is a different thing: it removes
+*       Next and leaves Close/Submit, which is still a button.
+        no_action     TYPE abap_bool,
+*       R14-2. ZRAK_T_JNY_STEP-ACTIVE, which SAVE_JOURNEY( ) used to blank.
+*
+*       INERT AT RUNTIME TODAY and worth saying so rather than overstating it:
+*       ZCL_RAK_JOURNEY_REPO selects the steps WHERE JOURNEY_ID ORDER BY SEQNR
+*       with no ACTIVE filter, so a blanked step still renders. It is the same
+*       defect as the three header columns - a loader writes it, the Studio
+*       silently empties it - with a smaller consequence, and it stops being
+*       inert the day anything starts filtering on it.
+*
+*       DEFAULTED TO 'X' ON LOAD when the column is blank, not carried as
+*       blank. Every loader in the package writes ACTIVE = 'X', so a blank
+*       here means a row an earlier Save already destroyed; reading it back
+*       as false would make this fix preserve the damage instead of undoing
+*       it.
+        active        TYPE abap_bool,
       END OF ty_step,
       tt_step TYPE STANDARD TABLE OF ty_step WITH EMPTY KEY.
     TYPES:
@@ -33,10 +52,12 @@ CLASS zcl_rak_cjs DEFINITION
         default_val  TYPE string,
         fgroup       TYPE string,
         section      TYPE string,
+        section_ar   TYPE string,
         fstate       TYPE string,
         width        TYPE string,
         hidden       TYPE abap_bool,
         readonly     TYPE abap_bool,
+        closed_list  TYPE abap_bool,
         required     TYPE abap_bool,
         regex        TYPE string,
         min_len      TYPE string,
@@ -54,6 +75,30 @@ CLASS zcl_rak_cjs DEFINITION
         shlp         TYPE string,
         domname      TYPE string,
         tech_name    TYPE string,
+
+*       ---- COLUMNS THE STUDIO USED TO SILENTLY DESTROY ------------------
+*       SAVE_JOURNEY( ) deletes every row of the six tables and re-inserts
+*       from THIS structure, so a column that is not here is not merely
+*       un-editable - it is BLANKED the next time anybody presses Save on
+*       that journey.
+*
+*       NO_BROWSE was already in that position and nobody had noticed: it
+*       shipped as a DDIC column, a TY_FIELD component and a renderer read,
+*       and was never added here - so a Studio save on any of the seven EPDA
+*       services that use it would have quietly turned the Browse button
+*       back on. Nothing reports it, because the save succeeds.
+*
+*       The six Round 13 columns would have joined it. All seven are here
+*       now, and the rule to take from it is: a new column on
+*       ZRAK_T_JNY_FLD is not finished at the renderer. It is finished when
+*       the Studio can round-trip it.
+        no_browse    TYPE abap_bool,
+        text_align   TYPE string,
+        descr        TYPE string,
+        ta_rows      TYPE string,
+        grow_thresh  TYPE string,
+        popin        TYPE abap_bool,
+        flow         TYPE abap_bool,
       END OF ty_fld,
       tt_fld TYPE STANDARD TABLE OF ty_fld WITH EMPTY KEY.
     TYPES:
@@ -166,7 +211,26 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_dsg_dev  TYPE string.
     DATA mv_dsg_en   TYPE string.
     DATA mv_dsg_ar   TYPE string.
+*   WHICH COLUMN OF A GRID THE TWO INPUTS ABOVE ARE CURRENTLY EDITING.
+*   Blank means they are editing the FIELD'S OWN label, which is everything
+*   the Design tab could reach before: a grid's column headers are text the
+*   citizen reads and the Tt editor had no way to them, so a step laid out
+*   here could be fully translated by eye and still show English headings.
+*
+*   One extra member rather than a bound row per column. MV_DSG_EN and
+*   MV_DSG_AR are scalar and already survive the round trip; binding inputs
+*   straight into MT_COLS rows would be a new binding shape to get right for
+*   no gain, when picking a column and reusing the two proven inputs does the
+*   same job.
+    DATA mv_dsg_col  TYPE string.
     DATA mv_copy_to TYPE string.
+*   THE TRANSPORT REQUEST EVERY WRITE ON THIS SCREEN IS RECORDED INTO.
+*   It rides the serialized app instance, so it is typed once per session and
+*   then applies to Save, Copy, Deactivate and the Design tab alike. It is
+*   deliberately NOT cleared by LOAD_JOURNEY( ) or NEW - an author works
+*   through several journeys on one request, and re-typing it per journey is
+*   how half a change set ends up unrecorded.
+    DATA mv_trkorr  TYPE string.
 
     " ---- header ----
     DATA mv_journey_id  TYPE string.
@@ -237,6 +301,23 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_bknd_fmr    TYPE string.
     DATA mv_tile_code   TYPE string.
 
+*   R14-2. THREE HEADER COLUMNS THE STUDIO HAD NEVER HEARD OF.
+*
+*   CJ_TYPE, DRAFT_MODE and ATTACH_MODE are on ZRAK_T_JNY and the strings did
+*   not appear ANYWHERE in this class - not in the structure, not in the load,
+*   not in the write, not in an editor - while SAVE_JOURNEY( ) rewrites that
+*   table in full. So a Save blanked all three and reported success. Exactly
+*   the CLOSED_LIST / NO_BROWSE shape, two tables over.
+*
+*   DRAFT_MODE and ATTACH_MODE are the two with teeth: RESOLVE_DRAFT_MODE( )
+*   and RESOLVE_ATTACH_MODE( ) read them, so blanking them moves a journey to
+*   the engine's fallback for who keeps the draft and who keeps the files.
+*   CJ_TYPE prefixes the synthetic case key when no backend mints one, so
+*   blanking it changes the shape of the key that gets generated.
+    DATA mv_cj_type     TYPE string.
+    DATA mv_draft_mode  TYPE string.
+    DATA mv_attach_mode TYPE string.
+
     " ---- step editor ----
     DATA sv_seq      TYPE string.
     DATA sv_step     TYPE string.
@@ -246,6 +327,21 @@ CLASS zcl_rak_cjs DEFINITION
 *   step. Blank on nearly every step - it exists for the payment one.
     DATA sv_nextreq  TYPE string.
     DATA sv_nofwd    TYPE abap_bool.
+    DATA sv_noact    TYPE abap_bool.
+
+*   R14-2. THE STEP EDITOR'S HALF OF ZRAK_T_JNY_STEP-ACTIVE.
+*
+*   HELD AS THE INVERSE - "inactive" - and that is deliberate rather than
+*   awkward. Add / update step assigns a whole VALUE #( ) over the row, so
+*   ACTIVE has to be in it or the Studio blanks the column a second time in
+*   the same class. But CLEAR leaves an ABAP_BOOL false, and an "Active"
+*   checkbox that starts false would make every step ADDED in the Studio
+*   inactive - harmless today, since ZCL_RAK_JOURNEY_REPO does not filter on
+*   it, and a trap the day anything does.
+*
+*   Storing the negation makes the safe state the default state: a cleared
+*   form means active, which is what every loader in the package writes.
+    DATA sv_inactive TYPE abap_bool.
     DATA sv_icon     TYPE string.
     DATA sv_cols     TYPE string.
     DATA sv_bscreen  TYPE string.
@@ -262,10 +358,20 @@ CLASS zcl_rak_cjs DEFINITION
     DATA fv_default  TYPE string.
     DATA fv_group    TYPE string.
     DATA fv_sect     TYPE string.
+    DATA fv_sect_ar  TYPE string.
     DATA fv_state    TYPE string.
     DATA fv_width    TYPE string.
     DATA fv_hidden   TYPE abap_bool.
     DATA fv_readonly TYPE abap_bool.
+    DATA fv_closed   TYPE abap_bool.
+*   Round 13, plus NO_BROWSE which shipped without a Studio home at all.
+    DATA fv_nobrowse TYPE abap_bool.
+    DATA fv_popin    TYPE abap_bool.
+    DATA fv_flow     TYPE abap_bool.
+    DATA fv_talign   TYPE string.
+    DATA fv_descr    TYPE string.
+    DATA fv_tarows   TYPE string.
+    DATA fv_grow     TYPE string.
     DATA fv_req      TYPE abap_bool.
     DATA fv_regex    TYPE string.
     DATA fv_minlen   TYPE string.
@@ -286,6 +392,10 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_roll_term TYPE string.
     DATA mv_shlp_term TYPE string.
     DATA mv_fld_filter TYPE string.
+*   Step to narrow the field list to. Separate from MV_FLD_FILTER on purpose:
+*   the text filter is a guess at a substring, this is a choice from a list
+*   that cannot be spelt wrong, and the two combine.
+    DATA mv_fld_step TYPE string.
     DATA mv_only_bad   TYPE abap_bool.
     DATA mv_doc        TYPE string.
 
@@ -356,6 +466,7 @@ CLASS zcl_rak_cjs DEFINITION
              row   TYPE i,
              col   TYPE i,
              span  TYPE i,
+             flow  TYPE abap_bool,
            END OF ty_dsg,
            tt_dsg TYPE STANDARD TABLE OF ty_dsg WITH EMPTY KEY.
 
@@ -412,6 +523,17 @@ CLASS zcl_rak_cjs DEFINITION
     DATA mv_pn_cols      TYPE abap_bool.
     DATA mv_pn_rules     TYPE abap_bool.
     DATA mv_pn_doc       TYPE abap_bool.
+*   Validation and ShapeIt cross-check never got the fix above: their EXPANDED
+*   was computed fresh every render from the issue count, with no EXPAND event
+*   and no state variable to remember a manual collapse. Any round trip after
+*   the one that drew them - editing a field, saving, anything - rebuilds the
+*   view from scratch and puts them straight back to whatever the count says,
+*   undoing whatever the author just clicked. Reads as "expand/collapse not
+*   working". Both default to collapsed (ABAP-initial FALSE): a panel that is
+*   never force-open lets the header's own issue count be the summary, and an
+*   author who wants the detail can still open it themselves.
+    DATA mv_pn_lint      TYPE abap_bool.
+    DATA mv_pn_xchk      TYPE abap_bool.
 *   Panel key to bring into view on THIS render, then cleared. Empty means the
 *   page keeps the scroll position it had - see SCROLL_JS.
     DATA mv_focus        TYPE string.
@@ -437,6 +559,13 @@ CLASS zcl_rak_cjs DEFINITION
              theme_own   TYPE abap_bool,
              handler     TYPE string,
              tile_code   TYPE string,
+*            R14-2. In the DRAFT too. The Studio's own draft is another full
+*            round trip through a structure - leaving them out here would lose
+*            the three values on a draft save and restore, which is the same
+*            defect one layer along.
+             cj_type     TYPE string,
+             draft_mode  TYPE string,
+             attach_mode TYPE string,
              show_act    TYPE abap_bool,
              active      TYPE abap_bool,
              bknd_act    TYPE abap_bool,
@@ -461,6 +590,31 @@ CLASS zcl_rak_cjs DEFINITION
     METHODS render_audit IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS new_journey.
     METHODS save_journey.
+
+*   ---- READ-ONLY STUDIO -------------------------------------------------
+*   Set once in the entry gate from ZCL_RAK_JOURNEY_UTIL=>STUDIO_MODE( ):
+*   true on quality, where the Studio opens so a tester can SEE what a
+*   journey is configured to do but may change nothing.
+    DATA mv_readonly TYPE abap_bool.
+
+*   THE SERVER-SIDE HALF, and the half that matters. Every method that
+*   writes calls this first and returns when it answers false. Disabling
+*   the buttons is the courtesy; this is the enforcement, because an event
+*   can be raised without the button that normally raises it - which is a
+*   lesson this codebase has already paid for once in HANDLE_SAVE( ),
+*   where an OFF draft mode had to be refused rather than merely hidden.
+*
+*   It sets the message strip itself, so a caller is one CHECK and needs no
+*   wording of its own.
+    METHODS can_write RETURNING VALUE(rv) TYPE abap_bool.
+
+*   Records IV_JOURNEY into MV_TRKORR and APPENDS the outcome to MV_MSG.
+*   Appends rather than replaces on purpose: the caller has just said what it
+*   saved, and losing that to say something about transports would be the
+*   wrong half of the sentence. Returns nothing - every path here is a note on
+*   an action that already succeeded, never a refusal of it.
+    METHODS record_cfg IMPORTING iv_journey TYPE string.
+
     METHODS copy_journey       IMPORTING iv_strip_handler TYPE abap_bool DEFAULT abap_false.
     METHODS free_id            IMPORTING iv_base TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS deactivate_journey.
@@ -506,12 +660,23 @@ CLASS zcl_rak_cjs DEFINITION
 *   Opens one Author panel and asks the page to scroll to it. Called by the ED*
 *   handlers - filling a form the author cannot see is the same as doing nothing.
     METHODS focus_panel IMPORTING iv_key TYPE string.
+*   Two-press confirm for a destructive action that is not a DL_ row delete. The
+*   row deletes in the tables have always armed before acting; Deactivate, the
+*   Design tab Clear and Import did not, and all three are irreversible from the
+*   Studio. Returns TRUE only on the second press of the same button.
+    METHODS armed       IMPORTING iv_ev          TYPE string
+                                  iv_warn        TYPE string
+                        RETURNING VALUE(rv_go)   TYPE abap_bool.
     METHODS tpl_chips   IMPORTING iv_id TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS engine_url  IMPORTING iv_journey TYPE string iv_ar TYPE abap_bool DEFAULT abap_false
                                   iv_step TYPE i DEFAULT -1
                         RETURNING VALUE(rv) TYPE string.
     METHODS render.
     METHODS render_toolbar  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_branding IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS render_hero     IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
+    METHODS brand_logo_ega RETURNING VALUE(rv) TYPE string.
+    METHODS brand_logo_rak RETURNING VALUE(rv) TYPE string.
     METHODS render_compose  IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_style    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
     METHODS render_theme    IMPORTING io TYPE REF TO z2ui5_cl_xml_view.
@@ -611,6 +776,63 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
     mo_client = client.
+
+*   Studio is DEV-only by design: journey config is authored here and
+*   reaches every other system by transport/abapGit, never by editing
+*   directly against QA or PROD data. A hard stop before ANY other logic
+*   runs - INIT( ), LOAD_LIST( ), every event handler - so no event, mode
+*   or round trip can route around it.
+*
+*   ZCL_RAK_JOURNEY_ENGINE - what a citizen actually opens to use a live
+*   service - is deliberately NOT gated this way. This check belongs only
+*   to the authoring tool.
+*   THREE STATES, NOT TWO. This used to be a hard stop on anything that is
+*   not E10, which closed the Studio on quality as well - and being able to
+*   SEE what a journey is configured to do, on the system where it is being
+*   tested, answers most of the questions that otherwise become a call to a
+*   developer. So quality gets READ, production gets nothing, and only
+*   development may write.
+*
+*   MV_READONLY is set here, once, before anything else runs. Every write
+*   path checks it server-side - see CAN_WRITE( ). Hiding the buttons is
+*   not enough: a hidden button is not an unreachable event.
+    mv_readonly = xsdbool( zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_read ).
+
+    IF zcl_rak_journey_util=>studio_mode( ) = zcl_rak_journey_util=>c_studio_none.
+*     SAYS ONLY THAT ACCESS IS REFUSED, AND NOTHING ELSE.
+*
+*     It used to name the system - "This system is E30." - and then
+*     explain how journeys reach it and that editing against its data is
+*     the wrong way round. Every word of that is true and none of it is
+*     the caller's business: this page answers a bare URL on a
+*     citizen-facing host, before any authority check, so whoever is
+*     reading it has not been identified. The system id, the landscape
+*     shape and the fact that a Studio exists at all are things a refusal
+*     should not volunteer.
+*
+*     A refusal that explains itself is helping the wrong reader. The
+*     people who need the reason are developers, and they have this
+*     class; anyone else gets the fact and no detail to work from.
+      mo_client->view_display(
+        z2ui5_cl_xml_view=>factory(
+*     DESCRIPTION IS PASSED, AND IT HAS TO BE. It was left out when the
+*     system name came out of this page, and sap.m.MessagePage's own
+*     default filled the hole - the refusal read "Not authorized. /
+*     Check the filter settings" on a page with no filters. An
+*     unsupplied z2ui5 OPTIONAL is not blank: XML_GET_PARTS( ) drops
+*     every blank property from the markup and the control's default
+*     applies. A space does not work either - a space IS blank to that
+*     filter - so the only way to suppress a default is to pass
+*     something real.
+          )->message_page( text        = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                                            iv_default = 'Not authorized.' )
+                           description = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_auth_hint
+                                                            iv_default = 'Contact your administrator if you need access.' )
+                           icon        = 'sap-icon://locked'
+          )->stringify( ) ).
+      RETURN.
+    ENDIF.
+
     IF mv_init = abap_false.
       mv_init = abap_true.
       mv_mode = 'COMPOSE'.
@@ -650,6 +872,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'COLS'.  mv_pn_cols  = xsdbool( mv_pn_cols  = abap_false ).
         WHEN 'RULES'. mv_pn_rules = xsdbool( mv_pn_rules = abap_false ).
         WHEN 'DOC'.   mv_pn_doc   = xsdbool( mv_pn_doc   = abap_false ).
+        WHEN 'LINT'.  mv_pn_lint  = xsdbool( mv_pn_lint  = abap_false ).
+        WHEN 'XCHK'.  mv_pn_xchk  = xsdbool( mv_pn_xchk  = abap_false ).
       ENDCASE.
 *     Deliberately NOT returning here. MV_LINT_OK was cleared at the top of this
 *     method, so a short-circuit would render the field list with an empty !
@@ -697,9 +921,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         clear_field_form( ).
         fv_step = ls_dup-step_id. fv_field = |{ ls_dup-field_name }2|. fv_type = ls_dup-ftype.
         fv_label = ls_dup-label. fv_label_ar = ls_dup-label_ar. fv_place = ls_dup-placeholder. fv_place_ar = ls_dup-place_ar.
-        fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section.
+        fv_default = ls_dup-default_val. fv_group = ls_dup-fgroup. fv_sect = ls_dup-section. fv_sect_ar = ls_dup-section_ar.
         fv_state = ls_dup-fstate. fv_width = ls_dup-width.
-        fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_req = ls_dup-required.
+        fv_hidden = ls_dup-hidden. fv_readonly = ls_dup-readonly. fv_closed = ls_dup-closed_list. fv_req = ls_dup-required.
+        fv_nobrowse = ls_dup-no_browse. fv_popin = ls_dup-popin. fv_flow = ls_dup-flow.
+        fv_talign = ls_dup-text_align. fv_descr = ls_dup-descr. fv_tarows = ls_dup-ta_rows.
+        fv_grow = ls_dup-grow_thresh.
         fv_regex = ls_dup-regex. fv_minlen = ls_dup-min_len. fv_maxlen = ls_dup-max_len.
         fv_minval = ls_dup-min_val. fv_maxval = ls_dup-max_val. fv_msg = ls_dup-msg. fv_msg_ar = ls_dup-msg_ar.
         fv_tech = ls_dup-tech_name. fv_roll = ls_dup-rollname. fv_shlp = ls_dup-shlp. fv_dom = ls_dup-domname.
@@ -717,6 +944,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         sv_title_ar = ls_es-title_ar. sv_icon = ls_es-icon.
         sv_cols = ls_es-columns. sv_bscreen = ls_es-bknd_screen.
         sv_nextreq = ls_es-next_requires. sv_nofwd = ls_es-no_forward.
+        sv_noact = ls_es-no_action.
+        sv_inactive = xsdbool( ls_es-active = abap_false ).
         focus_panel( 'STEPS' ).
         mv_msg = |Step { lv_es } loaded — change values, then Add / update step|. mv_mtype = 'Information'.
       ENDIF.
@@ -727,9 +956,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF sy-subrc = 0.
         fv_seq = ls_ef-seqnr. fv_step = ls_ef-step_id. fv_field = ls_ef-field_name. fv_type = ls_ef-ftype.
         fv_label = ls_ef-label. fv_label_ar = ls_ef-label_ar. fv_place = ls_ef-placeholder. fv_place_ar = ls_ef-place_ar.
-        fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section.
+        fv_default = ls_ef-default_val. fv_group = ls_ef-fgroup. fv_sect = ls_ef-section. fv_sect_ar = ls_ef-section_ar.
         fv_state = ls_ef-fstate. fv_width = ls_ef-width.
-        fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_req = ls_ef-required.
+        fv_hidden = ls_ef-hidden. fv_readonly = ls_ef-readonly. fv_closed = ls_ef-closed_list. fv_req = ls_ef-required.
+        fv_nobrowse = ls_ef-no_browse. fv_popin = ls_ef-popin. fv_flow = ls_ef-flow.
+        fv_talign = ls_ef-text_align. fv_descr = ls_ef-descr. fv_tarows = ls_ef-ta_rows.
+        fv_grow = ls_ef-grow_thresh.
         fv_regex = ls_ef-regex. fv_minlen = ls_ef-min_len. fv_maxlen = ls_ef-max_len.
         fv_minval = ls_ef-min_val. fv_maxval = ls_ef-max_val. fv_msg = ls_ef-msg. fv_msg_ar = ls_ef-msg_ar.
         fv_tech = ls_ef-tech_name. fv_roll = ls_ef-rollname. fv_shlp = ls_ef-shlp. fv_dom = ls_ef-domname.
@@ -851,7 +1083,18 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'SAVE'. save_journey( ).
         WHEN 'SAVEPREV'. save_journey( ). IF mv_mtype = 'Success'. mv_preview = to_upper( mv_journey_id ). mv_mode = 'PREVIEW'. ENDIF.
         WHEN 'COPY'. copy_journey( ).
-        WHEN 'DEACT'. deactivate_journey( ).
+        WHEN 'DEACT'.
+*         Nothing selected is not something to confirm - it is something to say.
+*         Arming first would ask the author to confirm deactivating a blank id, and
+*         the second press would then tell them to pick a journey. DEACTIVATE_JOURNEY
+*         already words that case, so let it.
+          IF mv_sel IS INITIAL.
+            deactivate_journey( ).
+          ELSEIF armed( iv_ev   = 'DEACT'
+                        iv_warn = |Deactivate { to_upper( mv_sel ) }? It disappears from launch | &&
+                                  |immediately. Press Deactivate again to confirm.| ) = abap_true.
+            deactivate_journey( ).
+          ENDIF.
         WHEN 'CFGCLR'. clear_cache( ).
         WHEN 'THEMELOAD'.
 *         Load the preset into the FORM only. Nothing is stored until Save, so a
@@ -877,7 +1120,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         WHEN 'THEMESAVE'. theme_form_save( ).
         WHEN 'PAYTPL'. add_payment_step( ). IF mv_mtype = 'Success'. mv_dirty = abap_true. ENDIF.
 
-        WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd.
+        WHEN 'CLR_STEP'. CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
+                              sv_noact, sv_inactive.
         WHEN 'CLR_FLD'.  clear_field_form( ).
         WHEN 'CLR_OPT'.  CLEAR: ov_seq, ov_key, ov_text, ov_text_ar.
         WHEN 'CLR_COL'.  CLEAR: cv_seq, cv_col, cv_label, cv_label_ar, cv_ctrl, cv_shlp, cv_rollname,
@@ -951,20 +1195,40 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                                THEN |All { lines( mt_f4_scan ) } value help(s) resolve to options|
                                ELSE |{ lv_f4bad } of { lines( mt_f4_scan ) } value help(s) resolve to NO options — | &&
                                     |those dropdowns render empty on the page and report nothing| ).
-            mv_mtype = COND #( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_f4bad = 0 THEN 'Success' ELSE 'Error' ).
           ENDIF.
 
         WHEN 'FLDFILT'.
           IF mv_fld_filter IS INITIAL.
             mv_msg = 'Filter cleared — showing every field'. mv_mtype = 'Information'.
           ENDIF.
+        WHEN 'OPTSTEP'.
+*         Changing the step invalidates the field beneath it: an option is
+*         keyed to step AND field, and leaving a field from the previous step
+*         selected writes a row that points at neither.
+          CLEAR ov_field.
+        WHEN 'OPTFLD'.
+        WHEN 'COLSTEP'.
+          CLEAR cv_field.
+        WHEN 'COLFLD'.
+        WHEN 'FLDSTEP'.
+*         Nothing to do but re-render - the combobox has already written
+*         MV_FLD_STEP through its two-way binding.
         WHEN 'FLDBAD'.
           mv_only_bad = xsdbool( mv_only_bad = abap_false ).
         WHEN 'FLDALL'.
-          CLEAR: mv_fld_filter, mv_only_bad.
+          CLEAR: mv_fld_filter, mv_only_bad, mv_fld_step.
 
         WHEN 'DOCEXP'. doc_export( ).
-        WHEN 'DOCIMP'. doc_import( ).
+        WHEN 'DOCIMP'.
+*         Same reasoning as DEACT: an empty box is a message, not a confirmation.
+          IF mv_doc IS INITIAL.
+            doc_import( ).
+          ELSEIF armed( iv_ev   = 'DOCIMP'
+                        iv_warn = 'Import replaces every step, field, option, column and rule in ' &&
+                                  'the loaded draft. Unsaved edits are lost. Press Import again to confirm.' ) = abap_true.
+            doc_import( ).
+          ENDIF.
 
         WHEN 'MIGGO'.
           IF auth_ok( '02' ) = abap_true.
@@ -980,7 +1244,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               IMPORTING
                 ev_ok       = DATA(lv_mig_ok)
                 ev_msg      = mv_msg ).
-            mv_mtype = COND #( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
+            mv_mtype = COND string( WHEN lv_mig_ok = abap_true THEN 'Success' ELSE 'Error' ).
             IF lv_mig_ok = abap_true.
 *             Every other write path in this class invalidates and this one did
 *             not, so a re-migrate over an existing ID wrote correct rows and
@@ -1001,9 +1265,14 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
             IF sy-subrc <> 0. APPEND INITIAL LINE TO mt_steps ASSIGNING <s>. ENDIF.
             <s> = VALUE #( seqnr = sv_seq step_id = to_upper( sv_step ) title = sv_title title_ar = sv_title_ar
                            icon = sv_icon columns = sv_cols bknd_screen = to_upper( sv_bscreen )
-                           next_requires = to_upper( sv_nextreq ) no_forward = sv_nofwd ).
+                           next_requires = to_upper( sv_nextreq ) no_forward = sv_nofwd
+                           no_action = sv_noact
+*                          R14-2. In the VALUE, or Add / update step blanks
+*                          the column the same way SAVE_JOURNEY( ) did.
+                           active = xsdbool( sv_inactive = abap_false ) ).
             resort( ).
-            CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd.
+            CLEAR: sv_seq, sv_step, sv_title, sv_title_ar, sv_icon, sv_cols, sv_bscreen, sv_nextreq, sv_nofwd,
+                              sv_noact, sv_inactive.
             mv_dirty = abap_true.
           ENDIF.
 
@@ -1020,13 +1289,29 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
               <f> = VALUE #( seqnr = lv_fseq step_id = to_upper( fv_step ) field_name = to_upper( fv_field )
                              ftype = to_upper( fv_type ) label = fv_label label_ar = fv_label_ar
                              placeholder = fv_place place_ar = fv_place_ar default_val = fv_default
-                             fgroup = fv_group section = fv_sect fstate = fv_state width = fv_width
+                             fgroup = fv_group section = fv_sect section_ar = fv_sect_ar fstate = fv_state width = fv_width
                              hidden = fv_hidden readonly = fv_readonly required = fv_req
                              regex = fv_regex min_len = fv_minlen max_len = fv_maxlen
                              min_val = fv_minval max_val = fv_maxval msg = fv_msg msg_ar = fv_msg_ar
                              has_attach = fv_hasatt attach_label = fv_attlabel att_types = fv_atttypes
                              att_maxmb = fv_attmb att_multi = fv_attmulti
-                             rollname = to_upper( fv_roll ) shlp = to_upper( fv_shlp ) domname = to_upper( fv_dom ) tech_name = fv_tech ).
+                             rollname = to_upper( fv_roll ) shlp = to_upper( fv_shlp ) domname = to_upper( fv_dom ) tech_name = fv_tech
+*                            THIS IS A FULL OVERWRITE, so a component left out
+*                            here is CLEARED on Add / update - not merely left
+*                            alone. CLOSED_LIST was in that position and had
+*                            been since it shipped: the Studio drew the
+*                            checkbox, bound it to FV_CLOSED, and then dropped
+*                            the value on the floor the moment the author
+*                            pressed the button. NO_BROWSE never reached the
+*                            structure at all.
+                             closed_list = fv_closed
+                             no_browse   = fv_nobrowse
+                             popin       = fv_popin
+                             flow        = fv_flow
+                             text_align  = fv_talign
+                             descr       = fv_descr
+                             ta_rows     = fv_tarows
+                             grow_thresh = fv_grow ).
               resort( ).
               clear_field_form( ).
               CLEAR: mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits.
@@ -1097,6 +1382,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD deactivate_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -1108,6 +1396,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = mv_sel ).
     load_list( ).
     mv_msg = |{ mv_sel } deactivated — hidden from launch, still here to re-activate (load + Save)|. mv_mtype = 'Success'.
+*   Deactivation is a one-column UPDATE, and an unrecorded one is the exact
+*   shape of the drift: a journey taken off launch here and still on the tile
+*   list in quality, because ACTIVE never travelled.
+    record_cfg( mv_sel ).
   ENDMETHOD.
 
 
@@ -1125,6 +1417,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD new_journey.
     CLEAR: mv_journey_id, mv_title, mv_title_ar, mv_subtitle, mv_subtitle_ar, mv_handler,
            mt_steps, mt_fields, mt_opts, mt_cols, mt_rules, mv_preview, mv_tile_code,
+           mv_cj_type, mv_draft_mode, mv_attach_mode,
            mv_bknd_act, mv_bknd_cat, mv_bknd_jny, mv_bknd_fmp, mv_bknd_fmr,
            mv_roll_term, mt_roll_hits, mt_roll_preview, mv_shlp_term, mt_shlp_hits,
            mt_lint, mt_lint_row, mt_xchk, mv_dirty, mt_f4_scan, mv_f4_scanned,
@@ -1160,6 +1453,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_bknd_cat = h-bknd_category. mv_bknd_jny = h-bknd_journey.
     mv_bknd_fmp = h-bknd_fm_post.  mv_bknd_fmr = h-bknd_fm_read.
     mv_tile_code = h-tile_code.
+*   R14-2. Read, so a Save can write them back instead of blanking them.
+    mv_cj_type = h-cj_type. mv_draft_mode = h-draft_mode. mv_attach_mode = h-attach_mode.
 
     mv_chg_by = h-changed_by.
     CLEAR mv_chg_at.
@@ -1173,19 +1468,35 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     LOOP AT ls INTO DATA(s).
       APPEND VALUE #( seqnr = |{ s-seqnr }| step_id = s-step_id title = s-title title_ar = s-title_ar
                       icon = s-icon columns = |{ s-columns }| bknd_screen = s-bknd_screen
-                      next_requires = s-next_requires no_forward = s-no_forward ) TO mt_steps.
+                      next_requires = s-next_requires no_forward = s-no_forward
+                      no_action = s-no_action
+*                     R14-2. Blank reads as ACTIVE - see TY_STEP-ACTIVE. A row
+*                     an earlier Save already blanked comes back on rather than
+*                     staying off, so loading and re-saving repairs the damage
+*                     instead of making it permanent.
+                      active = xsdbool( s-active = 'X' OR s-active IS INITIAL )
+                    ) TO mt_steps.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_fld INTO TABLE @DATA(lf) WHERE journey_id = @mv_sel ORDER BY step_id, seqnr.
     LOOP AT lf INTO DATA(f).
       APPEND VALUE #( seqnr = |{ f-seqnr }| step_id = f-step_id field_name = f-field_name ftype = f-ftype
                       label = f-zlabel label_ar = f-zlabel_ar placeholder = f-placeholder place_ar = f-placeholder_ar
-                      default_val = f-default_val fgroup = f-fgroup section = f-zsection fstate = f-fstate width = f-width
-                      hidden = xsdbool( f-hidden = 'X' ) readonly = xsdbool( f-readonly = 'X' ) required = xsdbool( f-required = 'X' )
+                      default_val = f-default_val fgroup = f-fgroup section = f-zsection section_ar = f-zsection_ar fstate = f-fstate width = f-width
+                      hidden = xsdbool( f-hidden = 'X' ) readonly = xsdbool( f-readonly = 'X' )
+                      closed_list = xsdbool( f-closed_list = 'X' ) required = xsdbool( f-required = 'X' )
                       regex = f-regex min_len = |{ f-min_len }| max_len = |{ f-max_len }| min_val = f-min_val max_val = f-max_val
                       msg = f-msg msg_ar = f-msg_ar
                       has_attach = xsdbool( f-has_attach = 'X' ) attach_label = f-attach_label att_types = f-attach_types
                       att_maxmb = |{ f-attach_maxmb }| att_multi = xsdbool( f-attach_multi = 'X' )
-                      rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) TO mt_fields.
+                      rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name
+*                     Loaded as well as saved. Loading without saving would
+*                     be worse than neither: the editor would show a value
+*                     it then destroys.
+                      no_browse = xsdbool( f-no_browse = 'X' ) popin = xsdbool( f-popin = 'X' )
+                      flow = xsdbool( f-flow = 'X' )
+                      text_align = f-text_align descr = f-descr
+                      ta_rows = COND string( WHEN f-ta_rows > 0 THEN |{ f-ta_rows }| )
+                      grow_thresh = COND string( WHEN f-grow_thresh > 0 THEN |{ f-grow_thresh }| ) ) TO mt_fields.
     ENDLOOP.
     SELECT * FROM zrak_t_jny_opt INTO TABLE @DATA(lo) WHERE journey_id = @mv_sel ORDER BY step_id, field_name, seqnr.
     LOOP AT lo INTO DATA(o).
@@ -1214,7 +1525,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
 
     mv_preview = mv_journey_id.
-    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mv_dirty, mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
 *   lint_all( ) reloads fifty journeys in a loop and lints each one itself.
 *   Without this it linted every one of them twice and wrote a message nobody
@@ -1255,14 +1566,63 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_msg = |{ mv_msg } — { lines( mt_lint_row ) } field finding(s)| &&
                COND string( WHEN lv_bad > 0 THEN |, { lv_bad } blocking| ) &&
                |. See the ! column.|.
-      mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
+      mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Information' ).
     ELSE.
       mv_mtype = 'Success'.
     ENDIF.
   ENDMETHOD.
 
 
+  METHOD can_write.
+    rv = xsdbool( mv_readonly = abap_false ).
+    IF rv = abap_false.
+*     Same rule as the message page above: the refusal states that the
+*     write was refused and names neither the system nor the reason.
+*     This one is reached only after the Studio has opened, so the reader
+*     is at least inside - but it is the same sentence either way, and one
+*     wording is one thing to keep right.
+      mv_msg   = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_authorized
+                                    iv_default = 'Not authorized.' ).
+      mv_mtype = 'Error'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD record_cfg.
+
+*   A BLANK REQUEST IS A WARNING, NEVER A REFUSAL, AND NEVER SILENCE.
+*   Refusing the save would be wrong: E10 client 100 is where authoring
+*   happens and plenty of it is throwaway. Saying nothing is what produced
+*   the problem this whole class exists for - a change that looked saved,
+*   was saved, and never left the client. So the save stands and the message
+*   says, in as many words, that it is going nowhere.
+    DATA(lv_err) = zcl_rak_cj_cts=>record_journey( iv_trkorr  = mv_trkorr
+                                                   iv_journey = iv_journey ).
+
+*   DSG_SAVE( ) reports nothing on a good save, so the separator is only
+*   written when there is something to separate from.
+    DATA(lv_sep) = COND string( WHEN mv_msg IS NOT INITIAL THEN | · | ).
+
+    IF lv_err IS INITIAL.
+      mv_msg = |{ mv_msg }{ lv_sep }recorded in { to_upper( mv_trkorr ) }|.
+      RETURN.
+    ENDIF.
+
+    mv_msg = |{ mv_msg }{ lv_sep }NOT in a transport: { lv_err }|.
+
+*   The severity is raised, but only from Success. A save that reported a
+*   Warning or an Error has something more important to say than this, and
+*   overwriting Error with Warning would downgrade a real failure.
+    IF mv_mtype = 'Success' OR mv_mtype IS INITIAL.
+      mv_mtype = 'Warning'.
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD save_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -1334,16 +1694,26 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     INSERT zrak_t_jny FROM @( VALUE #( mandt = sy-mandt journey_id = jid title = mv_title title_ar = mv_title_ar
       layout_mode = mv_layout theme_variant = mv_variant accent_type = mv_accent brand_color = mv_brand
       navy_color = mv_navy density = mv_density subtitle = mv_subtitle subtitle_ar = mv_subtitle_ar
-      theme_own     = COND #( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
+      theme_own     = COND string( WHEN mv_theme_own = abap_true THEN 'X' ELSE ' ' )
       handler_class = to_upper( mv_handler )
-      show_actions  = COND #( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
-      active        = COND #( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
-      bknd_active   = COND #( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
+      show_actions  = COND string( WHEN mv_show_act = abap_true THEN 'X' ELSE ' ' )
+      active        = COND string( WHEN mv_active   = abap_true THEN 'X' ELSE ' ' )
+      bknd_active   = COND string( WHEN mv_bknd_act = abap_true THEN 'X' ELSE ' ' )
       bknd_category = mv_bknd_cat
       bknd_journey  = to_upper( mv_bknd_jny )
       bknd_fm_post  = to_upper( mv_bknd_fmp )
       bknd_fm_read  = to_upper( mv_bknd_fmr )
       tile_code     = to_upper( mv_tile_code )
+*     R14-2. The three columns this INSERT used to omit. UPPER because all
+*     three are read as enumerations - RESOLVE_DRAFT_MODE( ) and
+*     RESOLVE_ATTACH_MODE( ) compare against DELEGATE/NATIVE/OFF, and
+*     ZCL_RAK_JOURNEY_REPO already applies TO_UPPER on the way out, so a
+*     lower-case value typed in the Studio would match nothing and fall
+*     through to the derived default - the same outcome as blanking it,
+*     which is the bug being fixed.
+      cj_type       = to_upper( mv_cj_type )
+      draft_mode    = to_upper( mv_draft_mode )
+      attach_mode   = to_upper( mv_attach_mode )
       changed_by    = sy-uname
       changed_at    = lv_now ) ).
     IF sy-subrc <> 0.
@@ -1354,7 +1724,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       INSERT zrak_t_jny_step FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = s-step_id
         seqnr = to_int( s-seqnr ) title = s-title title_ar = s-title_ar icon = s-icon
         columns = to_int( s-columns ) bknd_screen = s-bknd_screen
-        next_requires = s-next_requires no_forward = s-no_forward ) ).
+        next_requires = s-next_requires no_forward = s-no_forward
+        no_action = s-no_action
+*       R14-2. The column this INSERT used to omit.
+        active = COND string( WHEN s-active = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1364,16 +1737,24 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       INSERT zrak_t_jny_fld FROM @( VALUE #( mandt = sy-mandt journey_id = jid step_id = f-step_id
         field_name = f-field_name seqnr = to_int( f-seqnr ) ftype = f-ftype
         zlabel = f-label zlabel_ar = f-label_ar placeholder = f-placeholder placeholder_ar = f-place_ar
-        default_val = f-default_val fgroup = f-fgroup zsection = f-section fstate = f-fstate width = f-width
-        hidden   = COND #( WHEN f-hidden   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN f-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN f-required = abap_true THEN 'X' ELSE ' ' )
+        default_val = f-default_val fgroup = f-fgroup zsection = f-section zsection_ar = f-section_ar fstate = f-fstate width = f-width
+        hidden      = COND string( WHEN f-hidden      = abap_true THEN 'X' ELSE ' ' )
+        readonly    = COND string( WHEN f-readonly    = abap_true THEN 'X' ELSE ' ' )
+        closed_list = COND string( WHEN f-closed_list = abap_true THEN 'X' ELSE ' ' )
+        required    = COND string( WHEN f-required    = abap_true THEN 'X' ELSE ' ' )
         regex = f-regex min_len = to_int( f-min_len ) max_len = to_int( f-max_len )
         min_val = f-min_val max_val = f-max_val msg = f-msg msg_ar = f-msg_ar
-        has_attach = COND #( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
+        has_attach = COND string( WHEN f-has_attach = abap_true THEN 'X' ELSE ' ' )
         attach_label = f-attach_label attach_types = f-att_types attach_maxmb = to_int( f-att_maxmb )
-        attach_multi = COND #( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
-        rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name ) ).
+        attach_multi = COND string( WHEN f-att_multi = abap_true THEN 'X' ELSE ' ' )
+        rollname = f-rollname shlp = f-shlp domname = f-domname tech_name = f-tech_name
+*       The seven that used to be dropped here. See the note on TY_FLD.
+        no_browse   = COND string( WHEN f-no_browse = abap_true THEN 'X' ELSE ' ' )
+        popin       = COND string( WHEN f-popin     = abap_true THEN 'X' ELSE ' ' )
+        flow        = COND string( WHEN f-flow      = abap_true THEN 'X' ELSE ' ' )
+        text_align  = f-text_align descr      = f-descr
+        ta_rows     = to_int( f-ta_rows )
+        grow_thresh = to_int( f-grow_thresh ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1393,12 +1774,12 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         field_name = c-field_name col_name = c-col_name seqnr = to_int( c-seqnr )
         zlabel = c-label zlabel_ar = c-label_ar ctrl = c-ctrl shlp = c-shlp rollname = c-rollname
         width = c-width align = c-align
-        hidden   = COND #( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
-        pinned   = COND #( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
-        readonly = COND #( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
-        required = COND #( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
+        hidden   = COND string( WHEN c-hidden   = abap_true THEN 'X' ELSE ' ' )
+        pinned   = COND string( WHEN c-pinned   = abap_true THEN 'X' ELSE ' ' )
+        readonly = COND string( WHEN c-readonly = abap_true THEN 'X' ELSE ' ' )
+        required = COND string( WHEN c-required = abap_true THEN 'X' ELSE ' ' )
         decimals = to_int( c-decimals ) maxlen = to_int( c-maxlen )
-        total    = COND #( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
+        total    = COND string( WHEN c-total    = abap_true THEN 'X' ELSE ' ' ) ) ).
       IF sy-subrc <> 0.
         lv_err = abap_true.
         EXIT.
@@ -1447,11 +1828,19 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     mv_msg = |Saved { jid } — { lines( mt_steps ) } steps, { lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN mt_lint IS NOT INITIAL
                           THEN |. { lines( mt_lint ) } finding(s) still open| ).
-    mv_mtype = COND #( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN blocking_count( ) > 0 THEN 'Warning' ELSE 'Success' ).
+
+*   AFTER THE COMMIT, NOT BEFORE. Recording a key into a request is itself a
+*   database write in the same LUW; doing it ahead of the all-or-nothing block
+*   above would leave a request naming a journey whose save was rolled back.
+    record_cfg( jid ).
   ENDMETHOD.
 
 
   METHOD copy_journey.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
     IF auth_ok( '02' ) = abap_false.
       RETURN.
     ENDIF.
@@ -1465,6 +1854,25 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDIF.
 
     SELECT SINGLE * FROM zrak_t_jny INTO @DATA(h) WHERE journey_id = @mv_sel.
+*   SY-SUBRC, WHICH WAS NOT CHECKED, AND THE MISS IS NOT HARMLESS.
+*   On no row H stays blank, and the very next line stamps an id and a
+*   title onto it - so the INSERT below writes a journey with an id, the
+*   word "(copy)" and nothing else, every child SELECT copies zero rows,
+*   and the method reports Success. An author gets a new empty journey and
+*   a green message saying it was created from the pattern.
+*
+*   That is reachable from the Studio's own pattern list today. The five
+*   pattern ids - DEMO_TRADE_LIC, DEMO_ENV_PERMIT, DEMO_GOLDEN_VISA,
+*   DEMO_FEEDBACK, ZDEMO_SHOWCASE - are named in RENDER_PATTERNS( ) and
+*   seeded by nothing in this repository, so on any client where those
+*   rows were never created by hand, every "Use this pattern" button
+*   silently produces an empty journey rather than saying the pattern is
+*   missing.
+    IF sy-subrc <> 0.
+      mv_msg   = |Source journey { to_upper( mv_sel ) } does not exist - nothing to copy|.
+      mv_mtype = 'Error'.
+      RETURN.
+    ENDIF.
     h-journey_id = lv_to. h-title = |{ h-title } (copy)|.
     h-changed_by = sy-uname.
     GET TIME STAMP FIELD h-changed_at.
@@ -1493,6 +1901,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     zcl_rak_cj_cfg_cache=>invalidate( iv_journey = lv_to ).
     load_list( ). mv_sel = lv_to. load_journey( ). CLEAR mv_copy_to.
     mv_msg = |Copied to { lv_to }|. mv_mtype = 'Success'.
+*   The TARGET, never the source - the source was only read.
+    record_cfg( lv_to ).
   ENDMETHOD.
 
 
@@ -1513,7 +1923,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       ( `DATE` ) ( `TIME` ) ( `DATETIME` ) ( `SELECT` ) ( `MULTISELECT` ) ( `RADIO` )
       ( `CHECKBOX` ) ( `SWITCH` ) ( `SEGMENTED` ) ( `CHECKGROUP` ) ( `SLIDER` ) ( `STEPPER` ) ( `RATING` )
       ( `DISPLAY` ) ( `READONLY` ) ( `STATUS` ) ( `OBJNUM` ) ( `PROGRESS` ) ( `LINK` )
-      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` ) ).
+      ( `SEARCH` ) ( `TABLE` ) ( `EDITABLE_TABLE` ) ( `RECORDCARD` ) ( `RO_PANEL` ) ( `REVIEW` ) ( `REQPANEL` ) ( `UPLOAD` ) ( `PAYFEE` )
+      ( `PDF` ) ( `CAPTCHA` ) ).
   ENDMETHOD.
 
 
@@ -1522,6 +1933,21 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakHero { background: linear-gradient(135deg, rgb(196,30,38), rgb(166,18,22)); color:#fff; padding:22px 26px; border-radius:16px; margin:10px; box-shadow:0 10px 30px rgba(196,30,38,0.26); }` &&
       `.rakHero h1 { margin:0; font-size:1.6rem; font-weight:700; }` &&
       `.rakHero p { margin:6px 0 0; opacity:0.92; }` &&
+*     The two authority logos sit INSIDE this same card on Compose, one
+*     at each edge flanking the title, rather than grouped together on
+*     one side. Grid, not flex+space-between - with a logo now in BOTH
+*     outer columns the title has to stay centred regardless of whether
+*     the two logos happen to be the same width, and auto/1fr/auto is
+*     what guarantees that (the same trick RENDER_BRANDING( )'s thin bar
+*     already uses for its centred text). White chips behind each mark -
+*     both source images have a white/light background themselves, so
+*     placed directly on the dark red gradient they would read as two
+*     stray rectangles instead of a deliberate letterhead-style pairing.
+      `.rakHeroTop { display:grid; grid-template-columns: auto 1fr auto; align-items:center; gap:1.2rem; }` &&
+      `.rakHeroTitle { min-width:0; text-align:center; }` &&
+      `.rakHeroLogo { background:#fff; border-radius:8px; padding:0.35rem 0.6rem; ` &&
+      `display:inline-flex; align-items:center; line-height:0; }` &&
+      `.rakHeroLogo img { height:2.1rem; width:auto; display:block; }` &&
       `.rakSec { color: rgb(16,35,62); font-weight:700; font-size:1.05rem; margin:16px 14px 2px; }` &&
       `.rakCard { background:#fff; border:1px solid #eceff3; border-radius:14px; padding:14px; box-shadow:0 2px 10px rgba(16,35,62,0.06); }` &&
       `.rakCard:hover { box-shadow:0 10px 22px rgba(16,35,62,0.12); }` &&
@@ -1538,10 +1964,56 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       `.rakDsgBar i.on { background: rgb(196,30,38); }` &&
       `.rakDsgSel { background:#fdf3f4; border-inline-start:3px solid rgb(196,30,38); ` &&
       `border-radius:6px; padding-inline-start:6px; }` &&
-      `.rakLintMsg { flex:1 1 auto; min-width:0; }`.
+      `.rakLintMsg { flex:1 1 auto; min-width:0; }` &&
+*     A three-column GRID, not flex + absolute positioning - the first
+*     version put the text off left:50% with a -50% transform, meant to
+*     read relative to this bar, and it rendered pinned to the far edge
+*     of the PAGE instead: whatever UI5 control wrapping sap.m.Text sits
+*     inside was not the element POSITION:RELATIVE landed on, so the
+*     percentage resolved against a distant positioned ancestor instead.
+*     Flex itself was never the problem - the very first render already
+*     laid out three items in a row correctly - so GRID keeps that same
+*     mechanism and drops the fragile part. 1fr/auto/1fr forces the two
+*     outer columns to equal width, which is what makes the middle
+*     column - and the text inside it - sit on the bar's true center
+*     regardless of the two logos' different widths, with no transform
+*     trick needed. Transparent background: it sits directly on the
+*     page, not inside its own card.
+      `.rakBrandBar { display:grid; grid-template-columns: 1fr auto 1fr; ` &&
+      `align-items:center; column-gap:1rem; padding:0.5rem 1rem; background:transparent; }` &&
+      `.rakBrandBar > *:first-child { justify-self:start; }` &&
+      `.rakBrandBar > *:last-child { justify-self:end; }` &&
+      `.rakBrandLogo { height:2rem; width:auto; }` &&
+      `.rakBrandText { justify-self:center; white-space:nowrap; ` &&
+      `color: rgb(196,30,38); font-weight:800; ` &&
+      `font-size:1.05rem; letter-spacing:0.02em; }` &&
+*     Bottom right, not top: the toolbar and the panel headers are what the author
+*     is aiming at, and a banner across the top covers exactly those. z-index 90
+*     sits above the page and below UI5's own dialogs, which start around 1000 -
+*     a value help must never open behind this.
+      `.rakToast { position:fixed; right:1.5rem; bottom:1.5rem; z-index:90; ` &&
+      `max-width:34rem; animation:rakToastIn .18s ease-out; }` &&
+      `.rakToast .sapMMsgStrip { box-shadow:0 10px 28px rgba(16,35,62,0.22); border-radius:10px; }` &&
+      `@keyframes rakToastIn { from { opacity:0; transform:translateY(10px); } ` &&
+      `to { opacity:1; transform:none; } }`.
     REPLACE ALL OCCURRENCES OF `{` IN c WITH `\{`.
     REPLACE ALL OCCURRENCES OF `}` IN c WITH `\}`.
     rv = `<div><style>` && c && `</style></div>`.
+  ENDMETHOD.
+
+
+  METHOD armed.
+*   MV_ARM_EVT is cleared at the top of MAIN whenever the next event differs, so an
+*   arm cannot survive the author going off to do something else and coming back.
+*   Same mechanism the DL_ row deletes use - one arm at a time, on purpose.
+    IF mv_arm_evt = iv_ev.
+      CLEAR mv_arm_evt.
+      rv_go = abap_true.
+      RETURN.
+    ENDIF.
+    mv_arm_evt = iv_ev.
+    mv_msg     = iv_warn.
+    mv_mtype   = 'Warning'.
   ENDMETHOD.
 
 
@@ -1562,32 +2034,63 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 
   METHOD scroll_js.
-*   The scroll container is the page, not the window - sap.m.Page scrolls its own
-*   div, so window.scrollTo does nothing here. Same container the engine's
-*   SCROLL_KEEPER uses.
+*   The Studio rebuilds its whole view on every round trip, so the new DOM opens at
+*   scrollTop 0 and the author is thrown back to the top of a page that runs to
+*   sixty fields. This records the position and puts it back.
+*
+*   The scroll container is deliberately NOT found by class name. sap.m.Page
+*   renders an OUTER div carrying sapMPageEnableScrolling, which is overflow
+*   hidden, and an INNER section that does the actual scrolling. A listener that
+*   compared e.target with the outer div therefore never matched, nothing was ever
+*   written, and the restore below always read back a zero - the whole mechanism
+*   was inert. PICK takes whichever candidate is genuinely scrollable instead, so
+*   it does not matter which element UI5 chose to put the overflow on.
+*
+*   Note for the engine: ZCL_RAK_JOURNEY_CSS->SCROLL_KEEPER still compares against
+*   sapMPageEnableScrolling the same way and has the same problem.
     DATA(lv_js) =
-      `var q=function(){return document.querySelector('.sapMPageEnableScrolling');};` &&
-      `if(!window._cjsWired){window._cjsWired=1;` &&
-      `document.addEventListener('scroll',function(e){var s=q();` &&
-      `if(s&&e.target===s){try{sessionStorage.setItem('cjsScroll',s.scrollTop);}catch(x){}}},true);}`.
+      `var K='cjsScroll';` &&
+      `var pick=function(){` &&
+      `var l=document.querySelectorAll('.sapMPageScroll,.sapMPageEnableScrolling,` &&
+      `.sapMScrollCont,.sapUiScrollDelegate,section');var b=null;` &&
+      `for(var i=0;i<l.length;i++){var e=l[i];` &&
+      `if(e.scrollHeight-e.clientHeight>20&&(!b||e.scrollHeight>b.scrollHeight)){b=e;}}` &&
+      `return b;};` &&
+      `var put=function(){var s=pick();` &&
+      `if(s){try{sessionStorage.setItem(K,s.scrollTop);}catch(x){}}};` &&
+*     Debounced on scroll, because scroll fires continuously and PICK walks the
+*     DOM. Also on mousedown: a press landing inside the debounce window would
+*     otherwise round-trip with a stale position recorded, which is exactly the
+*     case that matters - the author scrolls to a button and presses it.
+      `if(!window._cjsWired){window._cjsWired=1;var t=null;` &&
+      `document.addEventListener('scroll',function(){` &&
+      `if(t){clearTimeout(t);}t=setTimeout(put,80);},true);` &&
+      `document.addEventListener('mousedown',put,true);}`.
 
     IF mv_focus IS NOT INITIAL.
 *     A panel that was collapsed a moment ago has not finished its expand
-*     animation, so its height is still wrong on the first frame. Retry for a
-*     few frames rather than measuring once and landing short.
+*     animation, so its height is still wrong on the first frame. Retry for a few
+*     frames rather than measuring once and landing short.
+*
+*     PUT( ) after the scroll, so the position the author was TAKEN to becomes the
+*     remembered one. Without it the next action would restore the position they
+*     were at before pressing Edit and undo the navigation.
       lv_js = lv_js &&
         `var n=0;var f=function(){n=n+1;` &&
-        `var t=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
-        `if(t){t.scrollIntoView({block:'start'});` &&
-        `if(n<12){requestAnimationFrame(f);}}` &&
-        `else if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
+        `var g=document.querySelector('.rakPnl` && to_upper( mv_focus ) && `');` &&
+        `if(g){g.scrollIntoView({block:'start'});put();` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<40){requestAnimationFrame(f);}};requestAnimationFrame(f);`.
       CLEAR mv_focus.
     ELSE.
+*     Keep re-asserting for a few frames after the first success. UI5 lays the
+*     form out in stages, so a single assignment lands and is then overwritten.
       lv_js = lv_js &&
-        `var p=0;try{p=parseInt(sessionStorage.getItem('cjsScroll')||'0',10);}catch(x){}` &&
-        `if(p>0){var n=0;var f=function(){var s=q();n=n+1;` &&
-        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;}` &&
-        `else if(n<30){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
+        `var p=0;try{p=parseInt(sessionStorage.getItem(K)||'0',10);}catch(x){}` &&
+        `if(p>0){var n=0;var f=function(){n=n+1;var s=pick();` &&
+        `if(s&&(s.scrollHeight-s.clientHeight)>=p){s.scrollTop=p;` &&
+        `if(n<12){requestAnimationFrame(f);}return;}` &&
+        `if(n<60){requestAnimationFrame(f);}};requestAnimationFrame(f);}`.
     ENDIF.
 
     lv_js = lv_js && `this.remove();`.
@@ -1600,12 +2103,38 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD render.
     DATA(view) = z2ui5_cl_xml_view=>factory( ).
-    DATA(page) = view->shell( )->page( title = 'RAK Customer Journey Studio' class = 'sapUiSizeCompact' ).
+*   SHOWHEADER = FALSE, not a blank title - "RAK Customer Journey
+*   Studio" already appears in the hero banner below, and an empty
+*   sap.m.Page header still reserves its own row of vertical space even
+*   with no text in it.
+    DATA(page) = view->shell( )->page( showheader = abap_false class = 'sapUiSizeCompact' ).
     page->html( content = css( ) sanitizecontent = abap_false ).
     page->html( content = scroll_js( ) sanitizecontent = abap_false ).
+*   Compose gets the hero card instead of the thin bar - and it goes
+*   first, above the toolbar and mode tabs, so it reads as the page's
+*   masthead rather than a banner sandwiched between two rows of
+*   buttons. RENDER_BRANDING( )'s bar would also just repeat both logos
+*   a moment later on the exact same page, so it only runs elsewhere.
+    IF mv_mode = 'COMPOSE'.
+      render_hero( page ).
+    ELSE.
+      render_branding( page ).
+    ENDIF.
     render_toolbar( page ).
+*   Floating, not in the flow. An inline strip appears and disappears between the
+*   toolbar and the panels, so every action that produced a message pushed the
+*   whole page down or let it snap back up under the author - and the message could
+*   only be read from the top of the page anyway. position:fixed costs no layout in
+*   either direction, so nothing moves, and it stays legible wherever the author
+*   happens to be scrolled to.
+*
+*   Closable, because it is now overlaying content rather than sitting above it.
+*   Closing is a client-side act with no round trip, so it cannot lose anything.
     IF mv_msg IS NOT INITIAL.
-      page->message_strip( text = mv_msg type = mv_mtype showicon = abap_true class = 'sapUiSmallMargin' ).
+      page->vbox( class = 'rakToast' )->message_strip( text            = mv_msg
+                                                       type            = mv_mtype
+                                                       showicon        = abap_true
+                                                       showclosebutton = abap_true ).
     ENDIF.
     CASE mv_mode.
       WHEN 'AUTHOR'.  render_author( page ).
@@ -1626,15 +2155,77 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       cb->item( key = j-journey_id text = |{ j-journey_id } — { j-title }| ).
     ENDLOOP.
     bar->button( text = 'Load' icon = 'sap-icon://open-folder' press = mo_client->_event( 'LOAD' ) class = 'sapUiTinyMarginBegin' ).
+
+*   ---- READ-ONLY: THE WRITE CONTROLS ARE NOT DRAWN AT ALL ---------------
+*   Every write path already refuses server-side through CAN_WRITE( ), and
+*   that stays - a hidden button is not an unreachable event, and it is the
+*   refusal that protects the data. This is the other half: on a client that
+*   may not write, offering Save, New, Copy and Deactivate and then refusing
+*   each one is a worse screen than not offering them. The author presses,
+*   waits, and is told no, four times.
+*
+*   LOAD, CLEAR CACHE AND THE TAB BAR ALL STAY - reading is the whole point
+*   of READ mode, and a Studio that opens on a page with no navigation would
+*   be a worse refusal than the message page NONE already draws. Only the
+*   four write controls and the copy-to input are inside the guard.
+    IF mv_readonly = abap_true.
+      bar->text( text  = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-cjs_read_only
+                                            iv_default = 'Read-only on this client' )
+                 class = 'sapUiSmallMarginBegin' ).
+    ELSE.
+
     bar->button( text = 'New'  icon = 'sap-icon://add-document' press = mo_client->_event( 'NEW' ) ).
     DATA(lv_armed) = xsdbool( mv_arm_save IS NOT INITIAL AND mv_arm_save = to_upper( mv_journey_id ) ).
-    bar->button( text  = COND #( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
+    bar->button( text  = COND string( WHEN lv_armed = abap_true THEN 'Save anyway' ELSE 'Save' )
                  icon  = 'sap-icon://save'
-                 type  = COND #( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
+                 type  = COND string( WHEN lv_armed = abap_true THEN 'Reject' ELSE 'Emphasized' )
                  press = mo_client->_event( 'SAVE' ) ).
     bar->input( value = mo_client->_bind_edit( mv_copy_to ) placeholder = 'Copy to (new ID)' width = '12rem' class = 'sapUiTinyMarginBegin' ).
     bar->button( text = 'Copy' icon = 'sap-icon://copy' press = mo_client->_event( 'COPY' ) ).
-    bar->button( text = 'Deactivate' icon = 'sap-icon://pause' press = mo_client->_event( 'DEACT' ) class = 'sapUiTinyMarginBegin' ).
+*   Armed state on the control itself, not only in the message. The same shape the
+*   row deletes use: red, an alert icon and a tooltip that says what a second press
+*   will do - so the button that is now dangerous looks different from the one that
+*   merely asked a question.
+    DATA(lv_arm_de) = xsdbool( mv_arm_evt = 'DEACT' ).
+    bar->button( text    = COND string( WHEN lv_arm_de = abap_true THEN 'Deactivate anyway' ELSE 'Deactivate' )
+                 icon    = COND string( WHEN lv_arm_de = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://pause' )
+                 type    = COND string( WHEN lv_arm_de = abap_true THEN 'Reject' )
+                 tooltip = COND string( WHEN lv_arm_de = abap_true
+                                   THEN 'Click again to take this journey off launch' )
+                 press   = mo_client->_event( 'DEACT' )
+                 class   = 'sapUiTinyMarginBegin' ).
+
+*   THE TRANSPORT REQUEST, ON THE BAR RATHER THAN IN A DIALOG.
+*   SE01 would normally ask for this in a popup owned by the CTS itself, and
+*   there is no way to raise one from a z2ui5 app - the request has to be typed
+*   somewhere on the page. Beside Save is the right somewhere: it is read by
+*   Save, Copy, Deactivate and the Design tab alike, and a control an author
+*   can see is a control they remember to fill.
+*
+*   AND WHEN IT IS BLANK, SAY SO HERE TOO. Every write already appends
+*   "NOT in a transport" to its own message, but a message is gone by the next
+*   round trip and this is the state that quietly accumulates junk in quality.
+*   A standing marker on the bar is what turns it from something you are told
+*   once into something you are looking at.
+*   THE STATE GOES ON THE INPUT, NOT BESIDE IT. A separate ObjectStatus was
+*   tried and is the wrong control here: this bar already carries a journey
+*   dropdown, five buttons and the copy-to box, so the marker was handed
+*   whatever width was left - about sixty pixels at the right edge - and
+*   wrapped one word per line, outside the bar. VALUESTATE costs no width at
+*   all: UI5 colours the field's own border and shows VALUESTATETEXT under it,
+*   which is both more compact and more obviously about this input.
+    bar->input( value          = mo_client->_bind_edit( mv_trkorr )
+                placeholder    = 'Transport request'
+                width          = '13rem'
+                valuestate     = COND string( WHEN mv_trkorr IS INITIAL THEN 'Warning' ELSE 'Success' )
+                valuestatetext = COND string(
+                  WHEN mv_trkorr IS INITIAL
+                  THEN 'Not recorded — saves stay in this client and will not move'
+                  ELSE 'Saves, copies, deactivations and layout changes are recorded here' )
+                class          = 'sapUiSmallMarginBegin' ).
+
+    ENDIF.   " mv_readonly - the write controls above are not drawn on a read client
+
 *   Clear cache. Save, Copy, Deactivate and Migrate already invalidate, and so
 *   does Load now - which leaves exactly one case for this button: config changed
 *   OUTSIDE the Studio. A seed report, a direct table update, a transport import.
@@ -1654,34 +2245,163 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(seg) = io->hbox( class = 'sapUiSmallMarginBegin sapUiSmallMarginBottom' ).
     seg->button( text  = 'Compose'
                  icon  = 'sap-icon://palette'
-                 type  = COND #( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'COMPOSE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_COMPOSE' ) ).
     seg->button( text  = 'Author'
                  icon  = 'sap-icon://edit'
-                 type  = COND #( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUTHOR' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUTHOR' ) ).
     seg->button( text  = 'Preview'
                  icon  = 'sap-icon://show'
-                 type  = COND #( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'PREVIEW' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_PREVIEW' ) ).
     seg->button( text  = 'Migrate'
                  icon  = 'sap-icon://journey-arrive'
-                 type  = COND #( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'MIGRATE' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_MIGRATE' ) ).
     seg->button( text  = 'Audit all'
                  icon  = 'sap-icon://validate'
-                 type  = COND #( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'AUDIT' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_AUDIT' ) ).
     seg->button( text  = 'Design'
                  icon  = 'sap-icon://screen-split-two'
-                 type  = COND #( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
+                 type  = COND string( WHEN mv_mode = 'DESIGN' THEN 'Emphasized' ELSE 'Transparent' )
                  press = mo_client->_event( 'M_DESIGN' ) ).
+  ENDMETHOD.
+
+  METHOD render_branding.
+*   RAK Digital / EGA / RAK Government branding, top of every Studio
+*   page. Both authority marks are embedded as base64 data URIs directly
+*   in the view - there is no MIME repository object or CDN wired up for
+*   this yet, and a data URI needs neither. The EGA mark had its unused
+*   Photoshop/EXIF/ICC metadata stripped before encoding - same pixels,
+*   80% smaller - so the pair together stay under 13KB of source.
+    DATA(lv_brand_ega) = brand_logo_ega( ).
+    DATA(lv_brand_rak) = brand_logo_rak( ).
+
+*   DOM order is the layout now (grid auto-placement, column 1/2/3, no
+*   transform trick) - left logo, center text, right logo, in that
+*   order, or the grid puts them in the wrong columns.
+    DATA(bar) = io->hbox( alignitems = 'Center' class = 'rakBrandBar' ).
+    bar->image( src        = |data:image/jpeg;base64,{ lv_brand_ega }|
+                height     = '2rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Electronic Government Authority' ).
+    bar->text( text = 'RAK Digital' class = 'rakBrandText' ).
+    bar->image( src        = |data:image/gif;base64,{ lv_brand_rak }|
+                height     = '2rem'
+                class      = 'rakBrandLogo'
+                decorative = abap_false
+                alt        = 'Government of Ras Al Khaimah' ).
+  ENDMETHOD.
+
+  METHOD brand_logo_ega.
+*   EGA mark, base64 JPEG data URI payload only (no 'data:image/...'
+*   prefix - callers add that, since they also pick the mime type).
+*   Metadata-stripped: same pixels as the source file, 80% smaller
+*   (38KB -> 7.5KB) after removing its unused Photoshop/EXIF/ICC blocks.
+    rv =
+      `/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ` &&
+      `EBAQEBAQEBD/wAARCACWAMgDASIAAhEBAxEB/8QAHQABAAIDAQEBAQAAAAAAAAAAAAYHBAUIAwkCAf/EAD8QAAEEAgIBAwIEAwQHCAMAAAECAwQFAAYHERIIEyEiMRQyQWEVI1EJFnGBJDNSV5GW1RcYQkNicoKhU5Lw/8QAGgEBAAIDAQAAAAAAAAAAAAAAAAIFAwQG` &&
+      `Af/EADARAAIBAwMCBAQFBQAAAAAAAAABAgMEEQUhQRIxBlFhgRMicaFSkbHB8BQWMkLh/9oADAMBAAIRAxEAPwD6p4xjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGMY` &&
+      `wBjGMAYxjAGMYwBjGMAYxjAGMYwBjGMAYxjAGeEybEr4rk2fJajx2U+TjrqwlCB/Uk/AzU7pumu6BrkvadoniLAhgeRA8luLPwltCR8qWo/ASPuc542bm/dBuLkWfx7JsLOPDbsIFKZzTDNQhfXg7J9z4fldKQrxH0t+XSe1BSsyqniHxam0c47NtvySWW/XbZeyc7ej` &&
+      `Vva/9NbpOeG3mUYpJcylJqKXllrL2Re9zv8AVVMZMyW9+Cjup8mlvtn3nx/Vtn4V1/6leI/Y5pabatk3d0r12lSzXpUUqsLRRWk/1CGUdJJ/z6/qc55Rte0rsGdw5G43vjQmwjxbCczZxpC0KdWEoAbR9Sh2R2E/IB6HyUg39ytyr/2WppNX1HUDsN/blxECnjvez0w0` &&
+      `gqWskJUUgAHr6fkJWR2U+JzVbqytoP4eXJd8xksZ7YTSbb/J+XBkjoWq1a8Kc+nE8qPTUpzT6d5ZnCcoxUVvLLWFu3jcsGHXFiIY8x8SitPTnbSUJP7BKR8D/Hv/ABzmv1E71yF6br2l27TLd2y1e6dXHmUto4p9ph9ACh7Liv5jaVp8ukhRSkpPx0QBZj3qAoFcG/8A` &&
+      `bhW1b0yK22z79el9KXWnlPoYcaKuuu0KWfnrpQAI+FA5Svr6vf4tq2m6/XR1vLlvu2zhT0UstpbCElavypB91XySB9Jzb0CrSr30IVcOnJNyz2xhvPpjHfgrte0+7tLaeISVSMulY3fWmk47Zb7+qeTobh3l7WuZ9Qa2rXPNlaV+xNhOkFyK+ACUEj8w6IIUPgg/oewJ` &&
+      `1nFnoNmVeqLvmLvZ4EJWwOw49fElSm2VTJCQ8r/R0qUFOnwP6DsgAgFJBN6WXqq4brId3KXdTX3KPY06quLHgOrfl2Sgspbjp6/mpPtPj3AfDth76voOauoQtoXMlZy6qfeL9GvXuvJ8rdZyZaFK8oQVK/h0VY7SW2z8nhvD813i8xaTTRb+M1mt3sfZ6GDsESLKjM2D` &&
+      `CX0NSm/beQCPstPZ6P7d4zTMps8YxgDGMYAxjGAMYxgDGMYAxjGAMYxgDMWxsYFRXybWzlNxocNpb77zqukNtpBKlE/oAATmVnKPr05Vka9qtfxhUyPbkbD3KsCk/UmGhX0o/wDm4P8Ag2ofrm9ptjPUbqFtDl7+i5f5Gnf3cbG3lXlx93wZnF1vO9UHLUnkm1Zcb0XR` &&
+      `pHta/Xuj6ZM4jsSXB9itKSFdf+EqbA+yiYLyNqMXduZdp2jbayLPr1+ESubdcX5I9vxST0kjr4Qfufuc6A9KWsR9W4G1VlpsJcsYxs31dfK1vqKwT/ggoH+CcjfKvH1lS3MnYq6Mt+tlOF9ZQO/YWT2oKH+yT8g/b56/xtqsLO9vZWtWK+HB4gn2+V8575e782a1hf6j` &&
+      `o1ur2yqONWafVKLakupcNNNYWyxweEL0+3vGz2vbXwpYPQ5iX44vKOTNX/D5rCiPdISry8Fp+eldFQ6BT9ihe0Rxbyza7RuHI6r+so9omvpqtccW1+Mar6lt8FS/E/BW8hIUUfoe/lBWfG4tfuId/TxLaC4lbUhtKvg/lV18pP8AQg9j/LNNvnJmlcbVwsNtu2oqnPiP` &&
+      `FR25Jkq/RLTSe1LP6fA6H6kffOYWnqdR0qcGm3/itt9+yXb25SZ1c/Et44KvcVFOSjjrn80nFtPDlLPUtsfNnMZSi/leCgeVOIdk03VeU4VLNrImk37UG7R+IkhlMGa1JaU+lCPkeKktn4HQ6DLaASDnHyoh5J3xOuccaHDZasJKGa+vY9xSkpSAPcU4pXkPylalH4T2` &&
+      `f0GdO73Q+oT1a2bEFrXH9H0KM6HWRa9tOPn9HXG/zuK678UgBA7/ADE/Vl+cKenzReEa9aaFlc63lICZdrJSPecH38EgfDaO/nxH3+OyroHOipafpOlW83ewjWrSWFF4koZ378PO7w88LHcpv7r8R3VWEdNuJ29KDTc4OUJT6UorKTXUlFJLKx3byys+OPSFrcoUtvzH` &&
+      `qFXJ2rSL5+2169r5rvuLecS0fxDiB4oUpK2WykLT49tJPgPnyynvQPwMzDiNwXdihLhMRSqQuwRK9+VHW4tE15uU26yt7/SJQUCj2yJLv0dlJT0gpSUJK1qASB2SfsB/XOc9w5Inc/7q5wnxVPWNbj9Hbtijn6fw/fSosdf27X0U+Q+/1ddpSomrtLSpdyeZPpjvKTbe` &&
+      `F6t7vyS7vseahfxU3UcUpTe0YpRTfOEtll7vCUVvhJYRbfET1W5odczQOrfp4gVErZS2WWTLjtHwD/tsNttJSspUUhCEpKSkgDvGSmtroNRXRamsitxocJlEdhlsdJbbQkJSkD+gAA/yxmtUcXNuCwuCUFJRSm8vkysYxkSQxjGAMYxgDGMYAxjGAMYxgDGMYAz5qetW` &&
+      `zk2HqDu476lFFfFhxWQf/Cj2EuHr/wCTij/nn0rzhT178W2MHaoXK9fFW5XWbDcGwWlPYZkt/DalH9AtHikfug/1GdR4QrU6Wo4n/tFpfXZ/sznfE9KdSxzDhpv6br9zoX0kb3A3bhGhZZfSZtAyKiY139Tamh02SP6Kb8D3/XsfocuUgKBBHYP3Bz5N8P8AMe3cLbOn` &&
+      `YtYeS406A3OgvE+zLa/2VAfYj5KVD5B/qCQe5NG9bXCu1RWhfWMnWJxH8xicypbXl+vi62Ckj91BJ/bMmu+HbqhcSrW8HKEnnbdrPGO/uQ0bXLetQjSryUZxWN9k8c5Lzh0tXXPOP18FuKp4+TgZHglZ/qUj4J/frvP61T1LE5dmzVxETHfzyEspDqh+6+uz/wAcgbvq` &&
+      `Q4JZZ99fKdAU9d9IkhSv/wBR2f8A6yCbX64+D9fbWmmm2ewyB8JRCiKbQT+63vD4/cA5SU9N1CvLEKUm/o/1ZbVL+yorMqkV7o6EyGck8vcf8TVn8S3bYGIalpJYiI+uTI/ZDY+T8/r8JH6kZxhvHrZ5f5Ck/wB3uNqMUKZSi20iEhUye73+iVePQP8A7UA/vm64n9F+` &&
+      `7b5Yp3HnS1nwmXlB1UJx8u2Er5/81ZJ9oH/Nf3HSfvlxHw9Cyh8bVaigvwreT/nv7FZLW53cvhabTc3+J7RX89j2tOTOZvWHfvaTxzEf1jS21BNjJUo9lo/rIcT+Ykd9MoPR/UkDyHWHFfFeq8QamxqmqxSltJDkmS50Xpb3QCnHD/U9fA+wHQGbzWNV13S6WPruq08a` &&
+      `srow6bYjo8Ug/qT+qlH9VEkn9Tm2ys1DU1cxVvbR6KK7Llvzk+X+hv2WnuhJ17iXXVfPl6JcL9RjGMqSzGM0O9bONL1C22pTcFz+GRlPhE2xagMKI+yVyHfoaBPx5K+Bmq4j5NqOXdJZ3akVEVGemzYQMSWJTRVGkuMEpdCUhXft9/A6HfXZ67IEzxmFYXNRUuQ2bW1h` &&
+      `w12MgRIaZD6WzIfKVKDTYUR5rKUqPiOz0kn9DmbgDGQxHK2p11ZZ2m7XNPqrVXbP1LpsrqIEhaPqbKlJcKW1OM+LwbUQ4ELBUkZI62/obl15iou4E52O2y68iNJQ6ptDqPNpSgkkgLT9SSfzD5HYwDYYyJanu1nsOx32u2epuUzlIWylTlnDkLkNuOvJbcLTDinGQpDK` &&
+      `XE+4lPYc6HyhYEN2z1S8Q6byu1xHebfRwLFmKJdrKsbePCYrw5/qGiXVAuPOfcNoB8UjyWUhSPIC38Z+W3EOoS40tK0LAUlST2CD9iDkA5E5noONNpotbvquzeRdVVzbmVDYL4js1zbLjwLSO3XFqS+PFKEqJ8Vfr0CBYOMpR/1T6ad4gabU0thZt2dnr8CHaR3Gvwr7` &&
+      `VtDly48lBKvIthENYPwCStPQI7Obu350p6Xmqn4bmppxLu1FEVQvGlTCoRHpCu4SUlxACWQApRSCFdjvrogWhjGRRvlfjF7YLLU2+QtdVc00d2XYwRZs+/EYa691x1Hl2hKPJPkT8J8h312MAleYN1S1OxVUqjva9idXzWi1IjvoCkOIP6EH/wDgejmHqm6ajvVc5b6X` &&
+      `s1ZeQmX1RXJFfKQ+2h5IBU2pSCQFAKSSD89Ef1yuNe9VHD2zcqW3FlduVEiXUSEVpfk3EZlUyyJ+qJGYUv3XigdBSwPHyPgkqUlQT6m4vK7njSksMqPkH+z8orGS7P4325ypCz5CBYtl9pP7JdSfMD/3BZ/fKtlegjm1h0ojz9Yko7+FonOJ7H+Cmhn0PzQVG/aRf7Ha` &&
+      `afSbfTz72kCTZVsaa25JiBXwC42D5JHfx2R9/j750VDxVqdCPS5qX1WX+e33KOt4c0+tLq6XH6P9jh2p/s/eWZSx/Ftl1mA3+pQ888v/AIBsD/7yz9P/ALPjSq9xD+67nZ3Ck/JYhspiNE/0JJWoj/ApzoXkzkODxlr8PYbGtlTWZl1VUgbjlIUhydNZiNuHyIHilb6V` &&
+      `K6+egegTkVg8/wBTZ8ON8wtVcavhrs364x7m3jwEoDNi5DcWX1kt9/yluJR+ZXwkfUcjX8U6nXWPidK9El9+/wByVHw7p9F56M/Vt/8ACVaLxTx5xpGMbSdSgVhUnxW+hHm+4P8A1Oq7Wr/M5LchWlcmRN54krOV6OrdntWlOLZiDXuh9byvbKvZZWoIC1FQ8UqPiCej` &&
+      `8DP3xHvk/kvQK3crPXhSSp3uh2AmWmUGFIcUgp91ICV9FJBIHXYIHfXeUNSrOtJzqNtvl7lxTpwpR6ILC8kTLGYdTcVF9CTZ0drDsYa1uNpkRH0vNlaFlC0hSSQSlaVJI7+Ckg/IOazcN807j+A1Z7nsUOojPu+y0uQvrzX0T0kD5PwCT0PgDIEzf4zX0F/RbVTQ9i1m` &&
+      `4hWtXYNB+LNhvpeYfbP2UhaSQof4HGARPmfi4ct6hH1xu+XTy6+4rbyDL/DJktJlQpTchoOsKKQ82VNgKR5J+D2CCAcgeh8P8+8ZVc+h1nlzSJkKdc2V2V2WmyS8H50pyU8ntqwSnxDrq/H47CfEEkjs671vcy7xwlxzqewaJeR6iRc7xU0E+Y7W/jizCk+6HVoZ+6lp` &&
+      `8UqAAJPj1185CV873eq8v8fTNi5gsLbRk6Ntuw7BMkURqxIEB5rxdXFU2HEFpK1pHQHn0D0exgG+5T071A7VuWh01ztdS85r9/G2OBYVHHkh2A3KS1JYSiW65adobCHHCrwHkPJsg/JGWd/A/U7/ALzONP8Akyd/1PINF9dvCp1i42a3j39UKusqLhmA9GZel2Ea0UUQ` &&
+      `RHbYdWC4tY8S0spWg/nCR2c/HI3qZ37W+QOKtMq+I7qt/vptUijtW7duMX0MNQxJ84qmpJaWCFfK/JSR7bqevMdYBDuT/S9yPBodp5Brdlrtp3e+XfKdrGKBbMF920rYdcgMIMhSmHG0wWu33HFAJdf8ukkdSLizijnjWNr2e51K71nXq9+voaLxvKB+a5OerIIYdlNe` &&
+      `1KYKGVLUpCfMEqDfkOklPexrfXbw/aUdzsUfXt2RAqLdvXWnnqYIRZXDktUZECIsueLz5UjzI7CUoUlSin5AzrL1o8aU7zVTP1bcP7wHb/7jvUTEFl6YxbKj/iGkK8XvbU2430UOpWUnv5KeldAelLw76gqHkDZuSoXLWhLs9siV0KdHc0qV7DaIQeDKm+rEL8j+Ic8v` &&
+      `IkfCeuuj3s9k489Qm1UVnr1xv/FzsS2iPQ5AVo0tfkhxBQr4VZEH4P6gjIJV+qzSeSN+4ks6Xbd01WLczdrrp+uy6iIll6TVxgqS3YuqWpUf2P8AWILKlBRJCuustTiDnql5rjRLzUtN2lnW7aLImVN/OiNNQ57TL4ZJSA4XWypR8kJdbQVoBUB0DgGg0fjf1H6Fpev6` &&
+      `NWcq8eyYeu1cWpjvSdNmqedajtJaSpZFkAVEIBPQA7J+Mwdl4+5li7JA5i2baKXZLfS6e0h0FPr2sOx/flT/AGEF1/3pyy4hHspPglTZ6Kj5dgDNRX8pcrc1eonkLifQNmi6VqnFaIEa0sk1zU2wtbGWyXUoaD3bTLLaQQSUKUpX2IB+JS5zlH48Gq8e7HcO8k7zsaLO` &&
+      `RCTrEJhn8VEhlSnH3At4MtFCPbbV/MHm72EJHfSQIHxt6MbXVLaJs1zyY1MkM7fXbMxBjUqo0SDDiMTkNVrCFvuLQhKrF0pKlq8UoQgJ6Azd3npa3BnkV3kLQ+VoFcobg9uzEC2138ckT3q017za3kSGlrZ9lSihPwUK6HkUgJzNofW3whsg96rkXSormiu8gxpK4QDc` &&
+      `uuaeUy8019fapLbyVNqZIB8h8Egg56Oes7iNjemtFktXDDh2aJpj89bbH4eNeyWC63BWA77vkOvbU4ltTSXCElfz2AJP/A/U7/vM40/5Mnf9TypKn0VbS7q0vXdy5ghzPaqrmuqna7XDHLK7K1Ys33ZPuSHTKHuxm2/DtAU2VhRUpXkNlTf2gXEd9qNfvVfo/I5pbe9g` &&
+      `a1XSV0AQmbZSnJDaWGCXenShUZQWUEhJcbHySQnMh+uvjKfEp0w9F3967uNlttQTQN1TKrCPb1zSXX4zqff9sHxWkpUFqT8/UUgEgDB4N489UVFB3C8d23R6c7dt1hfpjWWpS1vlDiWmkOKQmwT7IWlhKw0oqUkKAUrvtKd5yZwnzxyppszSr7krjiNFluxn/fi6RKDz` &&
+      `TjD6HkKQVWJAIW2n567+/XR+c0+tf2gvB2wN69ZTKvb6Gj2emtriuuraqSzDcFY2pywj9pcUv3WQhYPSChRT0lSj1nt/3+eGGddnbDY1G0xRDr6S4RCESO/KkV9q+GIkhCGnlD/WKSlbail1BUAUdkDALB/gfqd/3mcaf8mTv+p5X9n6c+Y5W16rutLyBxvQW+pT50yO` &&
+      `/WaVLb/FNzfcVNjSAqxPuNPOue8ofBDqELBBB70HIfrgca1wOcb8e3jex13I9Pol5UX8RpqTE/GOJ6WhKZHgtTjav5R8/HyPa+gPm/OXt+kcdcZXG3wYP4i1QwiNUwXCAZNnIWliHHPR6+uQ60gkHoAk/pgEI2jibm3kVqppN95O000cG9qruS1UapJjynzBmNS22kuu` &&
+      `znUoCnGUBSvBR8Sevn5zEY9Mc6BoOj6zU8gJjXOhbVYbTXWL1SmRGddlOzipp2KpweQS3PWEqDiVBaErBH2yK8ResiA96d6HkTl+DKG0RtoRx/skOqjoUqPfCSY/ygrSEoUS24eieg4Oges8+ZPWa/rkyLQ8WafNtbSDyrUcc3gnMNpSPxSfdcMX+enzcU30EFZSkEkq` &&
+      `6AHYEs404f8AUBxLolNxvq/LWizKmgj/AIOE/Y6bKVJW0FEp9wt2KUFXR6JSkA9fYZqtP4x5/wDT/wAVnXNZ5F1S/raFM2ayw1okl2wkqefckrbbbbskIUrzdWlIHXwEgnvs5AeFfVvKoOQt50zlxzbLNi15rs9H1y2/AtKrqvtDSode46lSVBRPu9dJX0OipQBBy1KL` &&
+      `1m8S7BZ1DEGHf/wnZpVxA127VFb/AAVxJrEqMptkhwrT34Oe2pxCEuFCgk/bsDT8G8ceoHS+Oo9DrnIGrxYKbO1lJZ2DQpMealx+wkPOkoasvENlxxamz9y0pvv57xyxwB6g+YIcWvv+a9PgRokec2hqv1Ka2n3pDBZRJPdkf5zHkVtK+yVny6JA60bXq807lpPFuz6Z` &&
+      `Yck6rTbHuMOrhLe1yOhjYlOxnlqjFbyyQwktkLea76Wnod/mHtwz60lbJDhu8tajNoV7LyRZ6HQyYsdtUNt5hSksNSHPfWoOrLbifIDxK+wn4HeAXNwPxfM4c4xr9Bsb9m6lRpljOfmswzFbcclzX5SglorWUhJfKR9R+3f64yQaFu9RyLq0TcaBmWitnrfEVclsNqfa` &&
+      `bdW2l5IBP8tzw80H9UKSeh31jAIZ6iOCGOf9YoKBzbZmuSNc2WBtEOZGjNvn8TE8y0lSHPpKfJYJH6+PX65GNq9Kcfku4rrrljkOw2KRH1a91Kd7MBmCmbDsynzV0337a20oQElP3KQTl94wDmb/ALktTZcMr4a2jkF+ZHgCuNDcV9HDgWFe5BX5RnnHG0kSXB0lKisA` &&
+      `KAJ8QpRVku2X0+7Nuc/jrado5Yel7Vx1ePW8WxbpWWo8lt6OY7rCoyVdJ7QSQvzJCiT9uki68YBzmj0W6mOH2+KVbnbF2u3Ve+09x7LXvQLT8WqSg+314ONpUtaSlX5kqPyD0QY9GlIraa3fbXfLGXsjXICOQbOYiG003NktxjGZipb7PtMNskpH1KX2VEqPfx0ZjAOa` &&
+      `tf8AQ/qNLtOubJK3OzsGqG+2+7chOxmktzf7wMhqSwsj6glCe/EpPZ7+cn3p/wCELXgTWGOPonJE+/1OnbXHooE2Ay2/CYU4VhDkhHy/49lKT4o+n7hR6ItfGAUvb+nWTXcrXfM3EnIUvS7/AGuPHj7JGXXt2FdalhPiw+thakKQ+hJKQtDgBB+UnskwvUvRDVcfQ9Kn` &&
+      `6NyXaQdo0tm8itXEmvYfbmMWry3pCHI48Ejwdc82ilQ8SOleY+M6cxgHOMT0NcWVlfw9VVNnbRo3EBeTHHmlSrlp5xLzzUs9AKQuQhLxSB499gAA5uNZ9K9VpXL+y8mattDbNdt9wnYLWmmUkWWtNh4gOORpax7jCXClKlJ6V8glBR3l7YwDnGm9F9BTcM8ZcNN7/buw` &&
+      `+MtyjblEnLjNe9MdZlvyUsOJH0pQVSFDtPz0kfvn6170Y6/r3IlfyG1vls/Ir+Q7/kNMZcZoIXJtYyGHIxI+fbbSjtKvzHs950ZjAOVYP9n3oA0/j3RL3dbm1p9Dj7XEU0plppVk1fIcS+FqT8tlsOkoKf1A77zYx/Ray5xE1w9cclKkwID9Oa+fG12HEmIYrpLb7SH3` &&
+      `Gx/pC1e02lSz1349+PkST0zjAOcdq9GVPsVrt+wxd/sYNrsu80m+xnjCadbgTqxKUst+2SPdaUE/IJB/fLW5B4qqOT16zE3F9uwp6GebOZUvRG3I1q+lhxtn3kq7+htbnvBPyPNCCfy5OMYByxs/oF0uyVvjGnbtY6jX7jc0+zQq6tgsfhaS4rykolR2yPEhzo+4hQ6J` &&
+      `IPY8Rns76IGXWLGc9y/dSNhm8iVnJbdpIrY6kt2kNr2w2phHilTKkk/SCkp+nonr56hxgHNyfRXQlxTr+/2rhc5gTzA4DEZ6VMCPEwuv/wAJ/wBr8375jan6GtS1V3V6trd7WTrGgyryfqdQuM0DAkWYWFqde/NISz7rvtAhJHn9RX0OumsYBz9T+kKhp9G4X0ZrdrRx` &&
+      `jhi5ZuIMhUdvzsFNpdSG3R9kp8XlDtPz8DIRyR6S4ddwfsHCddZ3t9F3jf2bmofjwvCTrT0ieJT8pUhvvpDKUvEOKCSe0t99rBzrjGAYdPU11BUQqKniNxYFdHbiRWGx0lpltIShA/YJAH+WMzMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMY` &&
+      `AxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgDGMYAxjGAMYxgH//2Q==`.
+  ENDMETHOD.
+
+
+  METHOD brand_logo_rak.
+*   RAK Government mark, base64 GIF data URI payload only.
+    rv =
+      `R0lGODlhywBCAMQQAPGRlPjIyepbX/3x8uUyNuhNUfvk5PStruc/RPrW1+52eu+Eh/Ofofa6vOxpbOMkKf///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAABAALAAAAADLAEIAAAX/ICSOZGmeaKqubOu+cCzPdG3feK7v` &&
+      `fO//wKBwSCwaj8ikcslsOp/QqLSZmFqvzASigO16hwJG9Usu5xYFgnnNhg0a4bb8ZnhqEYA5K3DQmwp9Jgt1SABjfiUJBA1CAwICAwoEhzsHDwInDwpJCA6NC4wLC0ENBA+EQA4Pq6tqPQIPriQBsQNHBquoPgWrsA+jPZGxCEOKDwG8gTsDrLYkDKvKRLQPDEEKqwCr` &&
+      `1jsGAKYFC57FjAMBPg0FCMcl2g/jRdAPXEADC30H0jYGB6rZEA7yIBIBgIGqcyTcySLi7oGzMgYUrFuFYJGIAgh9mAvAkQ88G5EOCQigLSNBAqYo/wnRZspkDgMdOTIARqfjgAEEEDr8sYBVrDAPbfCaJMKTtqAQAAjoqS9IgDAPBOZw5LNT0xy0ziH7IZGBSx28HjCC` &&
+      `YMCAAGIl4DSIaoRWgnc6BhQQcEDlj6wQGHDj0a8RXRH2Vn0NQIAZphpIVeCCQOAwjgV7p7EbtCsxEC0PEIwtwQzC3BoNNr1wCGuq4yJ4U3CkkUA0kVIEAFgW8QDCIxkGFmyZjQJjTxbpXJ9gcNUpuxNye9llAUBqiQMEEOhCbArBAd4Yb794Oq+4ipHaVlBzbsLBVxE9` &&
+      `T2M9/senRRjmT1haRdMGNVYCADSQTWKkdhYDqKLAci0sQBJaKcBCVP8KhZ2AzSqbkaCIAs0VQJ5q7JFgSUATaTLdd18ZAM48LwHQoU+UGCjARynI5cCHMAAQgAPqJaIJCzulNcwvJ/Tkkz4NLJBYaiUgAExy+LmQX3lErYOUXLMpcB56PvFIQgO0XHjCiik095wIkQWg` &&
+      `SH0mKFBjJi4NsBsu9JQQVitBrXWJCVma0ABaEVWp5ZYs0jIWU+3cWOacJgQYi4wwJvUAgbOcgsJbCEKgpggLQWBJhCXgMmUJ1bRDACG8TPfgT5FB0GGptEQqAoUHvDkPhbyVIElQCDi2Vk6AQbeKAqgEMCoAhCQQGjixKqIqCmZiqMlNM5qHBglqVloCjS58NgL/LlL1` &&
+      `VEAd/PACiGVv+YQQPxONJClJVeKRqAqW7KUNJaZUKa9PBbhaJZl0muJdf/iOwMy8EI6QAC97WvrAviRgk5EADYoQbpXC9TgPwP4A/BcNzBD1VsTzuWdvL+bMq5liD7KYgpW9ASzaAO60aYKxL6xVgC3Q6DPqPy08/COS7lF2AzaxmfJhAs0BgI1+1RQtxrVFN8coWaM6` &&
+      `ECsJJDJIXHP7GULWAvHO/Ki+MKwTTmYnZM3AuuUdXPQBhAzAwNoK9DuDzgWLQEsB2OBg6CqAwADLlAycKQxF3jEATgwdZ2gDNhF3iakNPnqtwn0my7BRAFNLvKC/XMN4+brcxfI0/wq+NG75Aes0zBzaMhzA3wo4if4ELqsERJIkbMXAh26sIDA6Cm6XCsPNrCBMAutC` &&
+      `GHB2mVIz4HsRiftk+goGVHyJ8UKk0/vjcjw4kbRAhE5R3XpkvsZ460zvVADID+S+3ee88f789Ndv//3456///vz377/7DcBeiQTopT2Y7wQFxM0CHhGG9ulhLafxRtMOiECT0EI9zSHEfmyxChZAo3It6GDrDhUAw52pC08RIAICEKFwAYAXx3LBW1x2wRK0BAIbo01t` &&
+      `VrAWueHohJNbxSESIEAoKCxnOaJabWi3KRX4qFeEGsHfPOMYEQYhii+AhfpcB4BAZJAgdSBJF0XgOv/lcURGb/MisDIowba9jQG2IEkJ9QMB7kiJM28DFtTeoQ8RCkZSeXRjQRJTkU6JABfq+RsaHiLEL5KlOXCs4xhdRzRDsExrj2yOMy4hxgMGbEti0cYoeGGNt7xB` &&
+      `E9AYBSwIxpKwMAKGYkPAOjCBkwKUggutFIwdTVLLGYklTxcbQQeh0aClqMIVCjAPRtJiHbIJM5GaWJQSZUk2A+CBF5ughSpjMZR6xeIiSiHUMGbpgj/aSVBC+2BSNsELDtZmlTLSxiYskYcpruMc61CUNVSxnxtBIw8lkdXBcEi2OnHqEu+YDi+q8I6blEk2QgQMFm3D` &&
+      `igjlwlRJNEwd2QILa5D/0jMZ8qNDYldO9iTgLIoSyN9woQZbQiAb7jipWAjCljqVhqIiKI0Ww9mcmrIloP05TgcNqsRd+asffzRFbDhzMGQIqoZBXQcCGLnDKSqPnDadDDsCOoAD+II2h7kpC8B2yA5qQ6XsIKUrdMkHsxznrBvdZk6r+s5qcARLcK0TUIUp1NoQla/U` &&
+      `qIMicjJFXRkSTI0RwFDsNlFY6EoqIvybJbY1p6yeI6AluaVbwTpXF2hjqmWtDVwxWgdiiuaGUnyrTzFx09bWBhv1yetPFWfVguZOiRTFBFynKKnRigABewEbVFOLLmm+lK7cOUdlOcqOgyiKO33I50vDukMAeasK2/MhC9nechja/WkeCUjANhEiW9bStbO0WITyvOFT` &&
+      `gM5UQzfShjX+makOhgtdDjDGOaTmGWXQAhXYwMRwf8sOselwrtzRi23ryY4p/k1A1KANWsTaglaxAm8iSEdFFPAQao2Aa5npwwLH4NU+nHQUNKpDigEigDrcKRbz/AscRkEYApTKRGkQSIkToZ0FcpgX+ZmTA6IT24/AARInLsEjqnDkc/RYAMIyhTiauhQIjNjKUMZy` &&
+      `eGcJW9uEFYj/C7OYx0zmMpv5zGhOs5rXzOY2u/nNcI6znOdMZy+EAAA7`.
+  ENDMETHOD.
+
+
+  METHOD render_hero.
+*   Compose's masthead - called from RENDER( ), above the toolbar and
+*   mode tabs, not from RENDER_COMPOSE( ) itself, so it is the first
+*   thing on the page rather than a banner sandwiched between two rows
+*   of buttons. One logo at each edge, title centred between them
+*   (RAKHEROTOP's grid does the centring - see CSS( )). Every other tab
+*   (Author, Preview, Migrate, Audit, Design) has no hero of its own, so
+*   RENDER_BRANDING( ) still runs there unchanged. Subtitle trimmed to
+*   one clause - "theme, colours and branding, the full configuration
+*   lives in Author" was telling the author something the Author tab
+*   itself already shows.
+    io->html(
+      content = `<div class="rakHero"><div class="rakHeroTop">` &&
+                `<span class="rakHeroLogo"><img src="data:image/jpeg;base64,` && brand_logo_ega( ) &&
+                `" alt="Electronic Government Authority"/></span>` &&
+                `<div class="rakHeroTitle"><h1>RAK Customer Journey Studio</h1>` &&
+                `<p>Pick a pattern to start a new service, or restyle the one you have.</p></div>` &&
+                `<span class="rakHeroLogo"><img src="data:image/gif;base64,` && brand_logo_rak( ) &&
+                `" alt="Government of Ras Al Khaimah"/></span>` &&
+                `</div></div>`
+      sanitizecontent = abap_false ).
   ENDMETHOD.
 
 
   METHOD render_compose.
-    io->html( content         = `<div class="rakHero"><h1>RAK Customer Journey Studio</h1><p>Pick a pattern to start a new service, or restyle the one you have &mdash; theme, colours and branding. The full configuration lives in Author.</p></div>`
-              sanitizecontent = abap_false ).
     DATA(split) = io->hbox( alignitems = 'Stretch' class = 'sapUiSmallMargin' ).
     DATA(left)  = split->vbox( width = '60%' class = 'sapUiSmallMarginEnd' ).
     DATA(right) = split->vbox( width = '26rem' ).
@@ -1718,6 +2438,20 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Subtitle (AR)' ). f->input( value = mo_client->_bind_edit( mv_subtitle_ar ) ).
     f->label( 'Handler class' ). f->input( value = mo_client->_bind_edit( mv_handler ) placeholder = 'ZCL_RAK_<ID>_LOGIC (optional)' ).
     f->label( 'Tile code' ).     f->input( value = mo_client->_bind_edit( mv_tile_code ) placeholder = 'portal tile CHAR4' ).
+
+*   R14-2. EDITORS FOR THE THREE COLUMNS, not just assignments in the INSERT.
+*   Loading and writing a column the author cannot see would stop the Save
+*   destroying it, which is the defect - but it would also leave three
+*   columns only a loader can ever set, which is half a fix.
+    f->label( 'Case type' ).
+    f->input( value = mo_client->_bind_edit( mv_cj_type )
+              placeholder = 'prefixes the synthetic case key when no backend mints one' ).
+    f->label( 'Draft mode' ).
+    f->input( value = mo_client->_bind_edit( mv_draft_mode )
+              placeholder = 'DELEGATE / NATIVE / OFF - blank lets the engine derive it' ).
+    f->label( 'Attachment mode' ).
+    f->input( value = mo_client->_bind_edit( mv_attach_mode )
+              placeholder = 'DELEGATE / NATIVE / OFF - blank lets the engine derive it' ).
 *   The ENQUEUE stops two authors overwriting each other at the same moment.
 *   Nothing answered who changed a live journey yesterday, which is the question
 *   that actually gets asked.
@@ -1766,6 +2500,19 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     placeholder = 'field name — Next/Submit stays disabled until it has a value, e.g. PAYFEE' ).
     f->label( 'No forward button' ). f->checkbox( selected = mo_client->_bind_edit( sv_nofwd )
     text = 'ends the journey without submitting' ).
+*   The third footer state. NO_FORWARD removes Next and leaves Close or
+*   Submit; this removes the primary action outright, for a step that is
+*   answered by something on the page - picking a search result - rather than
+*   by a button. Back and the message strip still draw.
+    f->label( 'No footer action' ). f->checkbox( selected = mo_client->_bind_edit( sv_noact )
+    text = 'no Next / Close / Submit - the step is left by acting on it' ).
+
+*   R14-2. Phrased as the negative because that is how it is stored - see
+*   SV_INACTIVE. The text says what it currently does rather than what the
+*   column promises: nothing filters on ACTIVE yet, and a checkbox that
+*   silently did nothing would be worse than one that says so.
+    f->label( 'Inactive' ). f->checkbox( selected = mo_client->_bind_edit( sv_inactive )
+    text = 'clears ZRAK_T_JNY_STEP-ACTIVE - stored, but nothing filters on it yet' ).
     DATA(b) = p->hbox( class = 'sapUiSmallMargin' ).
     b->button( text = 'Add / update step' icon = 'sap-icon://add' type = 'Emphasized' press = mo_client->_event( 'ASTEP' ) ).
     b->button( text = 'Clear form' icon = 'sap-icon://clear-all' press = mo_client->_event( 'CLR_STEP' ) class = 'sapUiTinyMarginBegin' ).
@@ -1786,9 +2533,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-bknd_screen )->text( |{ lv_fcnt }| ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDSTEP_{ r-step_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -1809,6 +2556,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(p) = io->panel(
       headertext = |Fields — { lines( mt_fields ) }| &&
                    COND string( WHEN lv_flagged > 0 THEN |, { lv_flagged } with findings| ) &&
+*                Say WHICH step, not just "filtered". A panel headed "Fields -
+*                62" showing four rows is alarming until you remember you set a
+*                filter three minutes ago; naming the step answers that without
+*                the author having to look for the control.
+                   COND string( WHEN mv_fld_step IS NOT INITIAL THEN | · step { mv_fld_step }| ) &&
                    COND string( WHEN mv_only_bad = abap_true      THEN ` · showing findings only`
                                 WHEN mv_fld_filter IS NOT INITIAL THEN ` · filtered` )
       expandable = abap_true
@@ -1827,8 +2579,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     f->label( 'Label (AR)' ). f->input( value = mo_client->_bind_edit( fv_label_ar ) ).
     f->label( 'Placeholder (EN)' ). f->input( value = mo_client->_bind_edit( fv_place ) ).
     f->label( 'Placeholder (AR)' ). f->input( value = mo_client->_bind_edit( fv_place_ar ) ).
+*   A TABLE's DEFAULT_VAL now has one more reading: a plain pick target may
+*   carry the row button's own wording after it, FIELD|View|EN-AR, instead of
+*   the shared "Select" every table in every journey draws. It is read last
+*   and only when the column spec and CHK: have not already claimed the value,
+*   so a caption must not contain a colon.
     f->label( 'Default value' ). f->input( value = mo_client->_bind_edit( fv_default )
-    placeholder = 'grid cols name:label:type|... plus SEL:SINGLE:TARGET or SEL:MULTI:TARGET for a tick column (put SEL first)' ).
+    placeholder = 'grid cols name:label:type|... or SEL:SINGLE:TARGET; a pick target may add |Caption|CaptionAR' ).
     f->label( '' ).
     f->button( text  = 'Test column spec'
                icon  = 'sap-icon://table-view'
@@ -1836,14 +2593,21 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                width = '12rem' ).
     f->label( 'Group' ).      f->input( value = mo_client->_bind_edit( fv_group )
     placeholder = 'container heading, OR ROW:name to share a row with the neighbouring ROW:name fields' ).
-    f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect ) ).
-*   Stored in ZRAK_T_JNY_FLD-WIDTH, but ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( )
-*   never reads it - the renderer calls that method and it returns a per-type
-*   default and nothing else. Say so rather than let an author set a width and
-*   then hunt for why the control did not move.
-    f->label( 'Width (not applied yet)' ).
+*   SECTION now works on BOTH render paths. It used to open a panel only on
+*   the unlaid one, so on a step drawn in the Design tab it was a value that
+*   saved and did nothing - and nothing on screen said which path a step took.
+    f->label( 'Section' ).    f->input( value = mo_client->_bind_edit( fv_sect )
+    placeholder = 'card heading - starts a new card here, on a laid-out step too' ).
+    f->label( 'Section (AR)' ). f->input( value = mo_client->_bind_edit( fv_sect_ar ) ).
+*   ZRAK_T_JNY_FLD-WIDTH, and it IS applied now - CTRL_WIDTH( ) returns it
+*   ahead of the per-type default, and a laid-out cell's 100% no longer
+*   overwrites it. Only % and rem are accepted: a px width does not collapse
+*   on a phone, so CFG_WIDTH( ) refuses it and the field falls back to the
+*   type default rather than breaking the row. The placeholder says so,
+*   because a refused value looks exactly like a value that was never typed.
+    f->label( 'Control width' ).
     f->input( value = mo_client->_bind_edit( fv_width )
-      placeholder = 'stored, but CTRL_WIDTH( ) still returns the per-type default' ).
+      placeholder = 'e.g. 18rem or 50% - px is ignored, blank = the per-type default' ).
     f->label( 'State' ).      DATA(fs) = f->combobox( selectedkey = mo_client->_bind_edit( fv_state ) ).
     fs->item( key = '' text = '(none)' ).
     fs->item( key = 'None' text = 'None' ).
@@ -1853,16 +2617,55 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     fs->item( key = 'Information' text = 'Information' ).
     f->label( 'Hidden by default' ). f->checkbox( selected = mo_client->_bind_edit( fv_hidden ) ).
     f->label( 'Read only' ).  f->checkbox( selected = mo_client->_bind_edit( fv_readonly ) ).
+    f->label( 'Closed list (SELECT only - no free typing)' ). f->checkbox( selected = mo_client->_bind_edit( fv_closed ) ).
+    f->label( 'No Browse button (SEARCH only)' ). f->checkbox( selected = mo_client->_bind_edit( fv_nobrowse ) ).
+    f->label( 'Pop-in on phones (TABLE / EDITABLE_TABLE)' ). f->checkbox( selected = mo_client->_bind_edit( fv_popin ) ).
+*   THE FIELD-LEVEL TWIN OF ZRAK_CJ_LAYOUT-FLOW, and it exists because that
+*   one is only reachable from the Design tab: a journey with no layout rows
+*   cannot set it, and adding one row switches the whole step to the laid-out
+*   renderer. So a handler's button sat beside the field on a laid-out step
+*   and under it on the next one. Either source turns flow on and neither
+*   turns it off - see TY_FIELD-FLOW for why they are OR-ed rather than ranked.
+    f->label( 'Flow (after-field content sits BESIDE the control)' ).
+    f->checkbox( selected = mo_client->_bind_edit( fv_flow )
+                 text     = 'for a handler''s search or Add button; blank stacks it underneath' ).
+    f->label( 'Text align' ). f->input( value = mo_client->_bind_edit( fv_talign )
+                                        placeholder = 'DISPLAY only - Begin / End / Center / Left / Right / Initial' ).
+    f->label( 'Unit suffix' ). f->input( value = mo_client->_bind_edit( fv_descr )
+                                         placeholder = 'INPUT only - days, AED, cm' ).
+    f->label( 'Textarea rows' ). f->input( value = mo_client->_bind_edit( fv_tarows )
+                                           placeholder = 'TEXTAREA only - blank is 3' ).
+    f->label( 'Rows before More' ). f->input( value = mo_client->_bind_edit( fv_grow )
+                                              placeholder = 'TABLE / EDITABLE_TABLE - blank or 0 shows every row' ).
 
     f->title( ns = 'core' text = 'Validation' ).
     f->label( 'Required' ).   f->checkbox( selected = mo_client->_bind_edit( fv_req ) ).
     f->label( 'Regex' ).      f->input( value = mo_client->_bind_edit( fv_regex ) ).
     f->label( 'Min length' ). f->input( value = mo_client->_bind_edit( fv_minlen ) ).
     f->label( 'Max length' ). f->input( value = mo_client->_bind_edit( fv_maxlen ) ).
-    f->label( 'Min value' ).  f->input( value = mo_client->_bind_edit( fv_minval ) placeholder = 'slider/stepper/number floor' ).
-    f->label( 'Max value' ).  f->input( value = mo_client->_bind_edit( fv_maxval ) placeholder = 'slider/stepper/rating ceiling' ).
-    f->label( 'Message (EN)' ). f->input( value = mo_client->_bind_edit( fv_msg ) ).
-    f->label( 'Message (AR)' ). f->input( value = mo_client->_bind_edit( fv_msg_ar ) ).
+*   TWO DIFFERENT JOBS BEHIND ONE PAIR OF COLUMNS, and the old placeholders
+*   named only the first. On SLIDER, STEPPER and RATING these bound the
+*   CONTROL - the citizen cannot leave the range because the widget will not
+*   let them. On NUMBER, CURRENCY, INPUT and COUNT they are a SUBMIT check in
+*   VALIDATE_STEP( ), because those are the free-entry types where the value
+*   arrives typed. Naming only slider/stepper/rating read as the list of
+*   ftypes that honour the column at all, which is how COUNT went four rounds
+*   configured and unchecked.
+    f->label( 'Min value' ).  f->input( value = mo_client->_bind_edit( fv_minval )
+    placeholder = 'floor - slider/stepper/rating bound the control; number/currency/input/count are checked on submit' ).
+    f->label( 'Max value' ).  f->input( value = mo_client->_bind_edit( fv_maxval )
+    placeholder = 'ceiling - same four types checked on submit; on COUNT this is the VALUE, MAX_LEN is the length' ).
+*   One column, several checks - so it may be written per check. Plain text
+*   still goes to every check that reads MSG, exactly as before; the keyed form
+*   REQUIRED:.. ;FORMAT:.. ;RANGE:.. ;NUMBER:.. ;LEN:.. ;*:.. answers each one
+*   separately, and a clause may be an @nnn (ZRAK_T_CJ_TXT) or an OTR:<alias>.
+*   See ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( ).
+    f->label( 'Message (EN)' ).
+    f->input( value       = mo_client->_bind_edit( fv_msg )
+              placeholder = 'plain text, or REQUIRED:...;FORMAT:...;RANGE:... per check' ).
+    f->label( 'Message (AR)' ).
+    f->input( value       = mo_client->_bind_edit( fv_msg_ar )
+              placeholder = 'same shape as Message (EN)' ).
 
     f->title( ns = 'core' text = 'Backend & value help' ).
     f->label( 'Technical name (backend)' ). f->input( value = mo_client->_bind_edit( fv_tech ) placeholder = 'e.g. GS_DATA-PARTNER_NAME / doc code / grid JSON field' ).
@@ -1962,7 +2765,23 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Filtering is not a nicety at that size - it is the difference between fixing
 *   the three flagged fields and scrolling past them.
     DATA(ff) = p->hbox( alignitems = 'Center' class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
-    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd' ).
+
+*   STEP FIRST, because that is how an author actually thinks about a journey:
+*   they are working on one step, not on a list of sixty fields. Typing "S2"
+*   into the text box already worked, but only if you knew the step existed and
+*   spelt it the way the table does - and "S2" also matches a field called
+*   TRANS2. A list you pick from cannot be spelt wrong and cannot over-match.
+    ff->label( text = 'Step:' class = 'sapUiTinyMarginEnd' ).
+    DATA(fs_step) = ff->combobox( selectedkey = mo_client->_bind_edit( mv_fld_step )
+                                  change      = mo_client->_event( 'FLDSTEP' )
+                                  width       = '12rem' ).
+    fs_step->item( key = '' text = 'All steps' ).
+    LOOP AT mt_steps INTO DATA(ls_fstep).
+      fs_step->item( key  = ls_fstep-step_id
+                     text = |{ ls_fstep-step_id } - { ls_fstep-title }| ).
+    ENDLOOP.
+
+    ff->label( text = 'Filter:' class = 'sapUiTinyMarginEnd sapUiSmallMarginBegin' ).
     ff->input( value       = mo_client->_bind_edit( mv_fld_filter )
                placeholder = 'field, label, type, step, tech name or value help'
                width       = '20rem' ).
@@ -1972,27 +2791,66 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                 class = 'sapUiTinyMarginBegin' ).
     ff->button( text    = 'Findings only'
                 icon    = 'sap-icon://alert'
-                type    = COND #( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                type    = COND string( WHEN mv_only_bad = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                 tooltip = 'Show only the fields carrying a lint finding'
                 press   = mo_client->_event( 'FLDBAD' )
                 class   = 'sapUiTinyMarginBegin' ).
-    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL.
+    IF mv_only_bad = abap_true OR mv_fld_filter IS NOT INITIAL OR mv_fld_step IS NOT INITIAL.
       ff->button( text  = 'Show all'
                   icon  = 'sap-icon://clear-filter'
                   press = mo_client->_event( 'FLDALL' )
                   class = 'sapUiTinyMarginBegin' ).
     ENDIF.
 
+*   FOURTEEN COLUMNS, AND THE LAST ONE IS THE ONE YOU NEED.
+*
+*   Every column was fixed-width and always shown, so the table was wider
+*   than the panel and the row ran off the right edge under a horizontal
+*   scrollbar. Edit and Copy survived; Delete did not - the action a user
+*   most needs to find was the one column that could not be reached without
+*   scrolling sideways first.
+*
+*   DEMANDPOPIN with MINSCREENWIDTH is the UI5 answer: below the named
+*   width the column folds INTO the row as a label/value line instead of
+*   being clipped. Nothing is lost, it just moves.
+*
+*   What stays at every width is what identifies a row and what acts on it:
+*   Seq, Step, Field, Type, Label, the finding marker and the buttons. The
+*   descriptive middle - Tech, Roll, the four flags, Row - folds first,
+*   because you read those AFTER finding the row, never to find it.
+*   The four flag columns are abbreviated to keep the table narrow, and
+*   nothing on screen said what they meant - AR in particular reads as a
+*   language code rather than 'an Arabic label is maintained'. UI5 column
+*   headers in this version take neither a tooltip nor markup, so the legend
+*   goes beside the filter instead, where it is read once and remembered.
+    p->text( text  = 'Req = required · Hid = hidden · Att = has attachment · AR = Arabic label maintained · Row = share a row with the field above'
+             class = 'sapUiSmallMarginBegin sapUiTinyMarginBottom' ).
+
     DATA(t) = p->table( class = 'sapUiSmallMarginBeginEnd' ).
     DATA(c) = t->columns( ).
-    c->column( )->text( 'Seq' ). c->column( )->text( 'Step' ). c->column( )->text( 'Field' ). c->column( )->text( 'Type' ).
-    c->column( )->text( 'Label' ). c->column( )->text( 'Tech' ). c->column( )->text( 'Roll' ).
-    c->column( )->text( 'Req' ). c->column( )->text( 'Hid' ). c->column( )->text( 'Att' ). c->column( )->text( 'AR' ).
-    c->column( )->text( 'Row' ).
+    c->column( )->text( 'Seq' ).
+    c->column( )->text( 'Step' ).
+    c->column( )->text( 'Field' ).
+    c->column( )->text( 'Type' ).
+    c->column( )->text( 'Label' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Tech' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Roll' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Tablet'  )->text( 'Req' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Hid' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Att' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'AR' ).
+    c->column( demandpopin = abap_true minscreenwidth = 'Desktop' )->text( 'Row' ).
     c->column( )->text( '!' ).
-    c->column( )->text( '' ).
+*   Pinned to the right and given a width of its own, so the three buttons
+*   are never what gets squeezed.
+    c->column( width = '9rem' halign = 'End' )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_fields INTO DATA(r).
+*     The step narrows before the text does - it is the cheaper test and the
+*     one more likely to exclude.
+      IF mv_fld_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( mv_fld_step ).
+        CONTINUE.
+      ENDIF.
       IF mv_fld_filter IS NOT INITIAL.
         DATA(lv_hay) = to_upper( |{ r-step_id } { r-field_name } { r-ftype } { r-label } | &&
                                  |{ r-tech_name } { r-rollname } { r-shlp } { r-domname }| ).
@@ -2011,10 +2869,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-ftype
         )->text( r-label )->text( r-tech_name )->text( r-rollname
-        )->text( COND #( WHEN r-required = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
-        )->text( COND #( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
+        )->text( COND string( WHEN r-required = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-hidden = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-has_attach = abap_true THEN 'X' ELSE '' )
+        )->text( COND string( WHEN r-label_ar IS NOT INITIAL THEN 'X' ELSE '' ) ).
 *     The pair toggle lives in the Row cell, NOT in the action cluster. Putting
 *     it first among the actions pushed Edit / Duplicate / Delete past the right
 *     edge of a table that had just gained a twelfth column, so Delete looked
@@ -2025,9 +2883,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       IF lv_rtok IS NOT INITIAL.
         rowc->text( text = substring( val = lv_rtok off = 4 ) class = 'sapUiTinyMarginEnd' ).
       ENDIF.
-      rowc->button( text    = COND #( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
+      rowc->button( text    = COND string( WHEN lv_rtok IS NOT INITIAL THEN 'Unpair' ELSE 'Pair' )
                     type    = 'Transparent'
-                    tooltip = COND #( WHEN lv_rtok IS NOT INITIAL
+                    tooltip = COND string( WHEN lv_rtok IS NOT INITIAL
                                       THEN 'Take this field off the shared row'
                                       ELSE 'Put this field on the same row as the field above' )
                     press   = mo_client->_event( |ROWPAIR_{ r-step_id }~{ r-field_name }| ) ).
@@ -2041,9 +2899,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       LOOP AT mt_lint_row INTO DATA(ls_lr)
            WHERE step = to_upper( r-step_id ) AND field = to_upper( r-field_name ).
         lv_marker->button(
-          icon    = COND #( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
+          icon    = COND string( WHEN ls_lr-type = 'Error' THEN 'sap-icon://error'
                             ELSE 'sap-icon://alert' )
-          type    = COND #( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
+          type    = COND string( WHEN ls_lr-type = 'Error' THEN 'Reject' ELSE 'Transparent' )
           tooltip = ls_lr-text
           press   = mo_client->_event( |EDFLD_{ r-step_id }~{ r-field_name }| ) ).
       ENDLOOP.
@@ -2057,23 +2915,52 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Duplicate'
                    press   = mo_client->_event( |DUPFLD_{ r-step_id }~{ r-field_name }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
 
 
   METHOD render_opts.
-    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }|
+    DATA(p) = io->panel( headertext = |Options — { lines( mt_opts ) }| &&
+                           COND string( WHEN ov_step IS NOT INITIAL OR ov_field IS NOT INITIAL
+                                        THEN | · showing { ov_step }{ COND string( WHEN ov_field IS NOT INITIAL THEN | / { ov_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_opts
                          expand     = mo_client->_event( 'PNL~OPTS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlOPTS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).    f->input( value = mo_client->_bind_edit( ov_step ) ).
-    f->label( 'Field name' ). f->input( value = mo_client->_bind_edit( ov_field ) ).
+*   PICK, DO NOT TYPE. Step and field were free-text, and an option row whose
+*   step or field name does not match an existing field is not an error - it is
+*   simply never read, so the dropdown the author was configuring stays empty
+*   and nothing anywhere says why. A list cannot be mistyped.
+*
+*   The field list narrows to the chosen step, because an option belongs to a
+*   field on a step and offering all sixty is offering fifty-five wrong answers.
+    f->label( 'Step ID' ).
+    DATA(os) = f->combobox( selectedkey = mo_client->_bind_edit( ov_step )
+                            change      = mo_client->_event( 'OPTSTEP' ) ).
+    os->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_os).
+      os->item( key = ls_os-step_id text = |{ ls_os-step_id } - { ls_os-title }| ).
+    ENDLOOP.
+
+    f->label( 'Field name' ).
+    DATA(of) = f->combobox( selectedkey = mo_client->_bind_edit( ov_field )
+                            change      = mo_client->_event( 'OPTFLD' ) ).
+    of->item( key = '' text = '' ).
+*   The step test is an IF and not part of the WHERE, deliberately: in a
+*   LOOP AT ... WHERE the left operand of every comparison is resolved as a
+*   COLUMN of the table line, so 'ov_step IS INITIAL' there sends ABAP looking
+*   for a component called OV_STEP and the class will not activate.
+    LOOP AT mt_fields INTO DATA(ls_of).
+      IF ov_step IS NOT INITIAL AND ls_of-step_id <> ov_step.
+        CONTINUE.
+      ENDIF.
+      of->item( key = ls_of-field_name text = |{ ls_of-field_name } ({ ls_of-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).        f->input( value = mo_client->_bind_edit( ov_seq ) placeholder = 'blank = auto' ).
     f->label( 'Option key' ). f->input( value = mo_client->_bind_edit( ov_key ) ).
     f->label( 'Option text (EN)' ). f->input( value = mo_client->_bind_edit( ov_text ) ).
@@ -2087,6 +2974,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     c->column( )->text( 'Key' ). c->column( )->text( 'Text' ). c->column( )->text( '' ).
     DATA(it) = t->items( ).
     LOOP AT mt_opts INTO DATA(r).
+*     The list follows the form. Having chosen a step and a field above, the
+*     rows worth looking at are that field's - the rest belong to another
+*     dropdown and only make this one harder to read.
+      IF ov_step IS NOT INITIAL AND to_upper( r-step_id ) <> to_upper( ov_step ).
+        CONTINUE.
+      ENDIF.
+      IF ov_field IS NOT INITIAL AND to_upper( r-field_name ) <> to_upper( ov_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_dev) = |DL_OPT~{ r-step_id }~{ r-field_name }~{ r-opt_key }|.
       DATA(cells) = it->column_list_item( )->cells( ).
       cells->text( r-seqnr )->text( r-step_id )->text( r-field_name )->text( r-opt_key )->text( r-opt_text ).
@@ -2095,9 +2991,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                    type    = 'Transparent'
                    tooltip = 'Edit'
                    press   = mo_client->_event( |EDOPT_{ r-step_id }~{ r-field_name }~{ r-opt_key }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2110,14 +3006,44 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   step/field-scoping convention as Options above: Step ID / Field name are
 *   plain inputs the author must match to an existing grid field by hand,
 *   not auto-filled from the Fields panel.
-    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }|
+    DATA(p) = io->panel( headertext = |Columns (grid fields) — { lines( mt_cols ) }| &&
+                           COND string( WHEN cv_step IS NOT INITIAL OR cv_field IS NOT INITIAL
+                                        THEN | · showing { cv_step }{ COND string( WHEN cv_field IS NOT INITIAL THEN | / { cv_field }| ) }| )
                          expandable = abap_true
                          expanded   = mv_pn_cols
                          expand     = mo_client->_event( 'PNL~COLS' )
                          class      = 'sapUiSmallMarginBeginEnd rakPnlCOLS' ).
     DATA(f) = p->simple_form( editable = abap_true layout = 'ResponsiveGridLayout' columnsxl = '3' columnsl = '3' columnsm = '1' )->content( ns = 'form' ).
-    f->label( 'Step ID' ).       f->input( value = mo_client->_bind_edit( cv_step ) ).
-    f->label( 'Grid field name' ). f->input( value = mo_client->_bind_edit( cv_field ) ).
+*   PICK, DO NOT TYPE - and the comment above this method admitted the cost of
+*   the old way: "plain inputs the author must match to an existing grid field
+*   by hand". A column row keyed to a field name that does not exist is read by
+*   nobody and reported by nothing; the grid simply renders its default columns
+*   and the author goes looking in the renderer for a bug that is a typo.
+*
+*   The field list is narrowed twice: to the chosen step, and to the field types
+*   that actually HAVE columns. Offering a DATE field here would be offering a
+*   row that can never do anything.
+    f->label( 'Step ID' ).
+    DATA(cs) = f->combobox( selectedkey = mo_client->_bind_edit( cv_step )
+                            change      = mo_client->_event( 'COLSTEP' ) ).
+    cs->item( key = '' text = '' ).
+    LOOP AT mt_steps INTO DATA(ls_cs).
+      cs->item( key = ls_cs-step_id text = |{ ls_cs-step_id } - { ls_cs-title }| ).
+    ENDLOOP.
+
+    f->label( 'Grid field name' ).
+    DATA(cf) = f->combobox( selectedkey = mo_client->_bind_edit( cv_field )
+                            change      = mo_client->_event( 'COLFLD' ) ).
+    cf->item( key = '' text = '' ).
+*   Same reason as the Options list above - the step test cannot live in the
+*   WHERE. The ftype test can, and does.
+    LOOP AT mt_fields INTO DATA(ls_cf)
+         WHERE ftype = 'EDITABLE_TABLE' OR ftype = 'TABLE'.
+      IF cv_step IS NOT INITIAL AND ls_cf-step_id <> cv_step.
+        CONTINUE.
+      ENDIF.
+      cf->item( key = ls_cf-field_name text = |{ ls_cf-field_name } ({ ls_cf-ftype })| ).
+    ENDLOOP.
     f->label( 'Seq' ).           f->input( value = mo_client->_bind_edit( cv_seq ) placeholder = 'blank = auto' ).
     f->label( 'Column name' ).   f->input( value = mo_client->_bind_edit( cv_col ) ).
     f->label( 'Label (EN)' ).    f->input( value = mo_client->_bind_edit( cv_label ) ).
@@ -2146,13 +3072,30 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   Disabled rather than deleted: the column still exists in ZRAK_T_JNY_COL and
 *   journeys already carry values in it. Removing the control would leave those
 *   values on rows with nothing on screen to explain where they came from.
-    f->label( 'Pinned (not supported)' ).
+*
+*   AND IT NOW POINTS SOMEWHERE. What an author ticking PINNED wants is a
+*   heading that survives scrolling, and that exists: every table draws with
+*   STICKY = 'ColumnHeaders' in both renderers, with no configuration to find
+*   and nothing to tick. Saying only "not supported" left them looking for the
+*   feature they had already been given.
+    f->label( 'Pinned (not supported - see below)' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_pinned ) enabled = abap_false ).
+    f->label( '' ).
+    f->text( text = 'A frozen column is not a sap.m.Table feature. The column HEADINGS ' &&
+                    'already stay in view on every table while the rows scroll - that is ' &&
+                    'on by default and needs nothing set here.' ).
     f->label( 'Read only' ).     f->checkbox( selected = mo_client->_bind_edit( cv_readonly ) ).
-*   Still editable, unlike PINNED - per-row required validation is missing, not
-*   impossible. It is simply not wired into VALIDATE_STEP / MISSING_REQUIRED yet,
-*   so a grid with an empty mandatory cell passes validation and submits.
-    f->label( 'Required (not enforced yet)' ).
+*   ENFORCED, unlike PINNED and DECIMALS either side of it. The label said
+*   "not enforced yet" long after it was wired up, which is the more damaging
+*   direction for a caveat to be wrong in: an author reads it, believes the
+*   flag is inert, and either leaves it off where it is needed or sets it and
+*   is surprised when a half-filled grid stops the citizen.
+*
+*   ZCL_RAK_JOURNEY_RULES=>MISSING_REQUIRED( ) checks a required column
+*   against every row that ALREADY EXISTS - not against the row count. An
+*   empty grid still passes, exactly as a field-level REQUIRED flag does, so
+*   this makes a started row complete rather than making the grid mandatory.
+    f->label( 'Required' ).
     f->checkbox( selected = mo_client->_bind_edit( cv_required ) ).
     f->label( 'Decimals (not applied yet)' ).
     f->input( value = mo_client->_bind_edit( cv_decimals )
@@ -2168,6 +3111,15 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     cco->column( )->text( 'Column' ). cco->column( )->text( 'Label' ). cco->column( )->text( 'Ctrl' ). cco->column( )->text( '' ).
     DATA(itc) = tc->items( ).
     LOOP AT mt_cols INTO DATA(rc).
+*     Same as Options: once a grid field is chosen, its columns are what is
+*     being worked on. A journey with three grids otherwise shows all three
+*     sets interleaved with nothing separating them.
+      IF cv_step IS NOT INITIAL AND to_upper( rc-step_id ) <> to_upper( cv_step ).
+        CONTINUE.
+      ENDIF.
+      IF cv_field IS NOT INITIAL AND to_upper( rc-field_name ) <> to_upper( cv_field ).
+        CONTINUE.
+      ENDIF.
       DATA(lv_devc) = |DL_COL~{ rc-step_id }~{ rc-field_name }~{ rc-col_name }|.
       DATA(cellsc) = itc->column_list_item( )->cells( ).
       cellsc->text( rc-seqnr )->text( rc-step_id )->text( rc-field_name )->text( rc-col_name )->text( rc-label )->text( rc-ctrl ).
@@ -2176,9 +3128,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                     type    = 'Transparent'
                     tooltip = 'Edit'
                     press   = mo_client->_event( |EDCOL_{ rc-step_id }~{ rc-field_name }~{ rc-col_name }| ) ).
-      actc->button( icon = COND #( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                    type = COND #( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
-                    tooltip = COND #( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
+      actc->button( icon = COND string( WHEN mv_arm_evt = lv_devc THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                    type = COND string( WHEN mv_arm_evt = lv_devc THEN 'Reject' ELSE 'Transparent' )
+                    tooltip = COND string( WHEN mv_arm_evt = lv_devc THEN 'Click again to confirm delete' ELSE 'Delete' )
                     press = mo_client->_event( lv_devc ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2237,9 +3189,9 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         )->text( r-action )->text( r-tgt_field )->text( r-tgt_value ).
       DATA(act) = cells->hbox( ).
       act->button( icon = 'sap-icon://edit' type = 'Transparent' tooltip = 'Edit' press = mo_client->_event( |EDRULE_{ r-rule_id }| ) ).
-      act->button( icon = COND #( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
-                   type = COND #( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
-                   tooltip = COND #( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
+      act->button( icon = COND string( WHEN mv_arm_evt = lv_dev THEN 'sap-icon://alert' ELSE 'sap-icon://delete' )
+                   type = COND string( WHEN mv_arm_evt = lv_dev THEN 'Reject' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN mv_arm_evt = lv_dev THEN 'Click again to confirm delete' ELSE 'Delete' )
                    press = mo_client->_event( lv_dev ) ).
     ENDLOOP.
   ENDMETHOD.
@@ -2255,10 +3207,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     lt->label( text = 'Preview language:' class = 'sapUiTinyMarginEnd' ).
     lt->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     lt->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     lt->link( text = 'Open in new tab ↗' target = '_blank' class = 'sapUiSmallMarginBegin'
               href = engine_url( iv_journey = mv_preview iv_ar = xsdbool( mv_prev_lang = 'AR' ) ) ).
     IF field_exists( 'PAYFEE' ) = abap_true.
@@ -2314,12 +3266,40 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 *   activates as-is: open to developers in DEV/QA, closed in PRD. For a dedicated
 *   role, create Z_RAK_CJS in SU21 with field ACTVT (02 change / 03 display /
 *   06 delete) and swap the object name below.
-*   ---- TEMPORARY BYPASS - REVERT BEFORE ANY TRANSPORT PAST DEV ----------
-*   Set LV_BYPASS to ABAP_FALSE to put the authority check back. Left as a
-*   flag rather than deleting the check so restoring it is one character.
-    DATA lv_bypass TYPE abap_bool.
-    lv_bypass = abap_true.
-    IF lv_bypass = abap_true.
+*
+*   ---- THERE IS NO BYPASS AND NO EXCEPTION. BOTH ARE GONE ---------------
+*   Two escapes used to sit above the authority check and both have been
+*   removed rather than switched off:
+*
+*     LV_BYPASS, a flag that once read ABAP_TRUE unconditionally, so
+*     AUTH_OK( ) returned true to everybody and the check below never ran.
+*     It was later bounded by DEV_STUBS_OK( ) and kept "in case a fresh
+*     development client has nobody with the object yet" - which is a
+*     Basis problem with a Basis answer, not a reason to keep a
+*     one-character hole in the only authority check the Studio has.
+*
+*     A named-user override, which did its job before go-live and was
+*     removed at the owner's request.
+*
+*   LV_BYPASS IS GONE FOR GOOD. The named-user override below is back;
+*   the flag that returned true to EVERYBODY is not, and the two are not
+*   the same concession. One grants one identified person configuration
+*   access; the other left the only authority check the Studio has
+*   switchable by a one-character edit. Do not reintroduce it - a fresh
+*   development client with nobody holding the object is a Basis problem
+*   with a Basis answer.
+*
+*   ---- THE NAMED-USER OVERRIDE ------------------------------------------
+*   Restored for a further period at the framework owner's request. It
+*   has to be HERE as well as in STUDIO_MODE( ), or the Studio opens in
+*   EDIT mode and then refuses every save wherever that user holds no
+*   S_DEVELOP - which is worse than closing it, because the buttons work
+*   and the action does not.
+*
+*   See ZCL_RAK_JOURNEY_UTIL=>POWER_USER( ) for the whole scope, what it
+*   deliberately does NOT lift (the identity stubs), and how to switch it
+*   off in one word.
+    IF zcl_rak_journey_util=>power_user( ) = abap_true.
       rv = abap_true.
       RETURN.
     ENDIF.
@@ -2374,9 +3354,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
   METHOD clear_field_form.
     CLEAR: mt_grid_preview, mv_grid_sel, mv_grid_warn.
     CLEAR: fv_seq, fv_field, fv_type, fv_label, fv_label_ar, fv_place, fv_place_ar, fv_default,
-           fv_group, fv_sect, fv_state, fv_width, fv_hidden, fv_readonly, fv_req, fv_regex,
+           fv_group, fv_sect, fv_sect_ar, fv_state, fv_width, fv_hidden, fv_readonly, fv_closed, fv_req, fv_regex,
            fv_minlen, fv_maxlen, fv_minval, fv_maxval, fv_msg, fv_msg_ar, fv_tech, fv_roll, fv_shlp, fv_dom,
-           fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti.
+           fv_hasatt, fv_attlabel, fv_atttypes, fv_attmb, fv_attmulti,
+           fv_nobrowse, fv_popin, fv_flow, fv_talign, fv_descr, fv_tarows, fv_grow.
   ENDMETHOD.
 
 
@@ -2512,13 +3493,13 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     resort( ).
     SORT mt_rules BY rule_id.
     mv_dirty = abap_true.
-    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad.
+    CLEAR: mt_f4_scan, mv_f4_scanned, mv_fld_filter, mv_only_bad, mv_fld_step.
 
     mv_msg = |Loaded { to_upper( ls_d-journey_id ) } from the document — { lines( mt_steps ) } steps, | &&
              |{ lines( mt_fields ) } fields, { lines( mt_rules ) } rules| &&
              COND string( WHEN lv_bad > 0 THEN |, { lv_bad } line(s) unreadable and skipped| ) &&
              |. Nothing is written until you Save.|.
-    mv_mtype = COND #( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
+    mv_mtype = COND string( WHEN lv_bad > 0 THEN 'Warning' ELSE 'Success' ).
   ENDMETHOD.
 
 
@@ -2547,7 +3528,32 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     DATA(lv_cmd) = CONV string( lt_k[ 1 ] ).
 
     IF lv_cmd = 'DSG_CLR'.
-      dsg_clear( mv_dsg_step ).
+      IF armed( iv_ev   = 'DSG_CLR'
+                iv_warn = |Clear the layout for { to_upper( mv_dsg_step ) }? Every row and width | &&
+                          |on this step goes, and it renders the classic way again. | &&
+                          |Press Clear again to confirm.| ) = abap_true.
+        dsg_clear( mv_dsg_step ).
+
+*       RECORDED, AND THIS IS THE ONE THAT MATTERED MOST. Clear was the only
+*       write path in the Studio that did not record, and it is a pure
+*       DELETE - which is the exact shape ZCL_RAK_CJ_CTS exists for. An add
+*       that misses a request can still be picked up later by touching the
+*       row in SM34; a delete cannot, because after the delete there is no
+*       row left to open. So the step went back to the classic render here
+*       and stayed laid out in quality, permanently, with nothing anywhere
+*       to say why.
+*
+*       In the CALLER rather than inside DSG_CLEAR( ), the same way
+*       DSG_SAVE( )'s two callers hold theirs: DSG_CLEAR( ) sets MV_MSG as
+*       its last act, so a note written inside would be overwritten by it.
+*
+*       The generic key covers this with no extra work - RECORD_JOURNEY( )
+*       appends <client><journey>* for all seven tables including
+*       ZRAK_CJ_LAYOUT, and a generic key is a REPLACE of everything that
+*       matches it. The rows being gone locally is exactly what makes them
+*       go on import.
+        record_cfg( to_upper( mv_journey_id ) ).
+      ENDIF.
       RETURN.
     ENDIF.
 
@@ -2559,16 +3565,52 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
     ENDIF.
 
     IF lv_cmd = 'DSG_STEP'.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
     IF lv_cmd = 'DSG_TXCA'.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
     IF lv_cmd = 'DSG_TXOK'.
+
+*     A COLUMN HEADER, IF ONE IS OPEN. Same two inputs, a different target:
+*     MT_COLS for the in-memory copy the Design preview redraws from, and
+*     C_KIND-COLUMN for the write, which lands in ZRAK_T_JNY_COL's ZLABEL and
+*     ZLABEL_AR. Before this the Tt editor could only reach the field's own
+*     label, so a grid on a laid-out step could look fully translated and
+*     still head every column in English.
+*
+*     BLOCK IS THE GRID AND ELEM IS THE COLUMN, matching how the text source
+*     keys a column - get that pair the wrong way round and the write updates
+*     nothing while reporting success.
+      IF mv_dsg_col IS NOT INITIAL.
+        READ TABLE mt_cols ASSIGNING FIELD-SYMBOL(<tc>)
+             WITH KEY step_id    = to_upper( mv_dsg_step )
+                      field_name = to_upper( mv_dsg_fld )
+                      col_name   = to_upper( mv_dsg_col ).
+        IF sy-subrc = 0.
+          <tc>-label    = mv_dsg_en.
+          <tc>-label_ar = mv_dsg_ar.
+          NEW zcl_rak_cj_text_src_cfg( )->zif_rak_cj_text_src~write(
+            VALUE #( ( journey  = to_upper( mv_journey_id )
+                       step_id  = to_upper( mv_dsg_step )
+                       block_id = to_upper( mv_dsg_fld )
+                       elem_id  = to_upper( mv_dsg_col )
+                       txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-column
+                       text_en  = mv_dsg_en
+                       text_ar  = mv_dsg_ar ) ) ).
+          mv_msg   = |{ mv_dsg_fld }.{ mv_dsg_col } header saved|.
+          mv_mtype = 'Success'.
+        ENDIF.
+*       The column stays open. An author fixing headers is usually fixing
+*       several, and closing the panel after each one would make them reopen
+*       the grid every time.
+        RETURN.
+      ENDIF.
+
       READ TABLE mt_fields ASSIGNING FIELD-SYMBOL(<tf>)
            WITH KEY step_id = to_upper( mv_dsg_step ) field_name = to_upper( mv_dsg_fld ).
       IF sy-subrc = 0.
@@ -2585,7 +3627,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         mv_msg   = |{ mv_dsg_fld } text saved|.
         mv_mtype = 'Success'.
       ENDIF.
-      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar.
+      CLEAR: mv_dsg_fld, mv_dsg_en, mv_dsg_ar, mv_dsg_col.
       RETURN.
     ENDIF.
 
@@ -2593,6 +3635,7 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       dsg_save( iv_step = mv_dsg_step it = dsg_plan( mv_dsg_step ) ).
       mv_msg   = |{ mv_dsg_step } is now laid out — existing pairs were kept|.
       mv_mtype = 'Success'.
+      record_cfg( to_upper( mv_journey_id ) ).
       RETURN.
     ENDIF.
 
@@ -2609,6 +3652,37 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         mv_dsg_fld = lv_fld.
         mv_dsg_en  = ls_tx-label.
         mv_dsg_ar  = ls_tx-label_ar.
+*       Opening the editor always starts on the field's own label, never on
+*       whichever column happened to be open last time.
+        CLEAR mv_dsg_col.
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+*   PICK A COLUMN OF THE OPEN GRID. The two inputs then edit that column's
+*   header instead of the field's label, and DSG_TXOK writes it back to the
+*   column rather than the field.
+    IF lv_cmd = 'DSG_TC'.
+      READ TABLE mt_cols INTO DATA(ls_tc)
+           WITH KEY step_id    = to_upper( mv_dsg_step )
+                    field_name = to_upper( mv_dsg_fld )
+                    col_name   = lv_fld.
+      IF sy-subrc = 0.
+        mv_dsg_col = lv_fld.
+        mv_dsg_en  = ls_tc-label.
+        mv_dsg_ar  = ls_tc-label_ar.
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+*   BACK TO THE FIELD'S OWN LABEL from a column.
+    IF lv_cmd = 'DSG_TF'.
+      READ TABLE mt_fields INTO DATA(ls_tf)
+           WITH KEY step_id = to_upper( mv_dsg_step ) field_name = to_upper( mv_dsg_fld ).
+      IF sy-subrc = 0.
+        CLEAR mv_dsg_col.
+        mv_dsg_en = ls_tf-label.
+        mv_dsg_ar = ls_tf-label_ar.
       ENDIF.
       RETURN.
     ENDIF.
@@ -2670,6 +3744,11 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
         ENDIF.
         <s>-col = <d>-col.
         <d>-col = lv_tgt.
+      WHEN 'DSG_FL'.
+*       A toggle, not a move. Nothing about the grid changes - the field
+*       keeps its row, column and span - so this falls through to the same
+*       save as everything else and needs no re-spacing.
+        <d>-flow = xsdbool( <d>-flow = abap_false ).
       WHEN 'DSG_SM'.
         IF <d>-span <= 1.
           RETURN.
@@ -2763,6 +3842,10 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
       mv_mtype = COND string( WHEN lv_fill > 12 THEN 'Warning' ELSE 'Success' ).
     ENDIF.
 
+*   Outside the READ above, because the layout was persisted whether or not
+*   the moved field could be read back for the message.
+    record_cfg( to_upper( mv_journey_id ) ).
+
   ENDMETHOD.
 
 
@@ -2817,7 +3900,8 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
                           col   = COND i( WHEN ls_c-attr-col_start > 0
                                           THEN ls_c-attr-col_start
                                           ELSE sy-tabix )
-                          span  = ls_c-attr-col_span ) TO rt.
+                          span  = ls_c-attr-col_span
+                          flow  = ls_c-attr-flow ) TO rt.
         ENDLOOP.
       ENDLOOP.
 
@@ -2854,21 +3938,66 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
   METHOD dsg_save.
 
+*   THE DESIGN TAB WRITES TOO, AND IT WAS THE ONE WRITE PATH WITH NO GUARD.
+*   SAVE_JOURNEY( ), COPY_JOURNEY( ) and DEACTIVATE_JOURNEY( ) all opened
+*   with CAN_WRITE( ); this persists ZRAK_CJ_LAYOUT and did not - so on a
+*   read-only client every move and resize arrow still wrote a row. Not
+*   found by anyone hitting it: found by asking which statements write.
+*
+*   BOTH CHECKS, IN THE SAME ORDER THE OTHER THREE USE. CAN_WRITE( ) is the
+*   landscape rule, AUTH_OK( ) is the authority object, and they answer
+*   different questions - a developer with S_DEVELOP on the wrong client
+*   must still be refused.
+    IF can_write( ) = abap_false.
+      RETURN.
+    ENDIF.
+    IF auth_ok( '02' ) = abap_false.
+      RETURN.
+    ENDIF.
+
     DATA(lo_lay) = zcl_rak_cj_lay=>get_instance( ).
     DATA(lv_jny) = CONV zcl_rak_cj_lay=>ty_key( to_upper( mv_journey_id ) ).
     DATA(lv_key) = CONV zcl_rak_cj_lay=>ty_key( to_upper( iv_step ) ).
 
     LOOP AT it INTO DATA(ls).
+
+*     READ BEFORE WRITE. PERSIST( ) does a full MODIFY, so an IS_ATTR built
+*     from scratch here does not just set row, column and span - it blanks
+*     every other attribute on the element. ALIGN, WIDTH, INLINE, HIDDEN and
+*     FIXED were all being wiped by any press of a move or resize arrow,
+*     which is a quiet way to lose work: the field moves as asked and the
+*     alignment someone set ten minutes ago is simply gone.
+*
+*     RESOLVE( ) returns what is stored, and only the four things this
+*     editor actually edits are overwritten.
+      DATA(ls_attr) = lo_lay->resolve( iv_journey = lv_jny
+                                       iv_step    = lv_key
+                                       iv_block   = '*'
+                                       iv_elem    = CONV #( ls-field ) ).
+      ls_attr-row_no    = ls-row.
+      ls_attr-col_start = ls-col.
+      ls_attr-col_span  = ls-span.
+      ls_attr-flow      = ls-flow.
+
       lo_lay->persist( iv_journey = lv_jny
                        iv_step    = lv_key
                        iv_block   = '*'
                        iv_elem    = CONV #( ls-field )
-                       is_attr    = VALUE #( row_no    = ls-row
-                                             col_start = ls-col
-                                             col_span  = ls-span ) ).
+                       is_attr    = ls_attr ).
     ENDLOOP.
 
     zcl_rak_cj_cfg_cache=>invalidate( to_upper( mv_journey_id ) ).
+
+*   THE DESIGN TAB IS A WRITE PATH TOO, AND ZRAK_CJ_LAYOUT IS IN THE LIST -
+*   a layout that does not travel is the quietest of these drifts: the journey
+*   imports, every field is present and correct, and the page is laid out the
+*   way it was before anybody opened this tab.
+*
+*   RECORD_CFG( ) IS CALLED BY THIS METHOD'S TWO CALLERS, NOT HERE, even
+*   though here is the choke point. Both of them set MV_MSG *after* this
+*   returns, so a note written from inside would be overwritten and the author
+*   would be told nothing about the transport on the one tab where the
+*   omission is hardest to spot afterwards.
 
   ENDMETHOD.
 
@@ -3337,21 +4466,34 @@ CLASS ZCL_RAK_CJS IMPLEMENTATION.
 
 *   === authored, stored, but not read by the engine ==========================
     LOOP AT mt_fields INTO DATA(nh).
-      IF nh-width IS NOT INITIAL.
+*     WIDTH is read now - ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ) returns it ahead
+*     of the per-type default - so "it has no effect" is only true when
+*     CSS_WIDTH( ) refuses the value. Ask the one validator rather than
+*     restating its rule here, so the two cannot drift apart.
+      IF nh-width IS NOT INITIAL
+         AND zcl_rak_journey_util=>css_width( nh-width ) IS INITIAL.
         APPEND VALUE #( type = 'Warning'
-          text = |{ nh-step_id }/{ nh-field_name }: Width is saved but the engine sizes controls by type — it has no effect| ) TO rt.
+          text = |{ nh-step_id }/{ nh-field_name }: Width '{ nh-width }' is not a % or rem value — refused, the per-type default applies| ) TO rt.
       ENDIF.
       IF to_int( nh-att_maxmb ) > 0
          AND nh-has_attach = abap_false AND to_upper( nh-ftype ) <> 'UPLOAD'.
         APPEND VALUE #( type = 'Warning'
           text = |{ nh-step_id }/{ nh-field_name }: Attach max MB is set but this field has no attachment| ) TO rt.
       ENDIF.
+*     R18-1. The two lists below mirror the two mechanisms exactly: the
+*     control-bound ftypes, and the submit gate in
+*     ZCL_RAK_JOURNEY_RULES->VALIDATE_STEP( ) (NUMBER/CURRENCY/INPUT/COUNT,
+*     plus the separate DATE range check). INPUT and COUNT were missing from
+*     both the condition and the sentence, so a COUNT with MAX_VAL '9' was
+*     told to remove a constraint that works. Add an ftype to the gate, add
+*     it here.
       IF ( nh-min_val IS NOT INITIAL OR nh-max_val IS NOT INITIAL )
          AND to_upper( nh-ftype ) <> 'SLIDER'   AND to_upper( nh-ftype ) <> 'STEPPER'
          AND to_upper( nh-ftype ) <> 'RATING'   AND to_upper( nh-ftype ) <> 'NUMBER'
-         AND to_upper( nh-ftype ) <> 'CURRENCY' AND to_upper( nh-ftype ) <> 'DATE'.
+         AND to_upper( nh-ftype ) <> 'CURRENCY' AND to_upper( nh-ftype ) <> 'DATE'
+         AND to_upper( nh-ftype ) <> 'INPUT'    AND to_upper( nh-ftype ) <> 'COUNT'.
         APPEND VALUE #( type = 'Warning'
-          text = |{ nh-step_id }/{ nh-field_name }: min/max value has no effect on { nh-ftype } — enforced on submit for NUMBER/CURRENCY/DATE, a control bound on SLIDER/STEPPER/RATING| ) TO rt.
+          text = |{ nh-step_id }/{ nh-field_name }: min/max value has no effect on { nh-ftype } — a control bound on SLIDER/STEPPER/RATING; checked on submit for NUMBER/CURRENCY/INPUT/COUNT/DATE| ) TO rt.
       ENDIF.
     ENDLOOP.
 
@@ -3733,10 +4875,10 @@ TO rt.
 
     lv_jid = to_upper( mv_journey_id ).
 
-*   Wrapped because this reaches OUTSIDE the CJS tables: /QNV/SB_UI_DEFIN and
-*   ZEGA_T_CJ_2_OBJ belong to the legacy stack, and on a system where they are
-*   absent or restricted the SELECT raises. A cross-check is a convenience; it
-*   must never be the reason the Studio will not open.
+*   Wrapped because this reaches OUTSIDE the CJS tables: /QNV/SB_UI_DEFIN,
+*   ZEGA_T_CJ_2_OBJ and the ShapeIt UI map belong to the legacy stack, and on a
+*   system where they are absent or restricted the SELECT raises. A cross-check
+*   is a convenience; it must never be the reason the Studio will not open.
     TRY.
         lt_x = zcl_rak_cjs_xcheck=>check( iv_journey = lv_jid ).
       CATCH cx_root INTO DATA(lx).
@@ -3751,7 +4893,7 @@ TO rt.
                               WHEN 'E' THEN 'Error'
                               WHEN 'W' THEN 'Warning'
                               ELSE 'Information' )
-*       The rule id travels with the text. XCHECK names its rules X01..X12 and
+*       The rule id travels with the text. XCHECK names its rules X01..X16 and
 *       those ids are what its own documentation is written against, so a
 *       finding pasted into a ticket stays traceable to the rule that raised it.
         text = |[{ ls_x-rule }]| &&
@@ -3994,7 +5136,7 @@ TO rt.
     hp->message_strip(
       text     = |{ lines( lt_bad ) } journey(s) with errors · { lv_err } error(s) · { lv_wrn } warning(s). | &&
                  |A journey with errors will not behave as configured - clear those before it goes to QA.|
-      type     = COND #( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
+      type     = COND string( WHEN lt_bad IS INITIAL THEN 'Warning' ELSE 'Error' )
       showicon = abap_true
       class    = 'sapUiSmallMargin' ).
 
@@ -4082,9 +5224,14 @@ TO rt.
                  class = 'sapUiSmallMarginBegin' ).
 
     IF lv_on = abap_true.
-      bar->button( text  = 'Clear'
-                   icon  = 'sap-icon://reset'
-                   press = mo_client->_event( 'DSG_CLR' ) ).
+      DATA(lv_arm_cl) = xsdbool( mv_arm_evt = 'DSG_CLR' ).
+      bar->button( text    = COND string( WHEN lv_arm_cl = abap_true THEN 'Clear anyway' ELSE 'Clear' )
+                   icon    = COND string( WHEN lv_arm_cl = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://reset' )
+                   type    = COND string( WHEN lv_arm_cl = abap_true THEN 'Reject' )
+                   tooltip = COND string( WHEN lv_arm_cl = abap_true
+                                     THEN 'Click again to drop every row and width on this step'
+                                     ELSE 'Drop the layout and render this step the classic way' )
+                   press   = mo_client->_event( 'DSG_CLR' ) ).
     ENDIF.
 
     DATA(lt) = dsg_plan( mv_dsg_step ).
@@ -4110,22 +5257,22 @@ TO rt.
     pl->label( text = 'Preview:' class = 'sapUiTinyMarginEnd' ).
     pl->button( text  = 'English'
                 press = mo_client->_event( 'PL_EN' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Transparent' ELSE 'Emphasized' ) ).
     pl->button( text  = 'العربية'
                 press = mo_client->_event( 'PL_AR' )
-                type  = COND #( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
+                type  = COND string( WHEN mv_prev_lang = 'AR' THEN 'Emphasized' ELSE 'Transparent' ) ).
     pl->button( text  = 'Desktop'
                 icon  = 'sap-icon://sys-monitor'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' OR mv_dsg_dev = 'TABLET' THEN 'Transparent' ELSE 'Emphasized' )
                 press = mo_client->_event( 'DSG_DEV~DESKTOP' )
                 class = 'sapUiSmallMarginBegin' ).
     pl->button( text  = 'Tablet'
                 icon  = 'sap-icon://ipad'
-                type  = COND #( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'TABLET' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~TABLET' ) ).
     pl->button( text  = 'Phone'
                 icon  = 'sap-icon://iphone'
-                type  = COND #( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
+                type  = COND string( WHEN mv_dsg_dev = 'PHONE' THEN 'Emphasized' ELSE 'Transparent' )
                 press = mo_client->_event( 'DSG_DEV~PHONE' ) ).
 
     pl->link( text   = 'Open in new tab ↗'
@@ -4152,8 +5299,59 @@ TO rt.
       sanitizecontent = abap_false ).
 
     IF mv_dsg_fld IS NOT INITIAL.
-      DATA(tp) = left->panel( headertext = |Text — { mv_dsg_fld }|
-                              class      = 'sapUiTinyMarginBottom' )->content( ).
+      DATA(tp) = left->panel(
+        headertext = COND string(
+          WHEN mv_dsg_col IS NOT INITIAL
+          THEN |Text — { mv_dsg_fld }.{ mv_dsg_col }|
+          ELSE |Text — { mv_dsg_fld }| )
+        class = 'sapUiTinyMarginBottom' )->content( ).
+
+*     ---- A GRID'S COLUMN HEADERS ARE TEXT TOO -------------------------
+*     The Tt editor could only ever reach the field's own label, so a step
+*     laid out here could be checked for translation by eye and still head
+*     every column of its grid in English - the Author tab's column editor
+*     was the only way in, and nothing on this tab said so.
+*
+*     Drawn only when the open field actually HAS columns, so a scalar field
+*     is untouched. The field's own label is the first chip and stays
+*     selectable, because after fixing three headers the way back to the
+*     caption should not be closing and reopening the panel.
+      DATA lt_tcol TYPE tt_col.
+*     UPPER ON BOTH SIDES. Every other read of these two in this class goes
+*     through TO_UPPER( ), because MV_DSG_STEP and MV_DSG_FLD come back from
+*     an event key while MT_COLS was filled from the database - and a case
+*     mismatch here is a silent empty list, which looks exactly like a grid
+*     that has no columns.
+      DATA(lv_tstep) = to_upper( mv_dsg_step ).
+      DATA(lv_tfld)  = to_upper( mv_dsg_fld ).
+      LOOP AT mt_cols INTO DATA(ls_tcol)
+           WHERE step_id    = lv_tstep
+             AND field_name = lv_tfld.
+        APPEND ls_tcol TO lt_tcol.
+      ENDLOOP.
+
+      IF lt_tcol IS NOT INITIAL.
+        DATA(tc0) = tp->hbox( class = 'sapUiTinyMarginBottom' alignitems = 'Center' ).
+        tc0->label( text = 'Part' width = '3rem' ).
+        DATA(tc1) = tc0->hbox( ).
+        tc1->button( text  = 'Label'
+                     type  = COND string( WHEN mv_dsg_col IS INITIAL
+                                          THEN 'Emphasized' ELSE 'Transparent' )
+                     press = mo_client->_event( 'DSG_TF~X' ) ).
+        LOOP AT lt_tcol INTO DATA(ls_tc2).
+          tc1->button(
+            text  = COND string( WHEN ls_tc2-label IS NOT INITIAL
+                                 THEN ls_tc2-label ELSE ls_tc2-col_name )
+*           THE ONE WITHOUT ARABIC IS THE ONE TO FIX, so it is marked rather
+*           than left to be found by clicking every chip in turn.
+            icon  = COND string( WHEN ls_tc2-label_ar IS INITIAL
+                                 THEN 'sap-icon://alert' )
+            type  = COND string( WHEN to_upper( ls_tc2-col_name ) = to_upper( mv_dsg_col )
+                                 THEN 'Emphasized' ELSE 'Transparent' )
+            press = mo_client->_event( |DSG_TC~{ ls_tc2-col_name }| ) ).
+        ENDLOOP.
+      ENDIF.
+
       DATA(tf1) = tp->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
       tf1->label( text = 'EN' width = '3rem' ).
       tf1->input( value = mo_client->_bind_edit( mv_dsg_en ) width = '20rem' ).
@@ -4227,7 +5425,16 @@ TO rt.
 
       DATA(lv_sel) = xsdbool( to_upper( mv_dsg_fld ) = to_upper( ls_d-field ) ).
 
+*     WRAP, so the action buttons cannot be pushed out of sight.
+*
+*     This pane shares the width with the live preview, and the row carries a
+*     twelve-segment bar, a name, a type, a span and six buttons. On a narrow
+*     window the buttons ran off the right edge and were simply gone - no
+*     scrollbar, no clue they existed, and no way to move a field. Wrapping
+*     drops them onto a second line instead, which is ugly for one row and
+*     far better than an editor whose controls disappear.
       DATA(row) = box->hbox( alignitems = 'Center'
+                             wrap       = 'Wrap'
                              class      = COND string( WHEN lv_sel = abap_true
                                                        THEN 'sapUiTinyMarginBottom rakDsgSel'
                                                        ELSE 'sapUiTinyMarginBottom' ) ).
@@ -4250,7 +5457,24 @@ TO rt.
       REPLACE ALL OCCURRENCES OF `}` IN lv_bar WITH `\}`.
       row->html( content = lv_bar sanitizecontent = abap_false ).
 
-      row->text( text = ls_d-field class = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
+*     WIDTH AND WRAPPING, BOTH REQUIRED.
+*
+*     This is an hbox, so the field name is a flex item with no width of its
+*     own. Flex gives such an item min-content width, and a wrapping text
+*     whose min-content is one character wide renders one character per
+*     line - DIVORCEE_PARTNER comes out as a vertical stripe sixteen rows
+*     tall, dragging the whole row down with it.
+*
+*     Turning wrapping off alone would stop the stripe but leave the name
+*     column ragged, since each row would size to its own text. The fixed
+*     width also lines the type and span badges up down the list, which is
+*     what makes a long row of fields readable at a glance. A name longer
+*     than the width gets an ellipsis, and the field is identified again in
+*     the label editor behind the Tt button.
+      row->text( text     = ls_d-field
+                 width    = '11rem'
+                 wrapping = 'false'
+                 class    = 'sapUiSmallMarginBegin sapUiSmallMarginEnd' ).
       row->object_status( text = ls_d-ftype state = 'None' class = 'sapUiSmallMarginEnd' ).
       row->object_status( text  = |{ ls_d-span }/12|
                           state = COND string( WHEN ls_d-span = 12 THEN 'None' ELSE 'Information' )
@@ -4260,6 +5484,18 @@ TO rt.
                    type    = COND string( WHEN lv_sel = abap_true THEN 'Emphasized' ELSE 'Transparent' )
                    tooltip = 'Edit English / Arabic label'
                    press   = mo_client->_event( |DSG_TX~{ ls_d-field }| )
+                   class   = 'sapUiTinyMarginEnd' ).
+*     FLOW toggle. Turns the cell into a left-to-right box, which is what
+*     puts a handler's search or ADD button beside the field instead of
+*     under it. Off everywhere until pressed, so no journey moves on its own.
+      row->button( icon    = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'sap-icon://horizontal-grip'
+                                          ELSE 'sap-icon://vertical-grip' )
+                   type    = COND string( WHEN ls_d-flow = abap_true THEN 'Emphasized' ELSE 'Transparent' )
+                   tooltip = COND string( WHEN ls_d-flow = abap_true
+                                          THEN 'Field and its buttons sit side by side - press to stack them'
+                                          ELSE 'Field and its buttons are stacked - press to put them side by side' )
+                   press   = mo_client->_event( |DSG_FL~{ ls_d-field }| )
                    class   = 'sapUiTinyMarginEnd' ).
       row->button( icon    = 'sap-icon://navigation-left-arrow'
                    type    = 'Transparent'
@@ -4329,9 +5565,13 @@ TO rt.
                icon  = 'sap-icon://download'
                type  = 'Emphasized'
                press = mo_client->_event( 'DOCEXP' ) ).
-    b->button( text    = 'Import from box'
-               icon    = 'sap-icon://upload'
-               tooltip = 'Replaces the loaded draft. Nothing is written until Save.'
+    DATA(lv_arm_im) = xsdbool( mv_arm_evt = 'DOCIMP' ).
+    b->button( text    = COND string( WHEN lv_arm_im = abap_true THEN 'Import anyway' ELSE 'Import from box' )
+               icon    = COND string( WHEN lv_arm_im = abap_true THEN 'sap-icon://alert' ELSE 'sap-icon://upload' )
+               type    = COND string( WHEN lv_arm_im = abap_true THEN 'Reject' )
+               tooltip = COND string( WHEN lv_arm_im = abap_true
+                                 THEN 'Click again to replace the loaded draft'
+                                 ELSE 'Replaces the loaded draft. Nothing is written until Save.' )
                press   = mo_client->_event( 'DOCIMP' )
                class   = 'sapUiTinyMarginBegin' ).
     p->text_area( value = mo_client->_bind_edit( mv_doc )
@@ -4363,7 +5603,7 @@ TO rt.
         )->object_status(
              text  = COND #( WHEN s-ok = abap_true THEN |{ s-cnt } option(s)|
                              ELSE 'NO options - renders an empty dropdown' )
-             state = COND #( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
+             state = COND string( WHEN s-ok = abap_true THEN 'Success' ELSE 'Error' ) ).
     ENDLOOP.
   ENDMETHOD.
 
@@ -4387,7 +5627,8 @@ TO rt.
                            THEN |Validation — { to_upper( mv_journey_id ) } — no issues|
                            ELSE |Validation — { to_upper( mv_journey_id ) } — { lines( lt ) } issue{ COND string( WHEN lines( lt ) = 1 THEN `` ELSE `s` ) }| )
       expandable = abap_true
-      expanded   = xsdbool( lt IS NOT INITIAL )
+      expanded   = mv_pn_lint
+      expand     = mo_client->_event( 'PNL~LINT' )
       class      = 'sapUiSmallMarginBeginEnd' ).
     IF lt IS INITIAL.
       p->message_strip( text = 'No structural problems detected in the current draft.' type = 'Success' showicon = abap_true class = 'sapUiSmallMargin' ).
@@ -4446,8 +5687,12 @@ TO rt.
 *   this one describes the journey AS SAVED. Two different objects, and showing
 *   them as one list would make a stale finding look current.
 *
-*   Collapsed unless something blocks, because the healthy answer is a single
-*   "CJS and ShapeIt agree" line and an author does not need that unfolded.
+*   Collapsed by default, same as every other panel here (MV_PN_XCHK) - the
+*   header's own "N blocker(s)"/"N note(s)" count is the summary, and the
+*   author decides whether the detail is worth opening. It used to force
+*   itself open on a blocker via a freshly-computed EXPANDED with no EXPAND
+*   event, which also meant a manual collapse never survived the next round
+*   trip - see MV_PN_LINT's declaration for the fuller version of this.
     IF mt_xchk IS NOT INITIAL.
       DATA(lv_xbad) = REDUCE i( INIT k = 0 FOR x IN mt_xchk
                                 WHERE ( type = 'Error' ) NEXT k = k + 1 ).
@@ -4460,7 +5705,8 @@ TO rt.
 *                    reads as a verdict on what is on screen, which it is not.
                      COND string( WHEN mv_dirty = abap_true THEN ` · as last saved, not the current draft` )
         expandable = abap_true
-        expanded   = xsdbool( lv_xbad > 0 )
+        expanded   = mv_pn_xchk
+        expand     = mo_client->_event( 'PNL~XCHK' )
         class      = 'sapUiSmallMarginBeginEnd' ).
       LOOP AT mt_xchk INTO DATA(mx).
         px->message_strip(
@@ -4591,6 +5837,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     l2->item( key = 'CLEAN' text = 'CLEAN' ).
     l2->item( key = 'PREMIUM' text = 'PREMIUM' ).
     l2->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    l2->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     l2->item( key = 'PORTAL' text = 'PORTAL — large title, sticky footer' ).
     f->label( 'Accent' ).        DATA(l3) = f->combobox( selectedkey = mo_client->_bind_edit( mv_accent ) ).
     l3->item( key = 'Emphasized' text = 'Emphasized' ).
@@ -4712,6 +5959,7 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     gv->item( key = 'CLEAN' text = 'CLEAN' ).
     gv->item( key = 'PREMIUM' text = 'PREMIUM' ).
     gv->item( key = 'FLAMINGO' text = 'FLAMINGO' ).
+    gv->item( key = 'ATTEST' text = 'ATTEST - floating card header, dashed read-only' ).
     gv->item( key = 'PORTAL' text = 'PORTAL - large title, sticky footer' ).
 
     ft->label( 'Accent' ).
@@ -4858,6 +6106,8 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
     mv_navy       = is_draft-navy.        mv_density     = is_draft-density.
     mv_theme_own  = is_draft-theme_own.
     mv_handler    = is_draft-handler.     mv_tile_code   = is_draft-tile_code.
+    mv_cj_type    = is_draft-cj_type.     mv_draft_mode  = is_draft-draft_mode.
+    mv_attach_mode = is_draft-attach_mode.
     mv_show_act   = is_draft-show_act.    mv_active      = is_draft-active.
     mv_bknd_act   = is_draft-bknd_act.    mv_bknd_cat    = is_draft-bknd_cat.
     mv_bknd_jny   = is_draft-bknd_jny.    mv_bknd_fmp    = is_draft-bknd_fmp.
@@ -4972,6 +6222,8 @@ title = 'Showcase — all controls' sub = 'Every field type and capability, for 
                   navy       = mv_navy        density   = mv_density
                   theme_own  = mv_theme_own
                   handler    = mv_handler     tile_code = mv_tile_code
+                  cj_type    = mv_cj_type     draft_mode = mv_draft_mode
+                  attach_mode = mv_attach_mode
                   show_act   = mv_show_act    active    = mv_active
                   bknd_act   = mv_bknd_act    bknd_cat  = mv_bknd_cat
                   bknd_jny   = mv_bknd_jny    bknd_fmp  = mv_bknd_fmp

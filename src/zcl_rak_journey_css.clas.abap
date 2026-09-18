@@ -30,6 +30,7 @@ CLASS zcl_rak_journey_css DEFINITION
 *   database read per button.
     METHODS theme RETURNING VALUE(rs) TYPE zcl_rak_cj_theme=>ty_theme.
 
+protected section.
   PRIVATE SECTION.
     DATA mo_e TYPE REF TO zcl_rak_journey_engine.
     DATA ms_theme TYPE zcl_rak_cj_theme=>ty_theme.
@@ -53,6 +54,8 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 
 
   METHOD build_stepper.
+*   Resolved once, not once per dot: NAV_LOCKED( ) walks every step's fields.
+    DATA(lv_lock) = mo_e->nav_locked( ).
     DATA(lv) = COND string( WHEN iv_vertical = abap_true
                             THEN `<div class="rakStepper rakStepperV">`
                             ELSE `<div class="rakStepper">` ).
@@ -77,8 +80,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     button carrying a known class, fired from injected JS. RENDER_WIZARD and
 *     RENDER_WIZARD_LEFT place those buttons - raw HTML cannot raise an event on
 *     its own.
+*     NAV_LOCKED( ) closes it again. After payment there is no step behind the
+*     citizen they may edit, RENDER_GOTO( ) stops placing the hidden buttons,
+*     and a dot that still LOOKED clickable would fire a script at a control
+*     that is no longer in the DOM - the stuck-page symptom this clickability
+*     was added to remove, back again with no way to explain it.
       DATA lv_open TYPE string.
-      IF lv_i < mo_e->mv_step.
+      IF lv_i < mo_e->mv_step AND lv_lock = abap_false.
 *       Braces are escaped for the injected script only, not over the whole of
 *       RV_HTML at the end. The step titles have already been through ESC( ), so a
 *       second pass would escape their escapes and put a stray backslash on the
@@ -117,6 +125,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 
 
   METHOD build_theme_css.
+
     DATA lv_css TYPE string.
 
     DATA(g)  = theme( ).
@@ -248,6 +257,97 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
           |.rakStep.dn .rakDot\{background:#C4232B;border-color:#C4232B;color:#fff;\}| &&
           |.rakBar.done\{background:#C4232B;\}| &&
           |.sapMSegBBtnSel,.sapMSegBBtnSel .sapMSegBBtnInner\{background:#C4232B!important;color:#fff!important;\}|.
+      ELSEIF mo_e->ms_config-theme-variant = 'ATTEST'.
+*       ATTEST - drawn from the AS3 marriage take-off mock.
+*
+*       What makes it its own variant rather than a tweak of PREMIUM: the header
+*       is a FLOATING card with a margin on all four sides, not a full-bleed band,
+*       and the page behind it is a warm grey rather than white. Everything else
+*       follows from that - card, footer and header are three separate rounded
+*       panels on one background, so each needs the same radius and border and the
+*       page needs a colour dark enough to read as a gap between them.
+*
+*       Brand and navy still come from the theme record, so BRAND_COLOR on the
+*       journey header keeps working. Only the greys are literal, because they are
+*       the mock's own scale and there is nowhere in the theme record for them.
+        lv_css = lv_css &&
+*         Pill buttons, near-square fields - the mock's inputs are 6px.
+          |:root \{--sapButton_BorderCornerRadius:18px;--sapField_BorderCornerRadius:6px;\}| &&
+          |.sapUiBody,.sapMPage,.sapMShell\{background:#EEF1F5!important;\}| &&
+
+*         ---- header: a floating gradient card -------------------------------
+          |.rakHdr\{background:linear-gradient({ a120 },{ b },{ d });color:#fff;| &&
+          |border-radius:12px;padding:16px 22px;margin:16px 12px 0;| &&
+          |box-shadow:0 6px 18px rgba(158,27,34,.25);\}| &&
+          |.rakHdrTitle,.rakHdr .sapMTitle\{color:#fff!important;font-weight:700;\}| &&
+          |.rakHdr .sapMBtn,.rakHdr .sapMBtn .sapMBtnContent,| &&
+          |.rakHdr .sapMBtn .sapUiIcon\{color:#fff!important;\}| &&
+          |.rakSub\{color:rgba(255,255,255,.92);font-size:.8rem;\}| &&
+
+*         ---- stepper: 30px outlined dots, brand when reached ----------------
+          |.rakStepper\{margin:16px 16px 8px;\}| &&
+          |.rakDot\{width:30px;height:30px;font-size:13px;font-weight:700;| &&
+          |background:#fff;border:2px solid #CFD6DE;color:#9AA5B1;\}| &&
+          |.rakLbl\{font-size:.72rem;color:#9AA5B1;\}| &&
+          |.rakStep.on .rakDot,.rakStep.dn .rakDot| &&
+          |\{background:{ b };border-color:{ b };color:#fff;\}| &&
+          |.rakStep.on .rakLbl\{color:{ b };font-weight:700;\}| &&
+          |.rakStep.dn .rakLbl\{color:{ n };\}| &&
+          |.rakBar\{background:#CFD6DE;\}| &&
+          |.rakBar.done\{background:{ b };\}| &&
+
+*         ---- the three panels: card, footer, search -------------------------
+          |.rakCard\{background:#fff;border:1px solid { g-line_clr };border-radius:12px;| &&
+          |padding:14px 20px 16px;margin:12px 12px;| &&
+          |box-shadow:0 2px 10px rgba(16,35,62,.05);\}| &&
+          |.rakFooter\{background:#fff;border:1px solid { g-line_clr };border-radius:12px;| &&
+          |margin:12px 12px;padding:8px 16px;\}| &&
+          |.rakSearch\{background:#fff;border:1px solid { g-line_clr };border-radius:10px;| &&
+          |padding:.7rem 1.1rem;margin:.4rem .75rem;\}| &&
+          |.rakBlkTitle\{color:{ n };font-weight:700;\}| &&
+
+*         A SECTION renders as a sap.m.Panel, not the form the card rules above
+*         were written for, and UI5 paints the panel body itself - so the plain
+*         .rakCard rule lost. A sectioned step (Parties, with its Personal
+*         information and Parties involved groups) drew its headings and fields
+*         straight onto the page grey, while an unsectioned step drew a proper
+*         white card. Naming both classes on the one element wins that without
+*         !important, and the header has to be repainted too or it stays a grey
+*         strip across the top of a white box.
+          |.rakCard.sapMPanel,.rakCard .sapMPanelContent,| &&
+          |.rakCard .sapMPanelHdr\{background:#fff;\}| &&
+          |.rakCard.sapMPanel\{border:1px solid { g-line_clr };border-radius:12px;| &&
+          |box-shadow:0 2px 10px rgba(16,35,62,.05);margin:12px 12px;\}| &&
+          |.rakCard .sapMPanelHdr\{border-bottom:none;padding:12px 20px 0;\}| &&
+          |.rakCard .sapMPanelHdr .sapMTitle| &&
+          |\{color:{ n }!important;font-weight:700;\}| &&
+          |.rakCard .sapMPanelContent\{padding:6px 20px 14px;border:none;\}| &&
+
+*         ---- fields ---------------------------------------------------------
+*         The focus ring is the mock's, and it is why the brand colour is spelled
+*         out twice: a box-shadow cannot take a colour with an alpha applied to it
+*         from a variable, so the ring stays literal while the border follows the
+*         theme.
+          |.sapMInputBaseContentWrapper\{border-color:#C6CCD4;\}| &&
+          |.sapMInputBaseContentWrapper:focus-within| &&
+          |\{border-color:{ b }!important;box-shadow:0 0 0 2px rgba(196,30,38,.15);\}| &&
+
+*         READ-ONLY is the mock's most distinctive field state: grey fill, no box,
+*         one dashed underline. It has to beat UI5's own readonly styling, hence
+*         the !important - without it the wrapper keeps its solid border and the
+*         field reads as an editable one that happens to be grey.
+          |.sapMInputBaseReadonly .sapMInputBaseContentWrapper,| &&
+          |.sapMInputBaseDisabled .sapMInputBaseContentWrapper| &&
+          |\{background:#F4F6F8!important;border:none!important;| &&
+          |border-bottom:1px dashed #C6CCD4!important;border-radius:0!important;\}| &&
+          |.rakRoLbl,.rakVal\{color:#45505F;\}| &&
+
+*         ---- tables and segmented -------------------------------------------
+          |.sapMListTblHeader,.sapMListTblHeaderCell| &&
+          |\{background:#F5F7F9;color:{ n };font-weight:600;\}| &&
+          |.sapMSegB\{border-radius:18px;overflow:hidden;\}| &&
+          |.sapMSegBBtnSel,.sapMSegBBtnSel .sapMSegBBtnInner| &&
+          |\{background:{ b }!important;color:#fff!important;\}|.
       ELSEIF mo_e->ms_config-theme-variant = 'PORTAL'.
         lv_css = lv_css &&
 *       Field radius drops from 10px to 8px: the portal's cards and inputs are
@@ -257,6 +357,31 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *       so a blanket font-family would replace every icon in the app with the
 *       literal characters behind them.
           |.sapUiBody,.sapUiBody *:not(.sapUiIcon)\{font-family:{ f }!important;\}| &&
+*         R16-1. PUT BACK THE BOLD THE LINE ABOVE TAKES AWAY - the same
+*         companion rule as the Arabic branch, and the same mechanism.
+*
+*         The rule above declares the FAMILY and nothing else, with
+*         !important, so it beats every theme declaration that reaches
+*         bold by naming a bold FACE ('72-Bold' rather than '72') and
+*         leaves no weight behind to restore it. This branch has exactly
+*         two weights of its own - 800 on .rakHdrTitle/.rakHdr .sapMTitle
+*         and 600 on .rakLbl - and both survive because they are weights.
+*         Everything PORTAL bolds by face does not.
+*
+*         NO LANGUAGE TEST HERE, and that is the difference from R15-2
+*         rather than an oversight: this branch has none either, so PORTAL
+*         has been losing the same emphasis in English as well as Arabic.
+*
+*         THE SAME SELECTOR LIST, TRANSPLANTED UNCHANGED, including its
+*         two omissions. No bare .sapMTitle: PORTAL's own 800 above is
+*         exactly the header a later !important would downgrade to 700,
+*         and a :not( ) guard carries its argument's specificity and so
+*         outranks the rule it was written to spare. A dialog header is
+*         never inside .rakHdr, so the scoped form below cannot collide.
+*         No .sapMListTblHeaderCell either - it has a weight of its own.
+          |.sapMDialogTitle,.sapMDialog .sapMIBar .sapMTitle,| &&
+          |.sapMPanelHdr,.sapMLabelBold,b,strong,th| &&
+          |\{font-weight:700!important;\}| &&
           |.sapUiBody,.sapMPage,.sapMShell\{background:#F5F6F8!important;\}| &&
           |.rakHdr,.rakHdrTitle,.rakSub,.rakBlkTitle,.sapMTitle| &&
           |\{text-transform:none!important;\}| &&
@@ -339,6 +464,19 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakReqPend\{color:#c9cfd8!important;font-size:1rem;margin-inline-end:.5rem;\}| &&
         |.rakReqDone\{color:{ n };\}| &&
         |.rakReqTodo\{color:#8a93a2;\}| &&
+*       CAPTCHA. Same panel shape as rakReqPanel above so the challenge
+*       reads as part of the form rather than an advert dropped into it.
+*       The image is given its exact drawn size - 208x64, the viewBox in
+*       ZCL_RAK_JOURNEY_RENDER->CAPTCHA_SVG( ) - because an SVG left to
+*       size itself stretches to its container and the jitter that makes
+*       the glyphs hard to machine-read turns into a blur that makes them
+*       hard for the citizen to read too.
+        |.rakCaptcha\{background:#fff;border:1px solid #E3E6EB;border-radius:14px;| &&
+        |padding:.9rem 1rem;margin:.4rem 1rem;\}| &&
+        |.rakCapHint\{display:block;font-size:.8rem;color:#6B7484;margin-bottom:.55rem;\}| &&
+        |.rakCapRow\{gap:.5rem;\}| &&
+        |.rakCapImg\{width:208px;height:64px;border-radius:8px;border:1px solid #E3E6EB;| &&
+        |user-select:none;-webkit-user-select:none;-webkit-user-drag:none;\}| &&
         |.rakSplit\{width:100%;align-items:flex-start;\}| &&
         |.rakRail\{flex:none;align-self:flex-start;position:sticky;top:0;\}| &&
         |.rakMain\{flex:1;min-width:0;\}| &&
@@ -358,16 +496,12 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakStepperV .rakLbl\{margin-top:6px;margin-inline-start:0;text-align:center;\}| &&
         |.rakStepperV .rakBar\{flex:1;width:auto;height:3px;margin:0 5px 24px;\}| &&
         |\}| &&
-*     The asterisk used to be absolutely positioned against the label's trailing
-*     edge. That worked while the label was a narrow left-hand column; now that
-*     labels sit ABOVE their field the label spans the full card, so the marker
-*     landed at the far right, a screen away from the text it marks. Flowing it
-*     inline puts it hard against the text at ANY label width - and it stops
-*     being a layout dependency, which is what made it fragile in the first
-*     place. nowrap and the reserved padding go with it: neither is needed once
-*     the marker is in the text flow, and nowrap would clip a long top label.
-        |.rakReq::after\{content:'*';color:#bb0000;font-weight:700;| &&
-        |margin-inline-start:.2rem;\}| &&
+*     NO REQUIRED-MARKER RULE HERE ANY MORE. The asterisk is drawn by UI5 itself,
+*     from the sap.m.Label REQUIRED property (see REQ_LABEL( ) in
+*     ZCL_RAK_JOURNEY_RENDER), and it is styled by sapMLabelRequired. The
+*     '.rakReq::after' rule this used to carry was removed with the last call
+*     site that set the class: leaving it would mean a stray 'rakReq' in some
+*     future popup renders a SECOND asterisk beside the native one.
         |.rakBlkTitle\{display:block;margin:.9rem 1rem .35rem;font-size:.95rem;| &&
         |font-weight:700;color:{ n };\}| &&
         |.rakRecList\{box-sizing:border-box;margin:.4rem 1rem;padding:0;\}| &&
@@ -463,6 +597,135 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.sapMText,.sapMLabel,.sapMInputBaseInner,.sapMBtnContent,.sapMLnk,| &&
         |.sapMObjStatusText,.sapMCbLabel,.sapMRbBLabel,.sapMSegBBtn,| &&
         |.sapMListTblCell,.sapMLIBContent,.sapMMsgStripMessage\{font-size:1rem;\}| &&
+*     ---- AND NOT INSIDE A CONTROL'S OWN POPUP -------------------------
+*     THE TIME PICKER'S HOUR BOX WAS CLIPPING "11" TO "1". The clock's
+*     hour, minute and AM/PM buttons are fixed-width boxes that the base
+*     theme sizes for ITS font, and the rule above raises every
+*     .sapMBtnContent on the page to 1rem - so two digits no longer fit
+*     and the second one is cut off. It showed as a stray full stop, which
+*     reads as a formatting oddity rather than as missing data. Present
+*     before the AM/PM change and visible on the old three-segment clock
+*     too, where 45 and 30 rendered as "4." and "3.".
+*
+*     THE RULE ABOVE IS FOR PAGE TEXT, AND A CONTROL'S OWN POPUP IS NOT
+*     PAGE TEXT. Inside a popover the control is drawing its own furniture
+*     to its own measurements - the clock, the calendar's month and year
+*     buttons, an overflow menu - and none of it was laid out against a
+*     font this stylesheet chose. Scoping by .sapMPopover rather than by
+*     the clock's own class is deliberate: it needs no guess at a UI5
+*     internal, and the calendar carries the same clipping risk for the
+*     same reason, so it is fixed here too.
+*
+*     0.875rem is UI5's own control size. Written AFTER the generic rule
+*     on purpose - see the ORDER MATTERS note above; this is a named
+*     exception and it only wins because it comes later and is more
+*     specific.
+*
+*     DIALOGS ARE DELIBERATELY NOT INCLUDED. A sap.m.Dialog is where CJS
+*     draws its OWN content - the BP search, the owner form, every
+*     hand-drawn popup - and that is page text by any reasonable reading.
+*     It keeps 1rem.
+*     AND THE FONT WAS NOT THE CAUSE. Two rounds went on font size before
+*     the theme's OWN segmented-button block a hundred lines up was read:
+*
+*         .sapMSegBBtn\{min-width:5.5rem;padding:0 1.2rem;\}
+*         .sapMSegB,.sapMSegBBtn\{width:auto!important;max-width:none!important;\}
+*
+*     5.5rem MINIMUM plus 1.2rem of padding on each side, on EVERY
+*     segmented button on the page. That styling is for the journey's own
+*     Yes / No controls, where a wide comfortable target is right. The time
+*     picker's AM and PM are segmented buttons too, so together they claim
+*     roughly 200px before the hour, the colon and the minute have asked
+*     for anything - and all four sit in one row inside a popover the
+*     control sized for its own furniture.
+*
+*     THAT IS BOTH REPORTED FAULTS FROM ONE OVERFLOW. The row measures
+*     wider than the popover, so the hour is pushed past the left edge and
+*     reads as truncated, and the minute box is pushed out with it and
+*     appears not to take the value when a minute is picked. The dial was
+*     updating the whole time; there was no visible box left to show it in.
+*
+*     SO THE SIZING IS NEUTRALISED, NOT THE FONT. Inside a popover a
+*     control is drawing its own furniture to its own measurements and
+*     nothing here should be imposing a target size on it. !important is
+*     required because the rules above carry it; two classes beat one, so
+*     these win on specificity rather than on order.
+*     SCOPED TO .SAPMTPCBUTTONS, WHICH IS THE CLOCK'S OWN BUTTON ROW AND IS
+*     READ FROM THE DOM RATHER THAN GUESSED. Two rounds of this block used
+*     .sapMPopover, which worked on a desktop and WOULD HAVE MISSED A PHONE
+*     ENTIRELY: the picker is a ResponsivePopover, so it renders as a
+*     Popover on a desktop and as a sap.m.Dialog on a phone. Scoping to the
+*     row itself covers both and cannot reach anything else, because
+*     .sapMTPCButtons exists nowhere but in a time picker.
+        |.sapMTPCButtons .sapMSegBBtn\{min-width:0!important;| &&
+        |padding:0 .5rem!important;font-weight:400!important;\}| &&
+        |.sapMTPCButtons .sapMSegB,.sapMTPCButtons .sapMSegBBtn| &&
+        |\{max-width:none!important;\}| &&
+        |.sapMTPCButtons .sapMBtnContent,.sapMTPCButtons .sapMSegBBtn| &&
+        |\{font-size:.875rem;\}| &&
+*     ---- AND ROOM FOR TWO DIGITS ---------------------------------------
+*     The hour and minute chips are not segmented buttons - they are plain
+*     .sapMBtnBase, so none of the rules above reach them - and 51 was
+*     rendering as "5.." in a chip that fits 11. The cause is a hundred
+*     lines up and unscoped:
+*
+*         .sapMBtn .sapMBtnInner\{padding:0 1.1rem;\}
+*
+*     2.2rem of padding inside a chip UI5 sized for two digits and its own
+*     padding. It is the right padding for a journey's Next and Submit
+*     buttons, which is what it was written for, and it leaves the clock
+*     nothing to draw in.
+*
+*     A MIN-WIDTH AS WELL AS LESS PADDING, because the two answer different
+*     halves: the smaller padding gives the digits room inside whatever
+*     width UI5 chose, and the min-width stops the chip itself collapsing
+*     below what two digits need. OVERFLOW VISIBLE is the same belt the
+*     segmented-button rule at line ~550 already wears for the same reason
+*     - if anything still measures short, the digits spill rather than
+*     turn into an ellipsis that reads as data loss.
+        |.sapMTPCButtons .sapMBtn .sapMBtnInner\{padding:0 .4rem!important;\}| &&
+        |.sapMTPCButtons .sapMBtnBase\{min-width:2.75rem!important;\}| &&
+        |.sapMTPCButtons .sapMBtnContent| &&
+        |\{overflow:visible!important;text-overflow:clip!important;\}| &&
+*     ---- AND THE PICKED CHIP IS WHITE ON WHITE --------------------------
+*     THE MINUTE WAS NEVER MISSING. A DOM read showed the box holding the
+*     text "47" in rgb(255,255,255) while the hour beside it held "11" in
+*     rgb(51,51,51) - the value was there and invisible, every time it was
+*     reported as "the minute is not setting". Four rounds went on width
+*     because the symptom looked like truncation.
+*
+*     NOTHING IN THIS STYLESHEET SETS THAT WHITE. Grepping it for color:#fff
+*     finds only .sapMBtnEmphasized, .rakHdr, .rakRecCard and
+*     .sapMSegBBtnSel, and the chip carries none of them - it is
+*     .sapMToggleBtnPressed, UI5's own pressed-toggle state, which expects
+*     to sit on the filled background its own theme gives it.
+*
+*     SO BOTH HALVES ARE SET HERE, not one. Setting only the colour leaves
+*     the next theme change free to fill the background and make it
+*     unreadable the other way round, which is the same bug with the
+*     values swapped. A tinted ground with dark text is a selection
+*     affordance that cannot disagree with itself.
+        |.sapMTPCButtons .sapMToggleBtnPressed| &&
+        |\{background:#EAF1FB!important;border-color:#7FA8D8!important;\}| &&
+        |.sapMTPCButtons .sapMToggleBtnPressed .sapMBtnContent,| &&
+        |.sapMTPCButtons .sapMToggleBtnPressed .sapMBtnContent bdi| &&
+        |\{color:#0A2A4A!important;\}| &&
+*     THE SELECTED SEGMENT'S COLOUR IS DELIBERATELY LEFT ALONE, and this
+*     is a correction rather than an omission.
+*
+*     A previous version of this block made .sapMSegBBtnSel transparent
+*     with colour:inherit, on the reasoning that the theme's brand red
+*     reads as an error on a clock chip. Nobody had reported the colour.
+*     The theme pairs that red with WHITE TEXT on the inner element, and
+*     inherit did not reach whichever element actually carries the glyphs -
+*     so the background went white, the text stayed white, and the picked
+*     minute became invisible. It looked like the minute was not being
+*     taken at all, which is a far worse fault than a chip being the wrong
+*     colour, and it was introduced by a change nobody asked for.
+*
+*     White on red is legible. Leave it. If the colour is ever genuinely
+*     wanted different here, set an explicit foreground - never INHERIT
+*     against a rule that sets colour with !important further in.
 *     A message strip whose text does not wrap makes the page wider than the
 *     viewport. In LTR that clips harmlessly on the right; in RTL the overflow
 *     goes the other way and the page is pushed off screen. The &trace=X lines
@@ -513,9 +776,294 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakStat\{padding:.18rem .6rem;border-radius:999px;background:rgba(0,0,0,.04);\}| &&
         |.rakCard tr.sapMListTblRow:hover\{background:rgba(0,0,0,.025)!important;\}| &&
         |.rakCard th.sapMListTblHeaderCell\{letter-spacing:.02em;\}| &&
+*     ---- the parcel card, drawn to the live control -------------------
+*     Screenshots of RAKPARCELSELECTOR on M016: a full-width white card
+*     with a RED LEFT EDGE, the parcel number at the top left, an
+*     acquisition badge in a pale blue pill at the top right, one grey
+*     pipe-separated meta line under it, and Full Details bottom right.
+*     Everything here is layout and colour only - the markup is
+*     ZCL_RAK_CJ_PARCEL's and stays readable without any of it.
+        |.rakPcl\{width:100%;gap:.6rem;\}| &&
+        |.rakPclBar\{width:100%;gap:.5rem;flex-wrap:wrap;\}| &&
+        |.rakPclBar .sapMSF\{margin-inline-start:auto;\}| &&
+        |.rakPclCard\{width:100%;background:#fff;border:1px solid { g-line_clr };| &&
+        |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
+        |padding:.85rem 1.1rem;\}| &&
+        |.rakPclTop\{width:100%;align-items:center;gap:.6rem;\}| &&
+        |.rakPclNo .sapMTitle\{font-size:1.05rem;letter-spacing:.01em;\}| &&
+        |.rakPclBadge .sapMObjStatusText\{font-weight:600;font-size:.75rem;\}| &&
+        |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&
+        |border-radius:999px;background:rgba(0,122,194,.10);\}| &&
+        |.rakPclMeta\{color:#6a7484;font-size:.85rem;\}| &&
+*     The actions row. Full Details is a LINK and Select is a filled button,
+*     so without a rule between them the link's icon sits hard against its
+*     own text and the two controls touch. A hairline above the row is what
+*     the live card uses to separate the actions from the meta line.
+        |.rakPclAct\{width:100%;justify-content:flex-end;align-items:center;| &&
+        |gap:1.25rem;margin-top:.55rem;padding-top:.55rem;flex-wrap:wrap;| &&
+        |border-top:1px solid { g-line_clr };\}| &&
+        |.rakPclAct .sapMLnk .sapUiIcon\{margin-inline-end:.4rem;\}| &&
+        |.rakPclAct .sapMLnk\{white-space:nowrap;\}| &&
+        |.rakPclAct .sapMBtn\{margin:0;\}| &&
+*     The card's own vertical rhythm. It is a VBox, so gap is the only thing
+*     holding the number, the meta line and the actions apart.
+        |.rakPclCard\{gap:.4rem;\}| &&
+        |.rakPclCard .sapMTitle\{margin:0;\}| &&
+        |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
+*     ---- THE PAYMENT CARD, matched to the legacy page -------------------
+*     One fee per line with the amount pushed right, which is what replaced the
+*     sap.m.Table and its Description / Amount (AED) header band.
+        |.rakPayFee\{width:100%;gap:.6rem;padding:.35rem 0;\}| &&
+        |.rakPayAmt\{margin-inline-start:auto;font-variant-numeric:tabular-nums;\}| &&
+*     The rule between the fees and the total. A bordered div rather than a
+*     sap.m.Toolbar separator, because a separator control brings its own height
+*     and margins to argue with.
+        |.rakPayRule\{width:100%;height:1px;background:{ g-line_clr };| &&
+        |margin:.35rem 0 0;\}| &&
+        |.rakPayTot\{font-weight:700;font-variant-numeric:tabular-nums;\}| &&
+*     The pop-up instruction: brand red, inline, no container. It is an
+*     instruction to the citizen about their own browser, not the system
+*     explaining itself, so it does not get a framed panel.
+        |.rakPayPop,.rakPayPop .sapMText,.rakPayPop .sapUiIcon| &&
+        |\{color:{ g-brand };\}| &&
+        |.rakPayPop .sapUiIcon\{font-size:1rem;\}| &&
+*     The charges block. The announcement carries the weight, the rates read as
+*     a list under it.
+        |.rakPayChg\{width:100%;gap:.2rem;\}| &&
+        |.rakPayChgHd\{color:{ g-brand };\}| &&
+        |.rakPayChgLi\{padding-inline-start:.4rem;\}| &&
+*     The RAK Pay mark beside its radio. Height-constrained and width auto, so
+*     the 48x29 asset keeps its ratio if it is ever replaced by a wider one.
+        |.rakPayWith\{gap:.1rem;\}| &&
+        |.rakPayLogo\{height:1.6rem;width:auto;display:block;\}| &&
+*     ---- THE PROJECT CARD ------------------------------------------------
+*     It reuses .rakPclCard for the frame, the border and the red left edge,
+*     and overrides only where a project card differs from a parcel one.
+*     Sharing the frame is the point: two card lists in one product that
+*     look different because they were written on different days is a worse
+*     outcome than either of them.
+*
+*     TIGHTER THAN A PARCEL CARD, because there is less on it - two rows
+*     against three, and no badge. The first version inherited the parcel
+*     card's rhythm plus a Select button on its own row under a divider,
+*     which made a 200px card out of 80px of content and turned six of them
+*     into a scroll.
+*     THE WHOLE BOX, DECLARED HERE, rather than three overrides on top of
+*     two other classes. The card wears .rakCard (margin, padding, radius,
+*     box-shadow) and .rakPclCard (background, border, red left edge,
+*     padding) and then this one, and the red edge was not running the
+*     card's full height while the other three sides were not visible at
+*     all. Which of those rules was winning cannot be settled from a
+*     screenshot, and the next override would have been another guess.
+*
+*     So every property that decides the box is set once, on the most
+*     specific class, and nothing is inherited: box-sizing so the 4px edge
+*     is inside the width, margin replacing .rakCard's 12px so cards sit in
+*     one column, and box-shadow:none because .rakCard's soft shadow was
+*     the faint full-width line under each card that read as a stray rule.
+*
+*     TOP TIGHT, BOTTOM LOOSER, deliberately: the heading has the counts
+*     block beside it and needs no room above, the closing row does - a
+*     card whose last line sits on its own edge reads as cut off.
+        |.rakPrjCard\{box-sizing:border-box;width:100%;gap:.1rem;| &&
+        |background:#fff;border:1px solid { g-line_clr };| &&
+        |border-inline-start:4px solid { g-brand };border-radius:10px;| &&
+        |padding:.5rem 1.1rem .75rem;margin:0 0 .6rem;box-shadow:none;\}| &&
+*     THE NUMBER IS THE ACTION. sap.m.CustomListItem takes no PRESS through
+*     the z2ui5 wrapper, so a whole-card click is not available; a Link on
+*     the project number is the nearest affordance and is what the live card
+*     looks like in any case. Sized up, because it is also the heading.
+        |.rakPrjNo .sapMLnk,.rakPrjNo\{font-size:1.05rem;font-weight:600;| &&
+        |letter-spacing:.01em;\}| &&
+        |.rakPrjDate\{color:#6a7484;font-size:.9rem;\}| &&
+*     PLAIN AND RIGHT-ALIGNED, NO CHIP. The counts were drawn in
+*     .rakPclBadge, which is the parcel card's acquisition-type pill - a
+*     coloured lozenge with padding, right for one short word and wrong for
+*     two stacked figures. Only its margin-inline-start:auto was wanted.
+*     TOP-ALIGNED, overriding .rakPclTop's align-items:center. The counts
+*     block is two lines tall and the number is one, so centring made the
+*     whole row as tall as the block and floated the number in the middle
+*     of it - half the card's excess height was this one inherited rule.
+        |.rakPrjCard .rakPclTop\{align-items:flex-start;\}| &&
+        |.rakPrjNums\{margin-inline-start:auto;gap:1.4rem;\}| &&
+        |.rakPrjNum\{align-items:flex-end;gap:.1rem;\}| &&
+        |.rakPrjFig\{font-size:1rem;font-weight:600;\}| &&
+*     The "no figure given" dash is deliberately quieter than a real count,
+*     so a column of numbers still scans as numbers.
+        |.rakPrjNil\{color:#9aa4b2;font-weight:400;\}| &&
+*     Row two carries the meta line and the quiet action on ONE line, which
+*     is where the height saving comes from.
+*
+*     SPACE-BETWEEN, NOT AN AUTO MARGIN ON THE BUTTON. The first version put
+*     margin-inline-start:auto on .rakPrjBtn and the button stayed welded to
+*     the end of the meta text instead of moving to the card edge. The class
+*     lands on sap.m.Button's own root element, and UI5's .sapMBtn margin
+*     rule has the same specificity and comes later in the cascade, so it
+*     wins. Two children and space-between needs no margin at all and cannot
+*     be overridden that way.
+        |.rakPrjBot\{width:100%;gap:.6rem;justify-content:space-between;\}| &&
+        |.rakPrjBot .sapMBtn\{margin:0;\}| &&
+*     The chosen card says so itself. With 207 of them the strip above the
+*     list is the primary answer, but a reader scrolling back should not
+*     have to look up to see which one they picked.
+        |.rakPrjOn\{border-color:{ g-brand };\}| &&
+*     THE WAIT OVERLAY, over the parcel map frame.
+*
+*     A framed map has a silent gap that nothing else can fill. The frame
+*     fires LOAD when the viewer page has arrived - and the viewer then
+*     authenticates, queries the layer and draws, which takes seconds
+*     more. The frame is cross-origin, so that second half is invisible:
+*     nothing can be observed, so nothing can be reported. What the
+*     citizen saw was a white rectangle with no indication that anything
+*     was happening at all.
+*
+*     So the overlay covers the frame from the moment it renders and is
+*     removed by the snippet a little after load, or the instant the
+*     viewer speaks. It sits ON TOP rather than inside: everything inside
+*     the frame belongs to the other origin and cannot be touched.
+*
+*     POINTER-EVENTS:NONE once it starts fading, so a spinner can never
+*     eat a click meant for the map underneath it.
+        |.rakPclMapWrap\{position:relative;width:100%;\}| &&
+*     IT REMOVES ITSELF, IN CSS, AND THAT IS NOT BELT AND BRACES.
+*
+*     This overlay is OPAQUE and covers the map. So an overlay that is
+*     not taken away is not a missing spinner - it is a blank grey panel
+*     where the map should be, which is indistinguishable from every
+*     other way this map has failed. Its removal was JavaScript-only,
+*     which made a decoration capable of hiding the content it decorates
+*     whenever the snippet did not run.
+*
+*     A decoration must never be able to do that. The animation fades it
+*     out after nine seconds with no script involved at all, so the worst
+*     case is a spinner that ran too long rather than a map nobody can
+*     see. W( ) still removes it in well under a second on the normal
+*     path; this only ever fires when nothing else did.
+*
+*     FORWARDS, so it holds the faded state instead of snapping back, and
+*     VISIBILITY as well as opacity so it stops taking pointer events
+*     even without the class.
+*
+*     NOT disabled under prefers-reduced-motion - unlike the spinner
+*     below, this animation is a safety rather than an effect, and
+*     switching it off would restore exactly the failure it exists to
+*     prevent.
+        |.rakPclWait\{position:absolute;inset:0;display:flex;| &&
+        |flex-direction:column;align-items:center;justify-content:center;| &&
+        |gap:.7rem;background:#eef1f4;border-radius:10px;| &&
+        |color:#6a7484;font-size:.85rem;transition:opacity .3s;| &&
+        |animation:rakWaitOut .4s ease 14s forwards;\}| &&
+        |@keyframes rakWaitOut\{to\{opacity:0;visibility:hidden;\}\}| &&
+        |.rakPclWait.rakGone\{opacity:0;visibility:hidden;pointer-events:none;\}| &&
+*     A BORDERED CIRCLE WITH ONE SIDE COLOURED, ROTATING - the whole
+*     spinner. No image, no sprite, no library: a data URI would still be
+*     a request to explain and sap.m.BusyIndicator cannot be placed over
+*     a sap.ui.core.HTML control.
+        |.rakPclSpin\{width:2.2rem;height:2.2rem;border-radius:50%;| &&
+        |border:3px solid #d6dce5;border-top-color:{ g-brand };| &&
+        |animation:rakSpin .9s linear infinite;\}| &&
+*     PREFERS-REDUCED-MOTION is honoured: the ring stops turning and
+*     stays as a static ring, so the wait is still visible to someone who
+*     has asked the system not to animate.
+        |@media (prefers-reduced-motion:reduce)\{| &&
+        |.rakPclSpin\{animation:none;\}\}| &&
+        |@keyframes rakSpin\{to\{transform:rotate(360deg);\}\}| &&
+*     THE MAP NEEDS A HEIGHT AND A BACKGROUND. An ArcGIS MapView in a box
+*     of height 0 initialises, reports nothing and draws nothing - which
+*     on screen is indistinguishable from a tab that never loaded. The
+*     height comes from the inline style ZCL_RAK_CJ_GIS writes, because it
+*     differs between the dialog and the selector; what belongs here is
+*     the frame around it and the message the loader falls back to.
+        |.rakGisMap\{border:1px solid { g-line_clr };border-radius:10px;| &&
+        |overflow:hidden;background:#eef1f4;\}| &&
+*     rakGisErr is the container's OWN first child, holding "Loading the
+*     map..." until the script replaces it. Three states, three different
+*     things on screen: a bare grey box means the markup never reached
+*     the page, a stuck "Loading" means the markup arrived and the script
+*     did not, and a sentence means both ran and the API or the layer
+*     failed. Without it all three look identical.
+        |.rakGisErr\{padding:1rem;color:#6a7484;font-size:.9rem;text-align:center;| &&
+        |display:flex;align-items:center;justify-content:center;height:100%;\}| &&
+*     The status line UNDER the map. It is a sibling rather than content,
+*     because the MapView owns everything inside its own container and
+*     wipes it the moment it draws - which is exactly when there is
+*     something worth saying. Empty until the snippet fills it, and empty
+*     is the normal state on a map that simply worked.
+        |.rakGisNote\{color:#6a7484;font-size:.8rem;padding:.35rem .1rem 0;\}| &&
+*     WIDE - the unlaid path's half of ZCL_RAK_JOURNEY_RENDER->WIDE_FIELD( ).
+*     rakRowCn pins every child of a multi-column row to a fixed fraction of
+*     it; a composite control and a paragraph claim the whole line back. The
+*     !important is against rakRowCn's own >* rule, which is equally specific
+*     and declared after this one in some variants.
+        |.rakRow>.rakWide\{flex:0 0 100%!important;max-width:100%;\}| &&
         |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
-        |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
+*     CELLS DIVIDE THE ROW - flex:1 1 0, a ZERO basis.
+*
+*     This was flex:0 1 auto and the note beside .rakUpRow still explains the
+*     intent: a cell hugs its content, which is right when what it hugs is the
+*     control's CTRL_WIDTH( ). On screen it is not what happens. A cell hugs
+*     the WIDER of its label and its control, a label is short, and the pair
+*     ends up huddled at the left of a full-width card - which is D003
+*     CJSMIG-737 issues 1, 2 and 4, reported three times on three sections of
+*     one journey as "field should be aligned and fill Box".
+*
+*     THE PRECEDENT IS IN THIS FILE. .rakUpRow hit the same thing and took
+*     flex:1 1 0, with the note that a basis of AUTO is not enough because the
+*     content still sets the starting width and grow only divides the leftover
+*     - the same ragged result one step less obvious. An upload cell was
+*     described there as having nothing stable to hug; a label is no more
+*     stable, it is merely stable per field, which is why this reads as
+*     misalignment rather than as jitter.
+*
+*     BOTH DECLARATIONS OF THIS RULE ARE CHANGED. It exists twice, once per
+*     theme variant, and changing one would have fixed the journey on some
+*     themes and not others - which presents as intermittent.
+*
+*     .rakWide still wins: it carries !important against this rule, so a
+*     composite control or a guidance paragraph still claims the whole line.
+        |.rakRow>*\{flex:1 1 0;min-width:0;max-width:100%;\}| &&
+*     AND THE CONTROL FILLS THE CELL, which is the half that makes it visible.
+*     Growing the cell alone moves nothing: the control keeps the fixed rem
+*     CTRL_WIDTH( ) gives it by ftype, so a wider cell would only add empty
+*     space beside a 24rem input. Scoped to .rakRow, so a field that is NOT in
+*     a paired row keeps its type width exactly as it renders today.
+        |.rakRow .sapMInputBase,.rakRow .sapMSlt,| &&
+        |.rakRow .sapMComboBox\{width:100%;\}| &&
         |.rakCell\{min-width:0;gap:.25rem;\}| &&
+        |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
+        |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
+*     THE CONTROL YIELDS, THE BUTTON DOES NOT WRAP. Every child was
+*     flex:0 0 auto - nothing could shrink - and the row wraps, so the moment
+*     the control's width plus the button's width passed the cell the BUTTON
+*     dropped onto a second line. That made it depend on the button's LABEL:
+*     a field with a partner already picked reads "CHANGE witness 1" where an
+*     empty one reads "ADD witness 2", and the longer text was enough to tip
+*     it over. FLOW was set and honoured; the cell ran out of room and had no
+*     way to give any back.
+*
+*     The first child is the control - the label is redirected to its own vbox
+*     through MO_LBL_TGT and never enters this row. Letting it shrink
+*     (min-width:0 is what actually permits it; a flex item will not go below
+*     its content width without it) means the input gives up width and the
+*     button stays beside it. Wrap is KEPT as the last resort so a genuinely
+*     narrow screen still stacks instead of overflowing sideways.
+*
+*     IT WAS NOT THE STAGE. This block was "reverted by a stage-without-pull"
+*     three times - b7344b0, then again, and the note that used to sit here
+*     blamed abapGit both times and told the next person to pull before
+*     staging. That was the wrong diagnosis and it cost three rounds.
+*
+*     The comment lines above were indented, with the * in column 9. An ABAP
+*     full-line comment is only a comment when the * is in column 1; indented
+*     inside a chained string expression it is a multiplication operator, and
+*     the class does not compile. So it never activated, SAP never held it,
+*     and every full stage correctly wrote back a version without it. The
+*     symptom pointed at git the whole time and the cause was in the source.
+*
+*     Nothing else in this repository has an indented * comment - it was 40
+*     lines, all of them here. If this block goes missing again, check the
+*     syntax of THIS class before blaming the stage.
+        |.rakCellFlow>*:first-child\{flex:0 1 auto;min-width:0;\}| &&
         |.rakRowEq>*\{flex:1 1 0;\}| &&
         |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
         |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
@@ -574,13 +1122,43 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakCard .sapMMultiComboBox,.rakCard .sapMDP,.rakCard .sapMDTP,| &&
         |.rakCard .sapMTP\{width:100%;\}| &&
 
+*     A COMBOBOX SUGGESTION LONGER THAN THE BOX WAS CUT, and unlike the
+*     Select there is no property for it. sap.m.Select has WRAPITEMSTEXT
+*     and the renderer now passes it; sap.m.ComboBox has nothing
+*     equivalent - the z2ui5 wrapper exposes WIDTH and no more - so the
+*     typable dropdown went on truncating "Environment Protection &
+*     Development Aut" with no ellipsis to say it had been cut. On the
+*     e-complaints agency list several entries differ only past that
+*     point, so the citizen chooses between lines that look identical.
+*
+*     Three declarations because one is not enough: the text has to be
+*     allowed to wrap, the ellipsis has to stop clipping it, and the
+*     LIST ITEM has to be allowed to grow - UI5 gives it a fixed height
+*     and wrapped text inside a fixed-height row is hidden rather than
+*     shown, which looks exactly like the rule not being applied.
+*
+*     SCOPED TO THE PICKER POPOVER. .sapMComboBoxBasePicker is the
+*     dropdown's own root, so nothing on the form itself is touched and
+*     no other list in the app can match this.
+        |.sapMComboBoxBasePicker .sapMLIB\{height:auto;min-height:2rem;\}| &&
+        |.sapMComboBoxBasePicker .sapMSLITitleOnly,| &&
+        |.sapMComboBoxBasePicker .sapMSLITitle,| &&
+        |.sapMComboBoxBasePicker .sapMSelectListItem| &&
+        |\{white-space:normal;overflow:visible;text-overflow:clip;| &&
+        |line-height:1.35;\}| &&
+
 *     UPLOAD CELLS. The multi-column Documents layout itself is NOT a defect and
 *     is not touched here: render_step packs consecutive UPLOAD fields into a
 *     rakRow when the step sets COLUMNS 2..4, on purpose, so a twelve-file step
 *     is not four screens of scrolling. What was wrong is the sizing inside it.
 *
-*     .rakRow>* is flex:0 1 auto, so a cell hugs its content - right for a
-*     paired input, where the cell hugs the control's ctrl_width. An upload cell
+*     .rakRow>* WAS flex:0 1 auto, so a cell hugged its content. This note used
+*     to add "right for a paired input, where the cell hugs the control's
+*     ctrl_width" - and that turned out to be the thing D003 CJSMIG-737 was
+*     reporting three times over, because a cell hugs the wider of the label
+*     and the control and a label is short. It is flex:1 1 0 now, the same
+*     value this upload rule reaches for below and for the same reason. An
+*     upload cell
 *     has no ctrl_width and nothing stable to hug, so it sizes to whichever
 *     filename is currently attached: two uploads side by side come out at two
 *     different widths and both move whenever a file is added or removed.
@@ -597,7 +1175,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     width cell. Inside a cell, the cell decides.
         |.rakUpCell .rakUp input[type=file]\{max-width:100%;\}| &&
 
-*     CHIP ROWS. One row is icon, filename link, then buttons. In a half-width
+*     CHIP ROWS. One row is the filename link, then Remove. In a half-width
 *     cell a long citizen-supplied filename had nothing stopping it: it wrapped
 *     under its own buttons, or pushed Remove past the edge of the cell. Remove
 *     is the control that undoes the mistake, so it is the worst one to lose.
@@ -609,7 +1187,7 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     rakAttName_D028 is a different class token - but the next person reading
 *     both files will assume it does and go hunting a bug that is not there.
         |.rakFileRow\{width:100%;min-width:0;gap:.15rem;\}| &&
-*     nth-child(2), NOT .rakFileName, and this is why the child order is pinned
+*     :first-child, NOT .rakFileName, and this is why the child order is pinned
 *     in render_chips. sap.m.FlexBox at renderType Div wraps every child in its
 *     own item div, so the flex item is that wrapper and not the Link - the same
 *     trap documented on .rakRow>* above. The wrapper is what must grow and what
@@ -617,10 +1195,16 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *     min-width:auto, which refuses to go below the content and is precisely
 *     what let the filename shove the buttons out.
 *
-*     Everything else on the row keeps its size: the icon, View, Remove and the
-*     Filed status are all flex:0 0 auto.
+*     IT WAS nth-child(2) AND THE ROW LED WITH A DOCUMENT ICON. The icon is
+*     gone - it said nothing the filename does not - so the name is the first
+*     child now. Anything inserted ahead of it makes the Remove button the
+*     elastic one and the filename the fixed one, which is the bug this rule
+*     exists to prevent, inverted.
+*
+*     Everything else on the row keeps its size: Remove and the Filed status
+*     are flex:0 0 auto.
         |.rakFileRow>*\{flex:0 0 auto;min-width:0;\}| &&
-        |.rakFileRow>*:nth-child(2)\{flex:1 1 auto;\}| &&
+        |.rakFileRow>*:first-child\{flex:1 1 auto;\}| &&
 *     display:block is required - text-overflow does nothing on an inline box,
 *     and sap.m.Link renders an inline <a>.
         |.rakFileName,.rakFileName .sapMLnkText\{display:block;max-width:100%;| &&
@@ -675,7 +1259,41 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
 *       method able to make a LEGACY journey stop matching the legacy screens.
         COND string( WHEN lv_legacy = abap_true THEN ``
           ELSE |.sapUiBody,.sapUiBody *:not(.sapUiIcon)| &&
-               |\{font-family:'Dubai','Tajawal','Almarai','Segoe UI',sans-serif!important;\}| ).
+               |\{font-family:'Dubai','Tajawal','Almarai','Segoe UI',sans-serif!important;\}| &&
+*              PUT BACK THE BOLD THE LINE ABOVE TAKES AWAY.
+*
+*              SAP's themes do not always reach bold through FONT-WEIGHT. A
+*              good deal of it is reached by naming a different FAMILY -
+*              '72-Bold' rather than '72' - and the rule above beats every
+*              one of those with !important while declaring no weight of its
+*              own. So an element bolded by weight keeps its bold and an
+*              element bolded by FACE loses it, silently, and only in Arabic:
+*              the Find Business Partner dialog's header is bold in English
+*              and not in Arabic, with nothing else different between them.
+*
+*              THE SELECTOR LIST IS SHORT ON PURPOSE, and every omission is
+*              deliberate rather than an oversight:
+*
+*                No bare .sapMTitle. PREMIUM already declares 800 on
+*                .rakHdrTitle and .rakHdr .sapMTitle, and a later !important
+*                at equal-or-higher specificity would DOWNGRADE the page
+*                header from 800 to 700. A :not( ) guard makes that worse,
+*                not better - :not( ) carries its argument's specificity, so
+*                the guarded rule would outrank the very rule it was written
+*                to spare. The dialog form below cannot collide: a dialog
+*                header is never inside .rakHdr.
+*
+*                No .sapMListTblHeaderCell. PREMIUM gives it font-weight 600,
+*                so it already survives the family swap - it has a weight of
+*                its own. Adding 700 here would restyle every Arabic table
+*                header to fix nothing.
+*
+*              What is left is the set with no weight anywhere to survive on.
+*              Arabic only, so no English journey moves; additive, so it can
+*              restore a bold and never remove one.
+               |.sapMDialogTitle,.sapMDialog .sapMIBar .sapMTitle,| &&
+               |.sapMPanelHdr,.sapMLabelBold,b,strong,th| &&
+               |\{font-weight:700!important;\}| ).
     ENDIF.
 
 *   Rewriting innerHTML on every render re-parses the whole sheet, which costs one
@@ -708,6 +1326,128 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
     IF lv_legacy = abap_false AND g-theme_id = 'LEGACY'.
       lv_css = lv_css && legacy_chrome( ).
     ENDIF.
+
+*   ---- R15-1. A BLOCK NESTED IN A CARD DOES NOT REPEAT THE CARD --------
+*   A grid, an upload or a search started about thirty pixels right of the
+*   scalar fields under it on the same card, and the arithmetic is theirs
+*   and correct: RENDER_BLOCK( ) wraps every block type in
+*   vbox( class = 'rakSearch' ), so its box starts at the card's own
+*   14px of padding PLUS .rakSearch's side margin. Two blocks of one form
+*   with two left edges, and the eye reads the grid as belonging to
+*   something else.
+*
+*   ONE NESTED RULE, APPENDED ONCE, RATHER THAN EDITING THE VARIANTS.
+*   .rakSearch is defined SIX times - five theme variants in this method
+*   and a sixth in LEGACY_CHROME( ) - with three different side margins
+*   between them. Editing them individually is how the reporters' own
+*   warning comes true: they asked us not to leave one variant's inset
+*   different from the others, and six hand-edits is exactly the shape
+*   that leaves one behind. This cannot: `.rakCard .rakSearch` is two
+*   classes against one, so it outranks every variant on SPECIFICITY and
+*   wins regardless of source order or which branch ran.
+*
+*   OUTER EDGE TO OUTER EDGE, and worth being exact about because their
+*   preferred shape does not quite do what it says. Dropping the side
+*   margin aligns the block's BOX with the SimpleForm's box. The block's
+*   CONTENT still sits its own padding further in - about 13 of the 30
+*   pixels - because it is a bordered container and that is what the
+*   border is for. Removing the padding too would align the text and
+*   leave the border hugging it, which is worse. So this is the honest
+*   half of the fix, not the whole 30px.
+*
+*   THE SHADOW GOES, THE BORDER AND GROUND STAY. A box-shadow exists to
+*   lift a card off the page; nested inside another card it has nothing
+*   to lift off and is the main reason the second panel reads as a panel.
+*   The border and background are what make a block legible AS a block,
+*   which the reporters said they wanted kept where it is.
+*
+*   THIS MOVES EVERY JOURNEY THAT HAS A GRID, AN UPLOAD OR A SEARCH ON A
+*   STEP - it is a correction, not a preference, so it is not behind a
+*   flag. A column would have meant every journey keeping a
+*   misalignment until somebody set it, and a new column nobody sets is
+*   the PINNED shape this project has already retired once.
+    lv_css = lv_css &&
+      |.rakCard .rakSearch\{margin-left:0;margin-right:0;box-shadow:none;\}|.
+
+*   ---- THE ATTACHMENT BOX. ONE SHAPE FOR BOTH STATES ------------------
+*   An uploader has two states - a picker before a file is staged and a
+*   filed row after - and they are swapped on a round trip that repaints the
+*   whole page. While they were different heights, everything below the
+*   control moved on every upload, and four separate pieces of JavaScript
+*   existed to drag the viewport back. They are all gone; this is what
+*   replaced them.
+*
+*   MIN-HEIGHT IS THE WHOLE MECHANISM. Both states draw .rakAttBox, both are
+*   2.75rem tall whatever they contain, so the swap changes nothing about
+*   the layout and there is nothing to restore. The type-and-size hint now
+*   sits INSIDE the box for the same reason - as a sibling line underneath,
+*   it disappeared with the picker and took its own height with it.
+*
+*   APPENDED HERE, LAST, for the reason argued on .rakCard .rakSearch above:
+*   .rakUp and .rakFileRow are already styled in five theme variants and in
+*   LEGACY_CHROME( ), and editing six places is how one gets left behind.
+*   This block is emitted after all of them, so it wins on source order
+*   without having to out-specify anything.
+*
+*   22REM MATCHES the cap .rakUp input[type=file] already carries, so a
+*   boxed picker is the width an unboxed one was.
+    lv_css = lv_css &&
+      |.rakAttBox\{display:flex;align-items:center;gap:.6rem;box-sizing:border-box;| &&
+      |width:100%;max-width:22rem;min-height:2.75rem;padding:0 0 0 .75rem;| &&
+      |background:#fff;border:1px solid { g-line_clr };border-radius:4px;\}| &&
+*     THE PICKER. The box IS the label, so the whole of it is the click
+*     target - the clip, the words, and the empty space between them.
+      |.rakAttPick\{cursor:pointer;\}| &&
+*     The native file input has to stay in the DOM and stay scriptable (the
+*     onchange FileReader is the only channel a file arrives on), so it is
+*     hidden the way .rakHide hides the bridge controls rather than with
+*     display:none, which would stop it firing.
+      |.rakAttPick>input[type=file]\{position:absolute!important;width:1px!important;| &&
+      |height:1px!important;opacity:0!important;overflow:hidden;border:0!important;| &&
+      |padding:0!important;\}| &&
+*     The placeholder occupies the column the filename occupies when there is
+*     one, and truncates the same way, so the two states line up exactly.
+      |.rakAttPh\{flex:1 1 auto;min-width:0;color:#8a93a2;overflow:hidden;| &&
+      |text-overflow:ellipsis;white-space:nowrap;\}| &&
+*     The clip sits where the trash sits, behind the same divider, full box
+*     height so the two states have the same vertical rule in the same place.
+      |.rakAttPin\{flex:0 0 auto;display:flex;align-items:center;align-self:stretch;| &&
+      |padding:0 .55rem;color:#5b6474;border-inline-start:1px solid { g-line_clr };\}| &&
+      |.rakAttPick:hover .rakAttPin\{color:{ b };\}| &&
+*     The divider in front of the delete button, which is what makes the
+*     trash read as an action ON the row rather than another item in it. On
+*     the button's own class, not on the row's last child: a FILED row ends
+*     with a status badge and a divider in front of that would promise an
+*     action that is not there.
+*
+*     ALIGN-SELF:STRETCH SO IT MATCHES THE CLIP'S. Both states draw a full
+*     box-height rule in the same place; a button-height one would sit
+*     short and the two states would stop being the same shape.
+      |.rakAttBox .rakAttDel\{align-self:stretch;display:flex;align-items:center;| &&
+      |border-inline-start:1px solid { g-line_clr };border-radius:0;\}| &&
+*     A transparent sap.m.Button carries its own margins; inside a 2.75rem box
+*     they push the row taller than the picker's.
+      |.rakFileRow.rakAttBox .sapMBtn\{margin:0;\}| &&
+
+*     ---- SPACING IN A DIALOG, WHICH HAS NO FORM TO SUPPLY IT --------
+*     On the page RENDER_ATTACH( ) puts its label and its box inside a
+*     SimpleForm, and the form owns the vertical rhythm between one field
+*     and the next. A handler-drawn dialog does not: it stacks a label and
+*     an uploader as bare siblings in a vbox.rakCell (see D001's Documents
+*     block), so the box has whatever margin it declares and nothing else -
+*     which was none, leaving each row's label sitting against the box
+*     above it.
+*
+*     SCOPED TO THE DIALOG ON PURPOSE. The page's spacing is right and a
+*     margin here would change every journey's Documents step to fix
+*     something only dialogs have.
+*
+*     .sapMDialog IS THE ONE UI5 CLASS NAME THIS FILE RELIES ON, and it is
+*     the one that has been proven on screen - the dialog scroll restore in
+*     SEND_VIEW( ) finds its scroller inside .sapMDialog and works, after an
+*     earlier attempt at .sapMDialogScrollCont matched nothing and failed
+*     silently. Do not add a second guessed one beside it.
+      |.sapMDialog .rakAttBox\{margin:.15rem 0 .6rem;\}|.
 
     DATA lv_hash TYPE string.
     TRY.
@@ -812,9 +1552,9 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakRail\{flex:none;align-self:flex-start;position:sticky;top:0;\}| &&
       |.rakMain\{flex:1;min-width:0;\}| &&
 
-*     REQUIRED MARKER. Inline, not absolutely positioned - labels sit above their
-*     field now, so a positioned asterisk lands a card away from its text.
-      |.rakReq::after\{content:'*';color:#bb0000;font-weight:700;margin-inline-start:.2rem;\}| &&
+*     REQUIRED MARKER. Labels get theirs from the native sap.m.Label REQUIRED
+*     property, so there is no '.rakReq::after' rule - only the checkbox star,
+*     which is a real sibling control and not a label at all.
       |.rakReqStar\{color:#bb0000!important;font-weight:700;margin-inline-end:.15rem;\}| &&
 
 *     ROW AND CELL GRID. flex-wrap carries !important because sap.m.FlexBox writes
@@ -826,8 +1566,50 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakCard tr.sapMListTblRow:hover\{background:rgba(0,0,0,.025)!important;\}| &&
       |.rakCard th.sapMListTblHeaderCell\{letter-spacing:.02em;\}| &&
       |.rakRow\{flex-wrap:wrap!important;width:100%;gap:.75rem;\}| &&
-      |.rakRow>*\{flex:0 1 auto;min-width:0;max-width:100%;\}| &&
+*     THE SECOND DECLARATION OF THIS RULE, and the reason it is called out:
+*     it is indented six spaces where the other is indented eight, so a
+*     replace-all on the rule text changed one and left this one. The fix
+*     would then have worked on some themes and not others, which presents as
+*     intermittent - the most expensive shape of bug in this file. See the
+*     full reasoning at the other declaration.
+      |.rakRow>*\{flex:1 1 0;min-width:0;max-width:100%;\}| &&
+      |.rakRow .sapMInputBase,.rakRow .sapMSlt,| &&
+      |.rakRow .sapMComboBox\{width:100%;\}| &&
       |.rakCell\{min-width:0;gap:.25rem;\}| &&
+      |.rakCellFlow\{gap:.5rem;flex-wrap:wrap;\}| &&
+      |.rakCellFlow>*\{flex:0 0 auto;margin:0;\}| &&
+*     THE CONTROL YIELDS, THE BUTTON DOES NOT WRAP. Every child was
+*     flex:0 0 auto - nothing could shrink - and the row wraps, so the moment
+*     the control's width plus the button's width passed the cell the BUTTON
+*     dropped onto a second line. That made it depend on the button's LABEL:
+*     a field with a partner already picked reads "CHANGE witness 1" where an
+*     empty one reads "ADD witness 2", and the longer text was enough to tip
+*     it over. FLOW was set and honoured; the cell ran out of room and had no
+*     way to give any back.
+*
+*     The first child is the control - the label is redirected to its own vbox
+*     through MO_LBL_TGT and never enters this row. Letting it shrink
+*     (min-width:0 is what actually permits it; a flex item will not go below
+*     its content width without it) means the input gives up width and the
+*     button stays beside it. Wrap is KEPT as the last resort so a genuinely
+*     narrow screen still stacks instead of overflowing sideways.
+*
+*     IT WAS NOT THE STAGE. This block was "reverted by a stage-without-pull"
+*     three times - b7344b0, then again, and the note that used to sit here
+*     blamed abapGit both times and told the next person to pull before
+*     staging. That was the wrong diagnosis and it cost three rounds.
+*
+*     The comment lines above were indented, with the * in column 9. An ABAP
+*     full-line comment is only a comment when the * is in column 1; indented
+*     inside a chained string expression it is a multiplication operator, and
+*     the class does not compile. So it never activated, SAP never held it,
+*     and every full stage correctly wrote back a version without it. The
+*     symptom pointed at git the whole time and the cause was in the source.
+*
+*     Nothing else in this repository has an indented * comment - it was 40
+*     lines, all of them here. If this block goes missing again, check the
+*     syntax of THIS class before blaming the stage.
+      |.rakCellFlow>*:first-child\{flex:0 1 auto;min-width:0;\}| &&
       |.rakRowEq>*\{flex:1 1 0;\}| &&
       |.rakRowC2>*\{flex:0 0 calc((100% - .75rem)/2);\}| &&
       |.rakRowC3>*\{flex:0 0 calc((100% - 1.5rem)/3);\}| &&
@@ -838,11 +1620,13 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
       |.rakUpCell\{min-width:0;\}| &&
       |.rakUpCell .rakUp input[type=file]\{max-width:100%;\}| &&
 
-*     CHIP ROWS. nth-child(2) and not .rakFileName, for the same FlexBox wrapper
+*     CHIP ROWS. :first-child and not .rakFileName, for the same FlexBox wrapper
 *     reason as .rakRow>* above: the wrapper is what grows and what must shrink.
+*     First rather than second since the leading document icon was dropped -
+*     see the longer note on the same rule in BUILD_THEME_CSS( ).
       |.rakFileRow\{width:100%;min-width:0;gap:.15rem;\}| &&
       |.rakFileRow>*\{flex:0 0 auto;min-width:0;\}| &&
-      |.rakFileRow>*:nth-child(2)\{flex:1 1 auto;\}| &&
+      |.rakFileRow>*:first-child\{flex:1 1 auto;\}| &&
       |.rakFileName,.rakFileName .sapMLnkText\{display:block;max-width:100%;| &&
       |overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\}| &&
 

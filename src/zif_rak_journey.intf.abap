@@ -39,6 +39,118 @@ INTERFACE zif_rak_journey
       tech_name    TYPE string,
       hidden       TYPE abap_bool,
       readonly     TYPE abap_bool,
+*     FTYPE 'SELECT' only. sap.m.ComboBox (the engine's default there) is
+*     typable by design - fine for a long or growing list, pointless on a
+*     genuinely closed one, and a typed keyboard pop-up on a touch device
+*     for nothing a citizen can actually use. 'X' switches that one field
+*     to sap.m.Select instead; blank changes nothing, so no existing
+*     dropdown's type-ahead is affected until an author opts a field in.
+      closed_list  TYPE abap_bool,
+*     Suppress the Browse (partner search) button on a SEARCH control.
+*     Opt-IN, exactly like CLOSED_LIST above and for the same reason:
+*     blank leaves the button exactly where it is, so no journey already
+*     in SIT changes behaviour until an author sets it. Testers asked for
+*     it gone on seven EPDA services where the citizen searches by a
+*     formatted Emirates ID and the browse dialog is not part of the
+*     service; other journeys rely on it and keep it.
+      no_browse    TYPE abap_bool,
+
+*     ---- ROUND 13, the four that needed a column -----------------------
+*     Every one of these is blank on every journey that exists, and every
+*     branch that reads one falls through to exactly what it drew before.
+*
+*     TEXTALIGN on a DISPLAY paragraph. Begin / End / Center / Left /
+*     Right / Initial, validated by CSS_ALIGN( ) - the same validator the
+*     table column uses, so the two cannot drift into accepting different
+*     words. A DISPLAY is otherwise always flush to the reading edge,
+*     which is right for a note and wrong for anything a document centres.
+      text_align   TYPE string,
+
+*     The short unit a form puts AFTER an input - "days", "AED", "cm".
+*     sap.m.Input's own DESCRIPTION property. Not a label and not a
+*     placeholder: it stays visible beside the value the citizen typed.
+      descr        TYPE string,
+
+*     Rows on a TEXTAREA. Blank means 3, which is what the branch has
+*     always hardcoded, so an unset field is unchanged. Above 3 the box
+*     starts bigger; the control still scrolls beyond it.
+      ta_rows      TYPE i,
+
+*     R16-2. GROWING / GROWINGTHRESHOLD on the table this field draws:
+*     render this many rows and give the citizen a More button for the
+*     rest, instead of every row at once.
+*
+*     ZERO IS OFF, and off is what every field that has never been
+*     touched holds - so this changes nothing anywhere until an author
+*     sets it. That is the difference from R15-1, which was a correction
+*     and could not sit behind a column nobody sets: this one genuinely
+*     has a right answer per journey and no right answer for all of them.
+*
+*     WHY IT MATTERS MORE THAN PAGING USUALLY DOES. The alternative in
+*     the field today is a handler cap - JP1 renders 200 rows and tells
+*     the citizen "Only the first 200 judgments are shown" - and a cap
+*     that truncates is a wrong answer presented as the whole answer.
+*     There is no route from that screen to the 201st row, which may be
+*     the one they came for. With a threshold the cap stops being a
+*     truncation the citizen is apologised to for and becomes a ceiling
+*     nobody reaches.
+      grow_thresh  TYPE i,
+
+*     Pop-in for the table this field draws - the responsive table's answer
+*     to a narrow screen, where a column becomes a labelled line inside its
+*     own row rather than a squeezed column.
+*
+*     OPT-IN, and that is deliberate rather than timid: turning pop-in on
+*     for every table would change what every existing journey looks like
+*     on a phone, which is the one thing this round was not allowed to do.
+*     The consumer said the same and did not ask for it as a default.
+      popin        TYPE abap_bool,
+      " Lay this field's cell out LEFT TO RIGHT, so whatever the handler
+      " draws from ON_RENDER_AFTER_FIELD( ) sits BESIDE the control rather
+      " than under it - a search or Add button, typically. Blank stacks,
+      " which is every field that exists today.
+      "
+      " It is the field-level twin of ZRAK_CJ_LAYOUT-FLOW, and it exists
+      " because that one is only reachable through the Design tab: a journey
+      " with no layout rows cannot set it at all, and adding one row to a
+      " step switches the whole step to the laid-out renderer. So a handler
+      " could put its button beside the field on a step somebody had laid
+      " out and not on the next step - the shape SECTION was broken in, and
+      " the shape the RAKC<NAME> note in the renderer warns about.
+      "
+      " THE TWO SOURCES ARE OR-ed, NOT RANKED, and that is a decision rather
+      " than an omission. A blank FLOW on a layout row cannot tell "off"
+      " apart from "never touched", so letting the layout row outrank the
+      " field would mean laying out a step silently switched off a flag the
+      " field had set. Either source turns flow on; neither turns it off.
+      " Forcing flow OFF from a layout row would need a three-valued column
+      " and is a different change.
+      flow         TYPE abap_bool,
+      " An explicit control width for THIS field, overriding the per-type
+      " default in ZCL_RAK_JOURNEY_UTIL=>CTRL_WIDTH( ). Blank falls through to
+      " that CASE, so a journey authored before this was read renders
+      " identically.
+      "
+      " It comes from ZRAK_T_JNY_FLD-WIDTH - an EXISTING column, not a new
+      " one. The Studio has always offered it and always saved it, and
+      " nothing has ever read it: the field editor said "Width (not applied
+      " yet)" in as many words. So there is no DDIC change and no table
+      " adjust behind this, and any width an author already typed starts
+      " taking effect the moment the loader is active. Worth knowing before
+      " assuming a blank screen means nothing was configured.
+      "
+      " Named CTRL_WIDTH here rather than WIDTH to keep it apart from the
+      " CELL width in ZRAK_CJ_LAYOUT, which sizes the box the control sits
+      " in. The two are separately authored and both real.
+      "
+      " Values are constrained to % and rem by ZCL_RAK_JOURNEY_UTIL=>
+      " CFG_WIDTH( ). A hard px width does not collapse on a phone and is the
+      " one way to break the responsive layout from configuration, so an
+      " authored px value is ignored rather than honoured - and, because it
+      " is ignored rather than merely unused, it also leaves the laid-out
+      " cell's 100% in place instead of silently narrowing the control to its
+      " type default.
+      ctrl_width   TYPE string,
       options      TYPE tt_option,
       validation   TYPE ty_validation,
     END OF ty_field,
@@ -64,6 +176,22 @@ INTERFACE zif_rak_journey
       " not have to learn a new special case each time.
       next_req    TYPE string,
       no_forward  TYPE abap_bool,
+      " The step declines the footer's primary action. RENDER_FOOTER( ) draws
+      " Back and the message strip and nothing else - no Next, no Submit, no
+      " Close. Blank is today's behaviour, so no existing step moves.
+      "
+      " It exists because the footer was a three-way choice with no fourth
+      " value: linear-and-not-last gives Next, NO_SUBMIT gives Close, and
+      " everything else gives Submit. A step that is answered by picking a row
+      " rather than by pressing anything had no way to say so, and ended up
+      " with a Close button that abandons a journey the citizen has not
+      " started.
+      "
+      " Step-level rather than journey-level deliberately: a search step wants
+      " this and the terminal read-only step that follows it does not - Close
+      " is the right button there. One flag per step can say that; a
+      " journey-wide switch cannot.
+      no_action   TYPE abap_bool,
       fields      TYPE tt_field,
     END OF ty_step,
     tt_step TYPE STANDARD TABLE OF ty_step WITH EMPTY KEY.
@@ -116,6 +244,12 @@ INTERFACE zif_rak_journey
       title         TYPE string,
       cj_type       TYPE string,
       handler_class TYPE string,
+*     Who persists an unfinished application, and who persists its files.
+*     ZIF_RAK_JOURNEY=>C_MODE holds the four answers; blank means the engine
+*     derives one from the backend, which is what RESOLVE_DRAFT_MODE( ) and
+*     RESOLVE_ATTACH_MODE( ) do.
+      draft_mode    TYPE string,
+      attach_mode   TYPE string,
       theme         TYPE ty_theme,
       backend       TYPE ty_backend,
       steps         TYPE tt_step,
@@ -127,6 +261,16 @@ INTERFACE zif_rak_journey
     BEGIN OF ty_table,
       columns TYPE tt_string,
       rows    TYPE STANDARD TABLE OF tt_string WITH EMPTY KEY,
+"     R18-2. HOW MANY ROWS EXIST, not how many are in ROWS. Only the
+"     handler knows it, and the pager cannot say "showing 501-600 of
+"     2,431" without it.
+"
+"     ZERO MEANS THE HANDLER DID NOT SAY, and that is a legitimate answer
+"     rather than an error: a handler that fills COLUMNS and ROWS by name
+"     and ignores this leaves it at zero, and the pager falls back to
+"     Previous / Next with no count. Adding the component is therefore
+"     source-compatible with all 32 GET_TABLE( ) implementations.
+      total   TYPE i,
     END OF ty_table.
   TYPES:
     BEGIN OF ty_attach,
@@ -142,10 +286,106 @@ INTERFACE zif_rak_journey
     tt_kv TYPE STANDARD TABLE OF ty_kv WITH EMPTY KEY.
   TYPES:
     BEGIN OF ty_msg,
-      type TYPE string,
-      text TYPE string,
+      type  TYPE string,
+      text  TYPE string,
+*     Optional. Blank behaves exactly as before - a strip message only. Set
+*     it to a field name and ON_CUSTOM_VALIDATE's own message gets the same
+*     red-border-plus-tooltip treatment every built-in check already gives
+*     itself, instead of leaving the citizen to find the field by reading.
+*     VALIDATE_STEP is what acts on it - see ZCL_RAK_JOURNEY_RULES.
+*
+*     A grid cell, not a scalar field, takes '<grid_field>.<col>#<row>' -
+*     the same compound shape ON_CUSTOM_VALIDATE's own IO_CTX already
+*     hands a handler for a grid change (ON_CHANGE's IV_FIELD, built from
+*     the cell that fired it), so naming one to highlight needs no new
+*     syntax to learn. ROW is 1-based, matching the grid's own internal
+*     table - not the row's _UID.
+      field TYPE string,
     END OF ty_msg,
     tt_msg TYPE STANDARD TABLE OF ty_msg WITH EMPTY KEY.
+
+* ---------------------------------------------------------------------
+* DRAFT / ATTACHMENT OWNERSHIP
+*
+* Who persists an unfinished application, and who persists its files.
+* The two are the same question asked twice, and CJS has always answered
+* both implicitly - by whichever backend the journey happened to be on.
+* These make the answer explicit and independent of that choice.
+*
+*   DELEGATE  the backend owns it. CJS holds nothing: SAVE goes out as the
+*             backend's own draft call, resume comes back through
+*             ZIF_RAK_JOURNEY_BACKEND~RESUME( ), and the list of drafts is
+*             the backend's list. This is what a journey on the /QNV/
+*             bridge or the D0xx BAdI does today.
+*   NATIVE    CJS owns it. The engine stages the model itself and can
+*             answer GET_DRAFTS( ) without asking anyone.
+*   OFF       no draft at all. Save-as-Draft is not offered, and the SAVE
+*             event is refused if it arrives anyway - hiding the button in
+*             the renderer does not make BTN_EVT( 'SAVE' ) unreachable.
+*   ''        unset. The journey configuration decides, and failing that
+*             the engine keeps its present behaviour.
+*
+* A journey may mix them: DELEGATE the draft while attachments stay
+* NATIVE is the normal shape whenever a backend has no file endpoint yet.
+* ---------------------------------------------------------------------
+  CONSTANTS:
+    BEGIN OF c_mode,
+      config   TYPE string VALUE '',
+      delegate TYPE string VALUE 'DELEGATE',
+      native   TYPE string VALUE 'NATIVE',
+      off      TYPE string VALUE 'OFF',
+    END OF c_mode.
+
+* ---------------------------------------------------------------------
+* One draft, as the framework describes it to a list.
+*
+* PARTNER is the BP the draft belongs to. ON_BEHALF is filled only when a
+* role-BP created it for someone else - an agent acting for a company -
+* and is what separates "my drafts" from "drafts I am allowed to open".
+* A native store that cannot fill these two cannot answer a by-BP query,
+* which is the whole point of GET_DRAFTS( ). ZRAK_T_BE_LOC keys on
+* CREATED_BY (SY-UNAME) today, and so cannot.
+* ---------------------------------------------------------------------
+  TYPES:
+    BEGIN OF ty_draft,
+      draft_id   TYPE string,
+      journey_id TYPE string,
+      title      TYPE string,
+      title_ar   TYPE string,
+      step       TYPE i,
+      partner    TYPE string,
+      on_behalf  TYPE string,
+      status     TYPE string,
+      created_by TYPE xubname,
+      created_at TYPE timestamp,
+      changed_at TYPE timestamp,
+    END OF ty_draft,
+    tt_draft TYPE STANDARD TABLE OF ty_draft WITH EMPTY KEY.
+
+* ---------------------------------------------------------------------
+* RETENTION
+*
+* What becomes of a draft, and of a staged file, that nobody came back
+* for. Both leak today: ZRAK_CJ_ATTX grows until someone runs the purge
+* report by hand, and a NATIVE draft store would grow the same way.
+*
+* *_DAYS of 0 means "framework default", never "delete today". A zero
+* must not be readable as an instruction to purge everything.
+* ---------------------------------------------------------------------
+  CONSTANTS:
+    BEGIN OF c_retain,
+      keep    TYPE string VALUE '',
+      delete  TYPE string VALUE 'DELETE',
+      archive TYPE string VALUE 'ARCHIVE',
+    END OF c_retain.
+
+  TYPES:
+    BEGIN OF ty_retention,
+      draft_days    TYPE i,
+      draft_action  TYPE string,
+      attach_days   TYPE i,
+      attach_action TYPE string,
+    END OF ty_retention.
 
   METHODS get_val
     IMPORTING iv_name         TYPE string
@@ -159,6 +399,16 @@ INTERFACE zif_rak_journey
   METHODS add_msg
     IMPORTING iv_type TYPE string
               iv_text TYPE string.
+* The messages raised SO FAR on this round trip, in the order they were
+* added. Read-only - ADD_MSG is still the only way to raise one.
+*
+* It exists because RENDER_POPUP( ) does not draw them. A handler that
+* refuses an OK from ON_POPUP_EVENT( ) and leaves the dialog open puts its
+* warning on the STEP BEHIND a modal dialog, where the citizen cannot read
+* it: the dialog just declines to close for no stated reason. DIALOG_FORM( )
+* now reads this and repeats the pending strips inside the dialog itself.
+  METHODS msgs
+    RETURNING VALUE(rt_msg) TYPE tt_msg.
   METHODS get_step
     RETURNING VALUE(rv_step) TYPE i.
   METHODS get_config
@@ -275,6 +525,29 @@ INTERFACE zif_rak_journey
   " something a poll fired by a timer gets to decide. Submit stays a press.
   METHODS advance_step.
 
+  " The move OR the submit, whichever finishing actually means on this
+  " journey - and the only caller that should ever want that is a payment
+  " that has just confirmed.
+  "
+  " ADVANCE_STEP( ) above is right for D002, D011 and D012, where a
+  " Confirmation step follows Payment. It is a no-op on D001, where Payment
+  " IS the last step - so a citizen who had just paid was left looking at a
+  " Complete button, one press away from an application that never went in.
+  " That press is easy to miss and the fee is already taken.
+  "
+  " SO THE LAST STEP SUBMITS, AND ONLY ON SUCCESS. RV_OK is false when the
+  " submit was refused or the backend returned errors; the messages are on
+  " the page and the citizen stays exactly where they are, with Complete
+  " still there to press. Nothing is auto-confirmed on a failure and no
+  " error is swallowed by a timer.
+  "
+  " This does NOT relax the rule at ADVANCE_STEP( ). Submitting is still not
+  " something a poll decides on its own - it is something a CONFIRMED
+  " PAYMENT decides, which is a definite event and not a tick of the clock.
+  " Call it from nowhere else.
+  METHODS finish_now
+    RETURNING VALUE(rv_ok) TYPE abap_bool.
+
   " ---- attachments already uploaded on this application -----------------
   " Every file the citizen has attached, with its content, in the shape the
   " D0xx BAdI expects. Use it when your handler creates the case itself - in
@@ -323,6 +596,32 @@ INTERFACE zif_rak_journey
     IMPORTING io_view  TYPE REF TO z2ui5_cl_xml_view
               iv_field TYPE string
               iv_key   TYPE string OPTIONAL.
+
+  " Move every file staged under one key to another, for one field or for all
+  " of them. Answers how many rows moved, so a caller can tell "nothing to do"
+  " from "did not match".
+  "
+  " WHY THIS HAS TO EXIST. The note above says to key an uploader on something
+  " stable, and a dialog that adds a NEW subject has nothing stable yet - the
+  " partner number arrives from a search that may not have run, and the row it
+  " will live in does not exist. So a dialog mints a temporary id, keys its
+  " uploads on that, and only learns the real key when the row is saved.
+  "
+  " Without this, those two keys never meet again: the files sit in staging
+  " under the temporary id while every later read asks for the real one. They
+  " still post, and they still satisfy a required check that tests the field
+  " alone - so nothing fails, the chips are simply empty, and the citizen
+  " attaches the document a second time. D001's owner dialog is exactly that
+  " shape: it mints a TIMESTAMP on Add and looks the row up by PARTNER on
+  " Edit.
+  "
+  " Call it once, where the real key becomes known - the save - and not on
+  " every render.
+  METHODS rekey_attachments
+    IMPORTING iv_from        TYPE string
+              iv_to          TYPE string
+              iv_field       TYPE string OPTIONAL
+    RETURNING VALUE(rv_moved) TYPE i.
 
   METHODS get_attachment_files
     RETURNING VALUE(rt) TYPE /qnv/sbuild_attachments_tt.
@@ -379,15 +678,29 @@ INTERFACE zif_rak_journey
   "
   " Safe to call from any hook. They are read at render time, so setting one in
   " on_init, on_change or on_custom_validate all work.
+  "
+  " IV_STEP limits the override to ONE step, counted from zero the same way
+  " get_step( ) counts. Leave it out and the override applies to every step -
+  " what it has always done, and what every existing caller keeps getting.
+  "
+  " Pass it when the field name is not unique across the journey. A migrated
+  " legacy screen set repeats its names per screen, so the same FIELD_NAME can
+  " sit on several steps; hiding it then hides all of them, and a REQUIRED
+  " field the citizen cannot see is a form that will not submit and does not
+  " say why. Renaming is not the alternative - backend field control is keyed
+  " on the legacy FIELD_NAME end to end.
   METHODS set_hidden
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   METHODS set_required
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   METHODS set_readonly
     IMPORTING iv_field TYPE string
-              iv_on    TYPE abap_bool DEFAULT abap_true.
+              iv_on    TYPE abap_bool DEFAULT abap_true
+              iv_step  TYPE i DEFAULT -1.
   " Blank field clears every override on every field.
   METHODS clear_props
     IMPORTING iv_field TYPE string OPTIONAL.

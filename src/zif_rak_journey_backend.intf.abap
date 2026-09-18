@@ -74,6 +74,15 @@ INTERFACE zif_rak_journey_backend
 * model is built from configured fields, and build_model( ) runs before
 * the handler's on_init( ).
 *
+* The merge is not a one-shot at launch. MAIN( ) merges and rebuilds on
+* every round trip, because a step can only be described once the citizen
+* has made the choice that decides it - the Notary declaration is picked
+* on step 1 and the business object step follows from it. Returning a
+* different set of fields on a later call is therefore expected, and
+* build_model( ) carries existing values across so the rebuild is cheap
+* and non-destructive. Return the same names for the same state and the
+* values stay put.
+*
 * A backend with no dynamic steps returns an empty table.
 * ---------------------------------------------------------------------
   TYPES: BEGIN OF ty_dyn_opt,
@@ -89,6 +98,11 @@ INTERFACE zif_rak_journey_backend
            type     TYPE string,       " INPUT / SELECT / DATE / NUMBER / TEXTAREA
            required TYPE abap_bool,
            max_len  TYPE i,
+*          Pattern the backend wants the value to match. The Notary blueprint ships
+*          one per business field alongside the label and the choices, and
+*          ZCL_RAK_JOURNEY_RULES already enforces VALIDATION-REGEX - there was just
+*          nothing carrying it from one to the other.
+           regex    TYPE string,
            options  TYPE tt_dyn_opt,
          END OF ty_dyn_field,
          tt_dyn_field TYPE STANDARD TABLE OF ty_dyn_field WITH EMPTY KEY.
@@ -99,8 +113,16 @@ INTERFACE zif_rak_journey_backend
 
 * Describe a step whose fields are not configured. iv_step is the step's
 * bknd_screen. Returning an empty table means "this step is not dynamic".
+*
+* it_fields is the engine's flattened model, the same shape every other
+* backend call gets. It is here because DESCRIBE_STEP( ) runs before every
+* handler hook - deliberately, see above - and the Notary declaration is
+* chosen by the citizen at runtime. Without it the backend has a step name
+* and nothing else, cannot know which blueprint to fetch, and every dynamic
+* step comes back empty. Optional: a backend that does not need it ignores it.
   METHODS describe_step
     IMPORTING iv_step          TYPE string
+              it_fields        TYPE tt_field OPTIONAL
     RETURNING VALUE(rt_fields) TYPE tt_dyn_field.
 
 * Create the request. Called once, on the first committing step.

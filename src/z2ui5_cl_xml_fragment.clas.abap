@@ -26,11 +26,18 @@ public section.
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CONSTRUCTOR .
-*" NOTE: Generated from OpenUI5 source metadata.
-*"   - Assumes an existing protected method _generic( name ns t_prop ) TYPE REF TO z2ui5_cl_xml_fragment
-*"   - PREFERRED PARAMETER chosen heuristically (text/value/title/key/src/html, else control's own first property) -
-*"     UI5 no longer declares defaultProperty in source, so this is NOT framework-verified, just a sensible default.
-*"   - ns for sap.ui.core controls assumed to be 'core' - not present in the user-supplied ns table, please confirm.
+  methods _GENERIC
+    importing
+      !NAME type CLIKE
+      !NS type CLIKE optional
+      !T_PROP type Z2UI5_IF_TYPES=>TY_T_NAME_VALUE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods _CC_PLAIN_XML
+    importing
+      !VAL type CLIKE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods F_AVATAR
     importing
       !ACTIVE type CLIKE optional
@@ -130,6 +137,39 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter SRC
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CALENDAR_APPOINTMENT_IN_CARD
+    importing
+      !ARIAHASPOPUP type CLIKE optional
+      !CLASS type CLIKE optional
+      !CLICKABLE type CLIKE optional
+      !COLOR type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENDDATE type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SECONDARYTYPE type CLIKE optional
+      !SELECTED type CLIKE optional
+      !STARTDATE type CLIKE optional
+      !TENTATIVE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TITLE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMCONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CALENDAR_IN_CARD
@@ -277,6 +317,32 @@ public section.
     preferred parameter BACKGROUNDDESIGN
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DYNAMIC_PAGE_ACCESSIBLE_LANDMA
+    importing
+      !CLASS type CLIKE optional
+      !CONTENTLABEL type CLIKE optional
+      !CONTENTROLE type CLIKE optional
+      !FOOTERLABEL type CLIKE optional
+      !FOOTERROLE type CLIKE optional
+      !HEADERCONTENTLABEL type CLIKE optional
+      !HEADERLABEL type CLIKE optional
+      !HEADERROLE type CLIKE optional
+      !ID type CLIKE optional
+      !ROOTLABEL type CLIKE optional
+      !ROOTROLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CONTENTLABEL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DYNAMIC_PAGE_HEADER
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -351,7 +417,7 @@ public section.
       !BUSYINDICATORDELAY type CLIKE optional
       !BUSYINDICATORSIZE type CLIKE optional
       !CLASS type CLIKE optional
-      !DEFAULTTRANSITIONNAMEBEGINCOL type CLIKE optional
+      !DEFAULTTRANSITIONNAMEBEGINCOLU type CLIKE optional
       !DEFAULTTRANSITIONNAMEENDCOLUMN type CLIKE optional
       !DEFAULTTRANSITIONNAMEMIDCOLUMN type CLIKE optional
       !FIELDGROUPIDS type CLIKE optional
@@ -384,6 +450,95 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter AUTOFOCUS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLEXIBLE_COLUMN_LAYOUT_ACCESSI
+    importing
+      !CLASS type CLIKE optional
+      !FIRSTCOLUMNBACKARROWLABEL type CLIKE optional
+      !FIRSTCOLUMNLABEL type CLIKE optional
+      !ID type CLIKE optional
+      !LASTCOLUMNFORWARDARROWLABEL type CLIKE optional
+      !LASTCOLUMNLABEL type CLIKE optional
+      !MIDDLECOLUMNBACKARROWLABEL type CLIKE optional
+      !MIDDLECOLUMNFORWARDARROWLABEL type CLIKE optional
+      !MIDDLECOLUMNLABEL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FIRSTCOLUMNBACKARROWLABEL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLEXIBLE_COLUMN_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DESKTOPLAYOUTDATA type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TABLETLAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLEXIBLE_COLUMN_LAYOUT_DATA_FO
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !THREECOLUMNSBEGINEXPANDEDENDHI type CLIKE optional
+      !THREECOLUMNSENDEXPANDED type CLIKE optional
+      !THREECOLUMNSMIDEXPANDED type CLIKE optional
+      !THREECOLUMNSMIDEXPANDEDENDHIDD type CLIKE optional
+      !TWOCOLUMNSBEGINEXPANDED type CLIKE optional
+      !TWOCOLUMNSMIDEXPANDED type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter THREECOLUMNSBEGINEXPANDEDENDHI
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLEXIBLE_COLUMN_LAYOUT_DATA_F1
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !THREECOLUMNSBEGINEXPANDEDENDHI type CLIKE optional
+      !THREECOLUMNSENDEXPANDED type CLIKE optional
+      !THREECOLUMNSMIDEXPANDED type CLIKE optional
+      !THREECOLUMNSMIDEXPANDEDENDHIDD type CLIKE optional
+      !TWOCOLUMNSBEGINEXPANDED type CLIKE optional
+      !TWOCOLUMNSMIDEXPANDED type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter THREECOLUMNSBEGINEXPANDEDENDHI
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods GRID_CONTAINER
@@ -424,6 +579,26 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ALLOWDENSEFILL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GRID_CONTAINER_ITEM_LAYOUT_DAT
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNS type CLIKE optional
+      !ID type CLIKE optional
+      !MINROWS type CLIKE optional
+      !ROWS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COLUMNS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods GRID_LIST
@@ -578,7 +753,7 @@ public section.
       !CLASS type CLIKE optional
       !DECORATIVE type CLIKE optional
       !DESCRIPTION type CLIKE optional
-      !ENABLEDEFAULTTITLEANDDESC type CLIKE optional
+      !ENABLEDEFAULTTITLEANDDESCRIPTI type CLIKE optional
       !ENABLEFORMATTEDTEXT type CLIKE optional
       !ENABLEVERTICALRESPONSIVENESS type CLIKE optional
       !FIELDGROUPIDS type CLIKE optional
@@ -631,7 +806,7 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods PLANNING_CALENDAR_IN_CARD_LEG
+  methods PLANNING_CALENDAR_IN_CARD_LEGE
     importing
       !APPOINTMENTITEMSHEADER type CLIKE optional
       !BLOCKED type CLIKE optional
@@ -718,6 +893,32 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEARCH_MANAGER
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ENABLESUGGESTIONS type CLIKE optional
+      !ID type CLIKE optional
+      !MAXLENGTH type CLIKE optional
+      !PLACEHOLDER type CLIKE optional
+      !VALUE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !SUGGESTIONITEMS type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !LIVECHANGE type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SEARCH type CLIKE optional
+      !SUGGEST type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SHELL_BAR
     importing
       !BLOCKED type CLIKE optional
@@ -799,6 +1000,30 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ACTIONBAREXPANDED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SIDE_PANEL_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TITLE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods BASE_HEADER
@@ -1235,6 +1460,370 @@ public section.
     preferred parameter ITEM
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_ADD_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CLOSE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COPY_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_DELETE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_DISCUSS_IN_JAM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_EDIT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods EXIT_FULL_SCREEN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_FAVORITE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_FLAG_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FOOTER_MAIN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FULL_SCREEN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_MAIN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_MESSAGES_INDICATOR
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_NEGATIVE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_POSITIVE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_PRINT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SEMANTIC_BUTTON
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SEMANTIC_CONTROL
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VISIBLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods F_SEMANTIC_PAGE
     importing
       !BLOCKED type CLIKE optional
@@ -1301,6 +1890,108 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter FITCONTENT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SEMANTIC_TOGGLE_BUTTON
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SEND_EMAIL_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SEND_MESSAGE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods F_SHARE_IN_JAM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TITLE_MAIN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CO_PILOT
@@ -2113,6 +2804,39 @@ public section.
     preferred parameter COLORS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COLUMN
+    importing
+      !AUTOPOPINWIDTH type CLIKE optional
+      !CLASS type CLIKE optional
+      !DEMANDPOPIN type CLIKE optional
+      !HALIGN type CLIKE optional
+      !ID type CLIKE optional
+      !IMPORTANCE type CLIKE optional
+      !MERGEDUPLICATES type CLIKE optional
+      !MERGEFUNCTIONNAME type CLIKE optional
+      !MINSCREENWIDTH type CLIKE optional
+      !POPINDISPLAY type CLIKE optional
+      !POPINHALIGN type CLIKE optional
+      !SORTINDICATOR type CLIKE optional
+      !STYLECLASS type CLIKE optional
+      !VALIGN type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !FOOTER type CLIKE optional
+      !HEADER type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter AUTOPOPINWIDTH
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods COLUMN_LIST_ITEM
     importing
       !BLOCKED type CLIKE optional
@@ -2285,6 +3009,27 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CONTENT_CONFIG
+    importing
+      !ACCESSIBLEROLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !HREF type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CUSTOM_LIST_ITEM
@@ -2795,6 +3540,25 @@ public section.
     preferred parameter MINDISPLAYTIME
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DYNAMIC_DATE_OPTION
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !VALUETYPES type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DYNAMIC_DATE_RANGE
     importing
       !BLOCKED type CLIKE optional
@@ -2887,6 +3651,28 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DYNAMIC_DATE_VALUE_HELP_UI_TYP
+    importing
+      !ADDITIONALTEXT type CLIKE optional
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !INCLUDED type CLIKE optional
+      !OPTIONS type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods EXPANDABLE_TEXT
@@ -3205,6 +3991,29 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FEED_LIST_ITEM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FLEX_BOX
     importing
       !ALIGNCONTENT type CLIKE optional
@@ -3242,6 +4051,34 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ALIGNCONTENT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLEX_ITEM_DATA
+    importing
+      !ALIGNSELF type CLIKE optional
+      !BACKGROUNDDESIGN type CLIKE optional
+      !BASESIZE type CLIKE optional
+      !CLASS type CLIKE optional
+      !GROWFACTOR type CLIKE optional
+      !ID type CLIKE optional
+      !MAXHEIGHT type CLIKE optional
+      !MAXWIDTH type CLIKE optional
+      !MINHEIGHT type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !ORDER type CLIKE optional
+      !SHRINKFACTOR type CLIKE optional
+      !STYLECLASS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ALIGNSELF
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FORMATTED_TEXT
@@ -3555,7 +4392,7 @@ public section.
     preferred parameter BACKGROUNDDESIGN
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods HEADER_CONTAINER_ITEM_CONT
+  methods HEADER_CONTAINER_ITEM_CONTAINE
     importing
       !ARIALABELLEDBY type CLIKE optional
       !BLOCKED type CLIKE optional
@@ -3653,7 +4490,38 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ICON_TAB_FILTER_EXPAND_BUTTONB
+  methods ICON_TAB_FILTER
+    importing
+      !CLASS type CLIKE optional
+      !COUNT type CLIKE optional
+      !DESIGN type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ICONCOLOR type CLIKE optional
+      !ICONDENSITYAWARE type CLIKE optional
+      !ID type CLIKE optional
+      !INTERACTIONMODE type CLIKE optional
+      !KEY type CLIKE optional
+      !SHOWALL type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ICON_TAB_FILTER_EXPAND_BUTTON_
     importing
       !BLOCKED type CLIKE optional
       !BUSY type CLIKE optional
@@ -3713,6 +4581,26 @@ public section.
     preferred parameter ARIATEXTS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ICON_TAB_SEPARATOR
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ICONDENSITYAWARE type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ILLUSTRATED_MESSAGE
     importing
       !ARIATITLELEVEL type CLIKE optional
@@ -3723,7 +4611,7 @@ public section.
       !CLASS type CLIKE optional
       !DECORATIVE type CLIKE optional
       !DESCRIPTION type CLIKE optional
-      !ENABLEDEFAULTTITLEANDDESCR type CLIKE optional
+      !ENABLEDEFAULTTITLEANDDESCRIPTI type CLIKE optional
       !ENABLEFORMATTEDTEXT type CLIKE optional
       !ENABLEVERTICALRESPONSIVENESS type CLIKE optional
       !FIELDGROUPIDS type CLIKE optional
@@ -4052,6 +4940,27 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LIGHT_BOX_ITEM
+    importing
+      !ALT type CLIKE optional
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !IMAGESRC type CLIKE optional
+      !SUBTITLE type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods LINK
     importing
       !ACCESSIBLEROLE type CLIKE optional
@@ -4093,6 +5002,27 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LINK_TILE_CONTENT
+    importing
+      !CLASS type CLIKE optional
+      !ICONSRC type CLIKE optional
+      !ID type CLIKE optional
+      !LINKHREF type CLIKE optional
+      !LINKTEXT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !LINKPRESS type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICONSRC
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods LIST
@@ -4230,6 +5160,47 @@ public section.
     preferred parameter ENABLEBUSYINDICATOR
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LIST_ITEM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LIST_ITEM_ACTION_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods LIST_ITEM_BASE
     importing
       !BLOCKED type CLIKE optional
@@ -4308,6 +5279,25 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MASK_INPUT_RULE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !MASKFORMATSYMBOL type CLIKE optional
+      !REGEX type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter MASKFORMATSYMBOL
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MENU
@@ -4413,6 +5403,25 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MENU_ITEM_GROUP
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !ITEMSELECTIONMODE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ITEMSELECTIONMODE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MENU_LIST_ITEM
     importing
       !BLOCKED type CLIKE optional
@@ -4484,6 +5493,37 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MESSAGE_ITEM
+    importing
+      !ACTIVETITLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !COUNTER type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENABLED type CLIKE optional
+      !GROUPNAME type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LONGTEXTURL type CLIKE optional
+      !MARKUPDESCRIPTION type CLIKE optional
+      !SUBTITLE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !TITLE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !LINK type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MESSAGE_LIST_ITEM
@@ -4620,6 +5660,37 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ASYNCDESCRIPTIONHANDLER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MESSAGE_POPOVER_ITEM
+    importing
+      !ACTIVETITLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !COUNTER type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENABLED type CLIKE optional
+      !GROUPNAME type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LONGTEXTURL type CLIKE optional
+      !MARKUPDESCRIPTION type CLIKE optional
+      !SUBTITLE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !TITLE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !LINK type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MESSAGE_STRIP
@@ -5592,6 +6663,31 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OVERFLOW_TOOLBAR_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !CLOSEOVERFLOWONINTERACTION type CLIKE optional
+      !GROUP type CLIKE optional
+      !ID type CLIKE optional
+      !MAXWIDTH type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !MOVETOOVERFLOW type CLIKE optional
+      !PRIORITY type CLIKE optional
+      !SHRINKABLE type CLIKE optional
+      !STAYINOVERFLOW type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLOSEOVERFLOWONINTERACTION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods OVERFLOW_TOOLBAR_MENU_BUTTON
     importing
       !ACTIVEICON type CLIKE optional
@@ -5706,6 +6802,58 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter LABELTEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_ANY_FILTER_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXCLUDE type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !OPERATION type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VALUE1 type CLIKE optional
+      !VALUE2 type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_COLUMNS_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !INDEX type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !TOTAL type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_COLUMNS_PANEL
@@ -5843,6 +6991,31 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_DIM_MEASURE_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !INDEX type CLIKE optional
+      !KEY type CLIKE optional
+      !ROLE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_DIM_MEASURE_PANEL
     importing
       !BLOCKED type CLIKE optional
@@ -5879,6 +7052,32 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_FILTER_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXCLUDE type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !OPERATION type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VALUE1 type CLIKE optional
+      !VALUE2 type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_FILTER_PANEL
@@ -5925,6 +7124,30 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_GROUP_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !OPERATION type CLIKE optional
+      !SHOWIFGROUPED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_GROUP_PANEL
     importing
       !BLOCKED type CLIKE optional
@@ -5965,6 +7188,42 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_ITEM
+    importing
+      !AGGREGATIONROLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !FORMATSETTINGS type CLIKE optional
+      !HREF type CLIKE optional
+      !ID type CLIKE optional
+      !ISDEFAULT type CLIKE optional
+      !MAXLENGTH type CLIKE optional
+      !NULLABLE type CLIKE optional
+      !PRECISION type CLIKE optional
+      !PRESS type CLIKE optional
+      !ROLE type CLIKE optional
+      !SCALE type CLIKE optional
+      !TARGET type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !TYPEINSTANCE type CLIKE optional
+      !VALUES type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_PANEL
     importing
       !BLOCKED type CLIKE optional
@@ -5996,6 +7255,29 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_SELECTION_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SELECTED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_SELECTION_PANEL
@@ -6031,6 +7313,29 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods P13N_SORT_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNKEY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !OPERATION type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods P13N_SORT_PANEL
@@ -6156,6 +7461,33 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PAGE_ACCESSIBLE_LANDMARK_INFO
+    importing
+      !CLASS type CLIKE optional
+      !CONTENTLABEL type CLIKE optional
+      !CONTENTROLE type CLIKE optional
+      !FOOTERLABEL type CLIKE optional
+      !FOOTERROLE type CLIKE optional
+      !HEADERLABEL type CLIKE optional
+      !HEADERROLE type CLIKE optional
+      !ID type CLIKE optional
+      !ROOTLABEL type CLIKE optional
+      !ROOTROLE type CLIKE optional
+      !SUBHEADERLABEL type CLIKE optional
+      !SUBHEADERROLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CONTENTLABEL
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods PAGING_BUTTON
@@ -6349,6 +7681,72 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter APPOINTMENTITEMSHEADER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PLANNING_CALENDAR_ROW
+    importing
+      !CLASS type CLIKE optional
+      !ENABLEAPPOINTMENTSCREATE type CLIKE optional
+      !ENABLEAPPOINTMENTSDRAGANDDROP type CLIKE optional
+      !ENABLEAPPOINTMENTSRESIZE type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !NOAPPOINTMENTSTEXT type CLIKE optional
+      !NONWORKINGDAYS type CLIKE optional
+      !NONWORKINGHOURS type CLIKE optional
+      !ROWHEADERDESCRIPTION type CLIKE optional
+      !SELECTED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TITLE type CLIKE optional
+      !APPOINTMENTS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !HEADERCONTENT type CLIKE optional
+      !INTERVALHEADERS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !NONWORKINGPERIODS type CLIKE optional
+      !SPECIALDATES type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !APPOINTMENTCREATE type CLIKE optional
+      !APPOINTMENTDRAGENTER type CLIKE optional
+      !APPOINTMENTDROP type CLIKE optional
+      !APPOINTMENTRESIZE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PLANNING_CALENDAR_VIEW
+    importing
+      !APPOINTMENTHEIGHT type CLIKE optional
+      !CLASS type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ID type CLIKE optional
+      !INTERVALLABELFORMATTER type CLIKE optional
+      !INTERVALSIZE type CLIKE optional
+      !INTERVALSL type CLIKE optional
+      !INTERVALSM type CLIKE optional
+      !INTERVALSS type CLIKE optional
+      !INTERVALTYPE type CLIKE optional
+      !KEY type CLIKE optional
+      !RELATIVE type CLIKE optional
+      !SHOWSUBINTERVALS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods POPOVER
@@ -6551,6 +7949,51 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter SHOWVERTICALSCROLLBAR
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_VIEW_GROUP
+    importing
+      !CLASS type CLIKE optional
+      !HEADING type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ELEMENTS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter HEADING
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_VIEW_GROUP_ELEMENT
+    importing
+      !CLASS type CLIKE optional
+      !EMAILSUBJECT type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !PAGELINKID type CLIKE optional
+      !TARGET type CLIKE optional
+      !TYPE type CLIKE optional
+      !URL type CLIKE optional
+      !VALUE type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods QUICK_VIEW_PAGE
@@ -6786,6 +8229,24 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RESPONSIVE_SCALE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !TICKMARKSBETWEENLABELS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TICKMARKSBETWEENLABELS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SCROLL_BAR
     importing
       !BLOCKED type CLIKE optional
@@ -6913,6 +8374,31 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter CONTENTMODE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEGMENTED_BUTTON_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SELECT
@@ -7105,6 +8591,48 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SELECTION_DETAILS_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLENAV type CLIKE optional
+      !ID type CLIKE optional
+      !ACTIONS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !LINES type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLENAV
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SELECTION_DETAILS_ITEM_LINE
+    importing
+      !CLASS type CLIKE optional
+      !DISPLAYVALUE type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !LINEMARKER type CLIKE optional
+      !UNIT type CLIKE optional
+      !VALUE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SELECTION_DETAILS_LIST_ITEM
     importing
       !BLOCKED type CLIKE optional
@@ -7259,6 +8787,27 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SINGLE_PLANNING_CALENDAR_DAY_V
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !FIRSTDAYOFWEEK type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SINGLE_PLANNING_CALENDAR_GRID
     importing
       !BLOCKED type CLIKE optional
@@ -7300,6 +8849,90 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter CALENDARWEEKNUMBERING
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SINGLE_PLANNING_CALENDAR_MONTH
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !FIRSTDAYOFWEEK type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SINGLE_PLANNING_CALENDAR_VIEW
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !FIRSTDAYOFWEEK type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SINGLE_PLANNING_CALENDAR_WEEK_
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !FIRSTDAYOFWEEK type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SINGLE_PLANNING_CALENDAR_WORK_
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !FIRSTDAYOFWEEK type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SLIDE_TILE
@@ -7580,6 +9213,26 @@ public section.
     preferred parameter BACKGROUNDCOLOR
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods STANDARD_DYNAMIC_DATE_OPTION
+    importing
+      !CALENDARWEEKNUMBERING type CLIKE optional
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !VALUETYPES type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods STANDARD_LIST_ITEM
     importing
       !ACTIVEICON type CLIKE optional
@@ -7749,6 +9402,29 @@ public section.
     preferred parameter VALUE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SUGGESTION_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SUGGESTIONS_LIST
     importing
       !BLOCKED type CLIKE optional
@@ -7837,6 +9513,31 @@ public section.
     preferred parameter BACKGROUNDDESIGN
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TAB_CONTAINER_ITEM
+    importing
+      !ADDITIONALTEXT type CLIKE optional
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ICONTOOLTIP type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !MODIFIED type CLIKE optional
+      !NAME type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMPROPERTYCHANGED type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TAB_STRIP
     importing
       !BLOCKED type CLIKE optional
@@ -7865,6 +9566,33 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter HASSELECT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TAB_STRIP_ITEM
+    importing
+      !ADDITIONALTEXT type CLIKE optional
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ICONTOOLTIP type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !MODIFIED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMCLOSEPRESSED type CLIKE optional
+      !ITEMPROPERTYCHANGED type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TABLE
@@ -7943,6 +9671,23 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ALTERNATEROWCOLORS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TABLE_POPIN
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TABLE_SELECT_DIALOG
@@ -8193,6 +9938,28 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ADDITIONALPRIORITY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TILE_INFO
+    importing
+      !BACKGROUNDCOLOR type CLIKE optional
+      !BORDERCOLOR type CLIKE optional
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !SRC type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTCOLOR type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TIME_PICKER
@@ -8631,6 +10398,26 @@ public section.
     preferred parameter ACTIVE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TOOLBAR_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !MAXWIDTH type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !SHRINKABLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter MAXWIDTH
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TOOLBAR_SEPARATOR
     importing
       !BLOCKED type CLIKE optional
@@ -8839,7 +10626,62 @@ public section.
     preferred parameter FILETYPE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods UPLOAD_COLLECTION_TOOLBAR_PHLD
+  methods UPLOAD_COLLECTION_ITEM
+    importing
+      !ARIALABELFORPICTURE type CLIKE optional
+      !CLASS type CLIKE optional
+      !CONTRIBUTOR type CLIKE optional
+      !DOCUMENTID type CLIKE optional
+      !ENABLEDELETE type CLIKE optional
+      !ENABLEEDIT type CLIKE optional
+      !FILENAME type CLIKE optional
+      !FILESIZE type CLIKE optional
+      !ID type CLIKE optional
+      !MIMETYPE type CLIKE optional
+      !SELECTED type CLIKE optional
+      !THUMBNAILURL type CLIKE optional
+      !UPLOADEDDATE type CLIKE optional
+      !URL type CLIKE optional
+      !VISIBLEDELETE type CLIKE optional
+      !VISIBLEEDIT type CLIKE optional
+      !ATTRIBUTES type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MARKERS type CLIKE optional
+      !STATUSES type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !DELETEPRESS type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ARIALABELFORPICTURE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_COLLECTION_PARAMETER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !NAME type CLIKE optional
+      !VALUE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_COLLECTION_TOOLBAR_PLAC
     importing
       !BLOCKED type CLIKE optional
       !BUSY type CLIKE optional
@@ -8929,6 +10771,37 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VARIANT_ITEM
+    importing
+      !AUTHOR type CLIKE optional
+      !CHANGEABLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !CONTEXTS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXECUTEONSELECT type CLIKE optional
+      !FAVORITE type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !REMOVE type CLIKE optional
+      !RENAME type CLIKE optional
+      !SHARING type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !TITLE type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods VARIANT_MANAGEMENT
     importing
       !BLOCKED type CLIKE optional
@@ -8976,6 +10849,56 @@ public section.
     preferred parameter CREATIONALLOWED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VIEW_SETTINGS_CUSTOM_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !FILTERCOUNT type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SELECTED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !WRAPPING type CLIKE optional
+      !CUSTOMCONTROL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMPROPERTYCHANGED type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VIEW_SETTINGS_CUSTOM_TAB
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !TITLE type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods VIEW_SETTINGS_DIALOG
     importing
       !BLOCKED type CLIKE optional
@@ -9014,6 +10937,79 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VIEW_SETTINGS_FILTER_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !MULTISELECT type CLIKE optional
+      !SELECTED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !WRAPPING type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FILTERDETAILITEMSAGGREGATIONCH type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMPROPERTYCHANGED type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VIEW_SETTINGS_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SELECTED type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !WRAPPING type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMPROPERTYCHANGED type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VISIBLE_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods WHEEL_SLIDER
@@ -9414,7 +11410,7 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods PLANNING_CALENDAR_ROW_LIST_ITM
+  methods PLANNING_CALENDAR_ROW_LIST_ITE
     importing
       !BLOCKED type CLIKE optional
       !BUSY type CLIKE optional
@@ -9578,6 +11574,295 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CELL_SELECTOR
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !RANGELIMIT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COLUMN_AI_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COLUMN_RESIZER
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !COLUMNRESIZE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CONTEXT_MENU_SETTING
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SCOPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter SCOPE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COPY_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !COPYPREFERENCE type CLIKE optional
+      !COPYSPARSE type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXCLUDECONTEXT type CLIKE optional
+      !EXTRACTDATA type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !COPY type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COPYPREFERENCE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DATA_STATE_INDICATOR
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ENABLEFILTERING type CLIKE optional
+      !FILTER type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !APPLYFILTER type CLIKE optional
+      !CLEARFILTER type CLIKE optional
+      !CLOSE type CLIKE optional
+      !DATASTATECHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLEFILTERING
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PASTE_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PASTE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PLUGIN_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TITLE_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !MANAGESELECTEDCOUNT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter MANAGESELECTEDCOUNT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_SETWITH_TABLE
+    importing
+      !CLASS type CLIKE optional
+      !CLOUDFILEPICKERBUTTONTEXT type CLIKE optional
+      !CLOUDFILEPICKERENABLED type CLIKE optional
+      !CLOUDFILEPICKERSERVICEURL type CLIKE optional
+      !DIRECTORY type CLIKE optional
+      !ENABLED type CLIKE optional
+      !FILENAMEVALIDATIONCONFIG type CLIKE optional
+      !FILETYPES type CLIKE optional
+      !HTTPREQUESTMETHOD type CLIKE optional
+      !ID type CLIKE optional
+      !ITEMVALIDATIONHANDLER type CLIKE optional
+      !MAXFILENAMELENGTH type CLIKE optional
+      !MAXFILESIZE type CLIKE optional
+      !MEDIATYPES type CLIKE optional
+      !MULTIPLE type CLIKE optional
+      !UPLOADBUTTONINVISIBLE type CLIKE optional
+      !UPLOADENABLED type CLIKE optional
+      !UPLOADURL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !HEADERFIELDS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !NODATAILLUSTRATION type CLIKE optional
+      !ROWCONFIGURATION type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !UPLOADER type CLIKE optional
+      !BEFOREINITIATINGITEMUPLOAD type CLIKE optional
+      !BEFOREUPLOADSTARTS type CLIKE optional
+      !FILENAMELENGTHEXCEEDED type CLIKE optional
+      !FILESIZEEXCEEDED type CLIKE optional
+      !FILETYPEMISMATCH type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !ITEMRENAMECANCELED type CLIKE optional
+      !ITEMRENAMED type CLIKE optional
+      !MEDIATYPEMISMATCH type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !ONACTIVATED type CLIKE optional
+      !ONDEACTIVATED type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !UPLOADCOMPLETED type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLOUDFILEPICKERBUTTONTEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ADD_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CANCEL_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DELETE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DETAIL_PAGE
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -9637,6 +11922,150 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DISCUSS_IN_JAM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods EDIT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FAVORITE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FILTER_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FILTER_SELECT
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTEDKEY type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FLAG_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FORWARD_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FULLSCREEN_PAGE
@@ -9700,6 +12129,69 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GROUP_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GROUP_SELECT
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTEDKEY type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MAIN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MASTER_PAGE
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -9753,6 +12245,187 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MESSAGES_INDICATOR
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MULTI_SELECT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NEGATIVE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OPEN_IN_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods POSITIVE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PRINT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SAVE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEMANTIC_BUTTON
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEMANTIC_CONTROL
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VISIBLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SEMANTIC_OVERFLOW_TOOLBAR_BUTT
     importing
       !ACCESSIBLEROLE type CLIKE optional
@@ -9791,7 +12464,7 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SEMANTIC_OVERFLOW_TOOLBAR_TB
+  methods SEMANTIC_OVERFLOW_TOOLBAR_TOGG
     importing
       !ACCESSIBLEROLE type CLIKE optional
       !ACTIVEICON type CLIKE optional
@@ -9869,6 +12542,109 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEMANTIC_SELECT
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTEDKEY type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEMANTIC_TOGGLE_BUTTON
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !PRESSED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter PRESSED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEND_EMAIL_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEND_MESSAGE_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SHARE_IN_JAM_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SHARE_MENU_PAGE
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -9909,6 +12685,48 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SORT_ACTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SORT_SELECT
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTEDKEY type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TABLE_TITLE
     importing
       !BLOCKED type CLIKE optional
@@ -9937,6 +12755,27 @@ public section.
     preferred parameter SELECTEDCOUNT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ACTION_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ASSOCIATIVE_CONTROL
     importing
       !BLOCKED type CLIKE optional
@@ -9960,6 +12799,89 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter HEIGHT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ENTRY
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VISIBLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !RESETBUTTONENABLED type CLIKE optional
+      !SHOWCANCELBUTTON type CLIKE optional
+      !SHOWCONFIRMBUTTON type CLIKE optional
+      !SHOWRESETBUTTON type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CANCEL type CLIKE optional
+      !CONFIRM type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !RESET type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ITEM_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ITEM_CONTAINER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TABLE_COLUMNMENU_MENU
@@ -10018,6 +12940,228 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_ACTION
+    importing
+      !CATEGORY type CLIKE optional
+      !CLASS type CLIKE optional
+      !CONTENTSIZE type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CATEGORY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_ACTION_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_ACTION_CONTAINER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !QUICKACTIONS type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_ACTION_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LABEL type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_GROUP
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_GROUP_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !GROUPED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LABEL type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_RESIZE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter WIDTH
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_SORT
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_SORT_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LABEL type CLIKE optional
+      !SORTORDER type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_TOTAL
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !CHANGE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods QUICK_TOTAL_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !LABEL type CLIKE optional
+      !TOTALED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter KEY
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ACTIONS_PLACEHOLDER
     importing
       !BLOCKED type CLIKE optional
@@ -10041,6 +13185,44 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter PLACEHOLDERFOR
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_COLUMN
+    importing
+      !AUTOPOPINWIDTH type CLIKE optional
+      !CLASS type CLIKE optional
+      !COLUMNPERSONALIZATIONTEXT type CLIKE optional
+      !DEMANDPOPIN type CLIKE optional
+      !FILTERABLE type CLIKE optional
+      !GROUPABLE type CLIKE optional
+      !HALIGN type CLIKE optional
+      !ID type CLIKE optional
+      !IMPORTANCE type CLIKE optional
+      !MERGEDUPLICATES type CLIKE optional
+      !MERGEFUNCTIONNAME type CLIKE optional
+      !MINSCREENWIDTH type CLIKE optional
+      !PATH type CLIKE optional
+      !POPINDISPLAY type CLIKE optional
+      !POPINHALIGN type CLIKE optional
+      !SORTABLE type CLIKE optional
+      !SORTINDICATOR type CLIKE optional
+      !STYLECLASS type CLIKE optional
+      !VALIGN type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !FOOTER type CLIKE optional
+      !HEADER type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COLUMNPERSONALIZATIONTEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DYNAMIC_ITEM_CONTENT
@@ -10069,6 +13251,81 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter BLOCKED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FILE_PREVIEW_DIALOG
+    importing
+      !CLASS type CLIKE optional
+      !CUSTOMPAGECONTENTHANDLER type CLIKE optional
+      !ID type CLIKE optional
+      !MAXFILESIZEFORPREVIEW type CLIKE optional
+      !SHOWCAROUSELARROWS type CLIKE optional
+      !ADDITIONALFOOTERBUTTONS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CUSTOMPAGECONTENTHANDLER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !FILENAME type CLIKE optional
+      !FILESIZE type CLIKE optional
+      !ID type CLIKE optional
+      !ISDIRECTORY type CLIKE optional
+      !ISTRUSTEDSOURCE type CLIKE optional
+      !MEDIATYPE type CLIKE optional
+      !PREVIEWABLE type CLIKE optional
+      !UPLOADSTATE type CLIKE optional
+      !UPLOADURL type CLIKE optional
+      !URL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !HEADERFIELDS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !UPLOADPROGRESS type CLIKE optional
+      !UPLOADTERMINATED type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FILENAME
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_ITEM_CONFIGURATION
+    importing
+      !CLASS type CLIKE optional
+      !FILENAMEPATH type CLIKE optional
+      !FILESIZEPATH type CLIKE optional
+      !ID type CLIKE optional
+      !ISDIRECTORYPATH type CLIKE optional
+      !ISTRUSTEDSOURCEPATH type CLIKE optional
+      !MEDIATYPEPATH type CLIKE optional
+      !PREVIEWABLEPATH type CLIKE optional
+      !UPLOADURLPATH type CLIKE optional
+      !URLPATH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FILENAMEPATH
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UPLOAD_SET
@@ -10142,6 +13399,41 @@ public section.
     preferred parameter CLOUDFILEPICKERBUTTONTEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOAD_SET_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLEDEDIT type CLIKE optional
+      !ENABLEDREMOVE type CLIKE optional
+      !FILENAME type CLIKE optional
+      !ID type CLIKE optional
+      !MEDIATYPE type CLIKE optional
+      !SELECTED type CLIKE optional
+      !THUMBNAILURL type CLIKE optional
+      !UPLOADSTATE type CLIKE optional
+      !UPLOADURL type CLIKE optional
+      !URL type CLIKE optional
+      !VISIBLEEDIT type CLIKE optional
+      !VISIBLEREMOVE type CLIKE optional
+      !ATTRIBUTES type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !HEADERFIELDS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MARKERS type CLIKE optional
+      !MARKERSASSTATUS type CLIKE optional
+      !STATUSES type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !OPENPRESSED type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !REMOVEPRESSED type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLEDEDIT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UPLOAD_SET_TOOLBAR_PLACEHOLDER
     importing
       !BLOCKED type CLIKE optional
@@ -10164,6 +13456,56 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter BLOCKED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOADER
+    importing
+      !CLASS type CLIKE optional
+      !DOWNLOADURL type CLIKE optional
+      !HTTPREQUESTMETHOD type CLIKE optional
+      !ID type CLIKE optional
+      !UPLOADURL type CLIKE optional
+      !USEMULTIPART type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !UPLOADABORTED type CLIKE optional
+      !UPLOADCOMPLETED type CLIKE optional
+      !UPLOADPROGRESSED type CLIKE optional
+      !UPLOADSTARTED type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DOWNLOADURL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOADER_TABLE_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !DOWNLOADURL type CLIKE optional
+      !HTTPREQUESTMETHOD type CLIKE optional
+      !ID type CLIKE optional
+      !UPLOADURL type CLIKE optional
+      !USEMULTIPART type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !UPLOADCOMPLETED type CLIKE optional
+      !UPLOADPROGRESSED type CLIKE optional
+      !UPLOADSTARTED type CLIKE optional
+      !UPLOADTERMINATED type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DOWNLOADURL
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods INFO_LABEL
@@ -10226,6 +13568,91 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter EXPANDED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NAVIGATION_LIST_GROUP
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXPANDED type CLIKE optional
+      !HASEXPANDER type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NAVIGATION_LIST_ITEM
+    importing
+      !ARIAHASPOPUP type CLIKE optional
+      !CLASS type CLIKE optional
+      !DESIGN type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXPANDED type CLIKE optional
+      !HASEXPANDER type CLIKE optional
+      !HREF type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SELECTABLE type CLIKE optional
+      !TARGET type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TAG type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !SELECT type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NAVIGATION_LIST_ITEM_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !EXPANDED type CLIKE optional
+      !HASEXPANDER type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods NAVIGATION_LIST_MENU_ITEM
@@ -10430,6 +13857,27 @@ public section.
     preferred parameter CONTENTBACKGROUNDDESIGN
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COMMAND_EXECUTION
+    importing
+      !CLASS type CLIKE optional
+      !COMMAND type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !EXECUTE type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COMMAND
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods COMPONENT_CONTAINER
     importing
       !ASYNC type CLIKE optional
@@ -10490,6 +13938,23 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter BLOCKED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ELEMENT
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods HTML
@@ -10584,6 +14049,67 @@ public section.
     preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_CORE_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LIST_ITEM
+    importing
+      !ADDITIONALTEXT type CLIKE optional
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods LOCAL_BUSY_INDICATOR
     importing
       !BLOCKED type CLIKE optional
@@ -10608,6 +14134,28 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter HEIGHT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MESSAGE
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !LEVEL type CLIKE optional
+      !READONLY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TIMESTAMP type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UI_CORE_SCROLL_BAR
@@ -10638,6 +14186,48 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter CONTENTSIZE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEPARATOR_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
+      !TEXTDIRECTION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_CORE_TITLE
+    importing
+      !CLASS type CLIKE optional
+      !EMPHASIZED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !LEVEL type CLIKE optional
+      !TEXT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TOOLTIP_BASE
@@ -10672,6 +14262,24 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods VARIANT_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MULTIPLELAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods XML_COMPOSITE
@@ -10923,6 +14531,81 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_CORE_TITLE_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !TITLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TITLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OPEN_SEARCH_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !SUGGESTTYPE type CLIKE optional
+      !SUGGESTURL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter SUGGESTTYPE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEARCH_PROVIDER
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DOM_ATTRIBUTE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !NAME type CLIKE optional
+      !VALUE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DOM_ELEMENT
     importing
       !BLOCKED type CLIKE optional
@@ -11032,6 +14715,24 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter BLOCKED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods EXPORT_CELL
+    importing
+      !CLASS type CLIKE optional
+      !CONTENT type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CONTENT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods WEB_COMPONENT
@@ -11174,6 +14875,27 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods BLOCK_LAYOUT_CELL_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !LSIZE type CLIKE optional
+      !MSIZE type CLIKE optional
+      !SSIZE type CLIKE optional
+      !XLSIZE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter LSIZE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods BLOCK_LAYOUT_ROW
     importing
       !BLOCKED type CLIKE optional
@@ -11300,6 +15022,53 @@ public section.
     preferred parameter CONTAINERQUERY
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GRID_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !INDENT type CLIKE optional
+      !INDENTL type CLIKE optional
+      !INDENTLARGE type CLIKE optional
+      !INDENTM type CLIKE optional
+      !INDENTMEDIUM type CLIKE optional
+      !INDENTS type CLIKE optional
+      !INDENTSMALL type CLIKE optional
+      !INDENTXL type CLIKE optional
+      !LINEBREAK type CLIKE optional
+      !LINEBREAKL type CLIKE optional
+      !LINEBREAKM type CLIKE optional
+      !LINEBREAKS type CLIKE optional
+      !LINEBREAKXL type CLIKE optional
+      !MOVEBACKWARDS type CLIKE optional
+      !MOVEFORWARD type CLIKE optional
+      !SPAN type CLIKE optional
+      !SPANL type CLIKE optional
+      !SPANLARGE type CLIKE optional
+      !SPANM type CLIKE optional
+      !SPANMEDIUM type CLIKE optional
+      !SPANS type CLIKE optional
+      !SPANSMALL type CLIKE optional
+      !SPANXL type CLIKE optional
+      !VISIBLEL type CLIKE optional
+      !VISIBLEM type CLIKE optional
+      !VISIBLEONLARGE type CLIKE optional
+      !VISIBLEONMEDIUM type CLIKE optional
+      !VISIBLEONSMALL type CLIKE optional
+      !VISIBLES type CLIKE optional
+      !VISIBLEXL type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter INDENT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods HORIZONTAL_LAYOUT
     importing
       !ALLOWWRAPPING type CLIKE optional
@@ -11326,6 +15095,26 @@ public section.
     preferred parameter ALLOWWRAPPING
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PANE_CONTAINER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !ORIENTATION type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !PANES type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !RESIZE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ORIENTATION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods RESPONSIVE_FLOW_LAYOUT
     importing
       !BLOCKED type CLIKE optional
@@ -11350,6 +15139,28 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter RESPONSIVE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RESPONSIVE_FLOW_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !LINEBREAK type CLIKE optional
+      !LINEBREAKABLE type CLIKE optional
+      !MARGIN type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !WEIGHT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter LINEBREAK
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods RESPONSIVE_SPLITTER
@@ -11403,6 +15214,26 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SPLIT_PANE
+    importing
+      !CLASS type CLIKE optional
+      !DEMANDPANE type CLIKE optional
+      !ID type CLIKE optional
+      !REQUIREDPARENTWIDTH type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DEMANDPANE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SPLITTER
     importing
       !BLOCKED type CLIKE optional
@@ -11430,6 +15261,26 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter HEIGHT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SPLITTER_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !MINSIZE type CLIKE optional
+      !RESIZABLE type CLIKE optional
+      !SIZE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter MINSIZE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods VERTICAL_LAYOUT
@@ -11494,6 +15345,87 @@ public section.
     preferred parameter GRIDAUTOCOLUMNS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GRID_ITEM_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !GRIDCOLUMN type CLIKE optional
+      !GRIDCOLUMNEND type CLIKE optional
+      !GRIDCOLUMNSTART type CLIKE optional
+      !GRIDROW type CLIKE optional
+      !GRIDROWEND type CLIKE optional
+      !GRIDROWSTART type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter GRIDCOLUMN
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RESPONSIVE_COLUMN_ITEM_LAYOUT_
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNS type CLIKE optional
+      !ID type CLIKE optional
+      !ROWS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COLUMNS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COLUMN_CONTAINER_DATA
+    importing
+      !CLASS type CLIKE optional
+      !COLUMNSL type CLIKE optional
+      !COLUMNSM type CLIKE optional
+      !COLUMNSXL type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter COLUMNSL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods COLUMN_ELEMENT_DATA
+    importing
+      !CELLSLARGE type CLIKE optional
+      !CELLSSMALL type CLIKE optional
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CELLSLARGE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods COLUMN_LAYOUT
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -11554,6 +15486,49 @@ public section.
     preferred parameter EDITABLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FORM_CONTAINER
+    importing
+      !CLASS type CLIKE optional
+      !EXPANDABLE type CLIKE optional
+      !EXPANDED type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !FORMELEMENTS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TITLE type CLIKE optional
+      !TOOLBAR type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter EXPANDABLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FORM_ELEMENT
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !FIELDS type CLIKE optional
+      !LABEL type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VISIBLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FORM_LAYOUT
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -11577,6 +15552,43 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter BACKGROUNDDESIGN
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GRID_CONTAINER_DATA
+    importing
+      !CLASS type CLIKE optional
+      !HALFGRID type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter HALFGRID
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods GRID_ELEMENT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !HCELLS type CLIKE optional
+      !ID type CLIKE optional
+      !VCELLS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter HCELLS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods GRID_LAYOUT
@@ -11721,6 +15733,28 @@ public section.
     preferred parameter BLOCKED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SEMANTIC_FORM_ELEMENT
+    importing
+      !CLASS type CLIKE optional
+      !DELIMITER type CLIKE optional
+      !ID type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !FIELDLABELS type CLIKE optional
+      !FIELDS type CLIKE optional
+      !LABEL type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DELIMITER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SIMPLE_FORM
     importing
       !ADJUSTLABELSPAN type CLIKE optional
@@ -11769,6 +15803,54 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ADJUSTLABELSPAN
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ANALYTICAL_COLUMN
+    importing
+      !AUTORESIZABLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !DEFAULTFILTEROPERATOR type CLIKE optional
+      !FILTERED type CLIKE optional
+      !FILTEROPERATOR type CLIKE optional
+      !FILTERPROPERTY type CLIKE optional
+      !FILTERTYPE type CLIKE optional
+      !FILTERVALUE type CLIKE optional
+      !FLEXIBLE type CLIKE optional
+      !GROUPED type CLIKE optional
+      !GROUPHEADERFORMATTER type CLIKE optional
+      !HALIGN type CLIKE optional
+      !HEADERSPAN type CLIKE optional
+      !ID type CLIKE optional
+      !INRESULT type CLIKE optional
+      !LEADINGPROPERTY type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !NAME type CLIKE optional
+      !RESIZABLE type CLIKE optional
+      !SHOWFILTERMENUENTRY type CLIKE optional
+      !SHOWIFGROUPED type CLIKE optional
+      !SHOWSORTMENUENTRY type CLIKE optional
+      !SORTED type CLIKE optional
+      !SORTORDER type CLIKE optional
+      !SORTPROPERTY type CLIKE optional
+      !SUMMED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LABEL type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MENU type CLIKE optional
+      !MULTILABELS type CLIKE optional
+      !TEMPLATE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !COLUMNMENUOPEN type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter GROUPED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ANALYTICAL_COLUMN_MENU
@@ -11892,6 +15974,49 @@ public section.
     preferred parameter AUTOEXPANDMODE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_TABLE_COLUMN
+    importing
+      !AUTORESIZABLE type CLIKE optional
+      !CLASS type CLIKE optional
+      !DEFAULTFILTEROPERATOR type CLIKE optional
+      !FILTERED type CLIKE optional
+      !FILTEROPERATOR type CLIKE optional
+      !FILTERPROPERTY type CLIKE optional
+      !FILTERTYPE type CLIKE optional
+      !FILTERVALUE type CLIKE optional
+      !FLEXIBLE type CLIKE optional
+      !GROUPED type CLIKE optional
+      !HALIGN type CLIKE optional
+      !HEADERSPAN type CLIKE optional
+      !ID type CLIKE optional
+      !MINWIDTH type CLIKE optional
+      !NAME type CLIKE optional
+      !RESIZABLE type CLIKE optional
+      !SHOWFILTERMENUENTRY type CLIKE optional
+      !SHOWSORTMENUENTRY type CLIKE optional
+      !SORTED type CLIKE optional
+      !SORTORDER type CLIKE optional
+      !SORTPROPERTY type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LABEL type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MENU type CLIKE optional
+      !MULTILABELS type CLIKE optional
+      !TEMPLATE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !COLUMNMENUOPEN type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter AUTORESIZABLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods COLUMN_MENU
     importing
       !ARIADESCRIPTION type CLIKE optional
@@ -11980,6 +16105,24 @@ public section.
     preferred parameter CHECKBOXSELECTED
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ROW
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CELLS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ROW_ACTION
     importing
       !BLOCKED type CLIKE optional
@@ -12003,6 +16146,48 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter VISIBLE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ROW_ACTION_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ROW_SETTINGS
+    importing
+      !CLASS type CLIKE optional
+      !HIGHLIGHT type CLIKE optional
+      !HIGHLIGHTTEXT type CLIKE optional
+      !ID type CLIKE optional
+      !NAVIGATED type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter HIGHLIGHT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UI_TABLE_TABLE
@@ -12177,6 +16362,340 @@ public section.
     preferred parameter COLLAPSERECURSIVE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ANALYTICAL_TABLE_CONTEXT_MENU
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MENU type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CONTEXT_MENU
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !MENU type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods BINDING_SELECTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTIONMODE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter SELECTIONMODE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MULTI_SELECTION_PLUGIN
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ENABLENOTIFICATION type CLIKE optional
+      !ID type CLIKE optional
+      !LIMIT type CLIKE optional
+      !SELECTIONMODE type CLIKE optional
+      !SHOWHEADERSELECTOR type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLENOTIFICATION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_AGGREGATION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !GROUPHEADERFORMATTER type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_HIERARCHY
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_MULTI_LEVEL
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_MULTI_SELECTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ENABLENOTIFICATION type CLIKE optional
+      !HIDEHEADERSELECTOR type CLIKE optional
+      !ID type CLIKE optional
+      !LIMIT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLENOTIFICATION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_SELECTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods O_DATA_V4_SINGLE_SELECTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_TABLE_PLUGIN_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SELECTION_MODEL_SELECTION
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTIONMODE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter SELECTIONMODE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SELECTION_PLUGIN
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECTIONCHANGE type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods AUTO
+    importing
+      !CLASS type CLIKE optional
+      !FIXEDBOTTOMROWCOUNT type CLIKE optional
+      !FIXEDTOPROWCOUNT type CLIKE optional
+      !ID type CLIKE optional
+      !MAXROWCOUNT type CLIKE optional
+      !MINROWCOUNT type CLIKE optional
+      !ROWCONTENTHEIGHT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FIXEDBOTTOMROWCOUNT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FIXED
+    importing
+      !CLASS type CLIKE optional
+      !FIXEDBOTTOMROWCOUNT type CLIKE optional
+      !FIXEDTOPROWCOUNT type CLIKE optional
+      !ID type CLIKE optional
+      !ROWCONTENTHEIGHT type CLIKE optional
+      !ROWCOUNT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FIXEDBOTTOMROWCOUNT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods INTERACTIVE
+    importing
+      !CLASS type CLIKE optional
+      !FIXEDBOTTOMROWCOUNT type CLIKE optional
+      !FIXEDTOPROWCOUNT type CLIKE optional
+      !ID type CLIKE optional
+      !MAXROWCOUNT type CLIKE optional
+      !MINROWCOUNT type CLIKE optional
+      !ROWCONTENTHEIGHT type CLIKE optional
+      !ROWCOUNT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter FIXEDBOTTOMROWCOUNT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ROW_MODE
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CALENDAR
     importing
       !BLOCKED type CLIKE optional
@@ -12221,6 +16740,37 @@ public section.
       !VALIDATIONSUCCESS type CLIKE optional
       !WEEKNUMBERSELECT type CLIKE optional
     preferred parameter CALENDARWEEKNUMBERING
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CALENDAR_APPOINTMENT
+    importing
+      !ARIAHASPOPUP type CLIKE optional
+      !CLASS type CLIKE optional
+      !COLOR type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENDDATE type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !SECONDARYTYPE type CLIKE optional
+      !SELECTED type CLIKE optional
+      !STARTDATE type CLIKE optional
+      !TENTATIVE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TITLE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMCONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CALENDAR_DATE_INTERVAL
@@ -12298,6 +16848,26 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter COLUMNWIDTH
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CALENDAR_LEGEND_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !COLOR type CLIKE optional
+      !ID type CLIKE optional
+      !TEXT type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CALENDAR_MONTH_INTERVAL
@@ -12641,6 +17211,48 @@ public section.
     preferred parameter VALUE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DATE_RANGE
+    importing
+      !CLASS type CLIKE optional
+      !ENDDATE type CLIKE optional
+      !ID type CLIKE optional
+      !STARTDATE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENDDATE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DATE_TYPE_RANGE
+    importing
+      !ARIAHASPOPUP type CLIKE optional
+      !CLASS type CLIKE optional
+      !COLOR type CLIKE optional
+      !ENDDATE type CLIKE optional
+      !ID type CLIKE optional
+      !SECONDARYTYPE type CLIKE optional
+      !STARTDATE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ARIAHASPOPUP
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FILE_UPLOADER
     importing
       !ADDITIONALDATA type CLIKE optional
@@ -12709,6 +17321,43 @@ public section.
     preferred parameter VALUE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FILE_UPLOADER_PARAMETER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !NAME type CLIKE optional
+      !VALUE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FILE_UPLOADER_XHR_SETTINGS
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !WITHCREDENTIALS type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter WITHCREDENTIALS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UI_UNIFIED_MENU
     importing
       !ARIADESCRIPTION type CLIKE optional
@@ -12739,6 +17388,225 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ARIADESCRIPTION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_UNIFIED_MENU_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTED type CLIKE optional
+      !SHORTCUTTEXT type CLIKE optional
+      !STARTSSECTION type CLIKE optional
+      !TEXT type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ENDCONTENT type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !SUBMENU type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECT type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MENU_ITEM_BASE
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ID type CLIKE optional
+      !STARTSSECTION type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !SUBMENU type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECT type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ENABLED
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UI_UNIFIED_MENU_ITEM_GROUP
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !ITEMSELECTIONMODE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !ITEMS type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ITEMSELECTIONMODE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MENU_TEXT_FIELD_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ENABLED type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !LABEL type CLIKE optional
+      !STARTSSECTION type CLIKE optional
+      !VALUE type CLIKE optional
+      !VALUESTATE type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !SUBMENU type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !SELECT type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter VALUE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MONTHLY_RECURRENCE_RULE
+    importing
+      !CLASS type CLIKE optional
+      !DAYOFMONTH type CLIKE optional
+      !DAYOFWEEK type CLIKE optional
+      !DAYS type CLIKE optional
+      !ID type CLIKE optional
+      !MONTH type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !TYPE type CLIKE optional
+      !WEEKOFMONTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NON_WORKING_PERIOD
+    importing
+      !CLASS type CLIKE optional
+      !DATE type CLIKE optional
+      !ID type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TIMERANGE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DATE
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RECURRENCE_RULE
+    importing
+      !CLASS type CLIKE optional
+      !DAYOFMONTH type CLIKE optional
+      !DAYOFWEEK type CLIKE optional
+      !DAYS type CLIKE optional
+      !ID type CLIKE optional
+      !MONTH type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !TYPE type CLIKE optional
+      !WEEKOFMONTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter DAYOFMONTH
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RECURRING_CALENDAR_APPOINTMENT
+    importing
+      !ARIAHASPOPUP type CLIKE optional
+      !CLASS type CLIKE optional
+      !COLOR type CLIKE optional
+      !DESCRIPTION type CLIKE optional
+      !ENDDATE type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !KEY type CLIKE optional
+      !RECURRENCEENDDATE type CLIKE optional
+      !RECURRENCEPATTERN type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !SECONDARYTYPE type CLIKE optional
+      !SELECTED type CLIKE optional
+      !STARTDATE type CLIKE optional
+      !TENTATIVE type CLIKE optional
+      !TEXT type CLIKE optional
+      !TITLE type CLIKE optional
+      !TYPE type CLIKE optional
+      !CUSTOMCONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !RECURRENCERULE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter TEXT
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RECURRING_NON_WORKING_PERIOD
+    importing
+      !CLASS type CLIKE optional
+      !DATE type CLIKE optional
+      !ID type CLIKE optional
+      !RECURRENCEENDDATE type CLIKE optional
+      !RECURRENCEPATTERN type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !RECURRENCERULE type CLIKE optional
+      !TIMERANGE type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter RECURRENCEENDDATE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods UI_UNIFIED_SHELL
@@ -12779,6 +17647,52 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SHELL_HEAD_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ICON type CLIKE optional
+      !ID type CLIKE optional
+      !SELECTED type CLIKE optional
+      !SHOWMARKER type CLIKE optional
+      !SHOWSEPARATOR type CLIKE optional
+      !STARTSSECTION type CLIKE optional
+      !TOGGLEENABLED type CLIKE optional
+      !VISIBLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter ICON
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods SHELL_HEAD_USER_ITEM
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !IMAGE type CLIKE optional
+      !SHOWPOPUPINDICATOR type CLIKE optional
+      !USERNAME type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !PRESS type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter IMAGE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods SHELL_HEADER
@@ -12896,6 +17810,74 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ORIENTATION
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TIME_RANGE
+    importing
+      !CLASS type CLIKE optional
+      !END type CLIKE optional
+      !ID type CLIKE optional
+      !START type CLIKE optional
+      !VALUEFORMAT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter END
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods WEEKLY_RECURRENCE_RULE
+    importing
+      !CLASS type CLIKE optional
+      !DAYOFMONTH type CLIKE optional
+      !DAYOFWEEK type CLIKE optional
+      !DAYS type CLIKE optional
+      !ID type CLIKE optional
+      !MONTH type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !TYPE type CLIKE optional
+      !WEEKOFMONTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods YEARLY_RECURRENCE_RULE
+    importing
+      !CLASS type CLIKE optional
+      !DAYOFMONTH type CLIKE optional
+      !DAYOFWEEK type CLIKE optional
+      !DAYS type CLIKE optional
+      !ID type CLIKE optional
+      !MONTH type CLIKE optional
+      !RECURRENCETYPE type CLIKE optional
+      !TYPE type CLIKE optional
+      !WEEKOFMONTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods DATES_ROW
@@ -13443,6 +18425,54 @@ public section.
     preferred parameter UPPERCASE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MODEL_MAPPING
+    importing
+      !CLASS type CLIKE optional
+      !EXTERNALMODELNAME type CLIKE optional
+      !EXTERNALPATH type CLIKE optional
+      !ID type CLIKE optional
+      !INTERNALMODELNAME type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter EXTERNALMODELNAME
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OBJECT_PAGE_ACCESSIBLE_LANDMAR
+    importing
+      !CLASS type CLIKE optional
+      !CONTENTLABEL type CLIKE optional
+      !CONTENTROLE type CLIKE optional
+      !FOOTERLABEL type CLIKE optional
+      !FOOTERROLE type CLIKE optional
+      !HEADERCONTENTLABEL type CLIKE optional
+      !HEADERLABEL type CLIKE optional
+      !HEADERROLE type CLIKE optional
+      !ID type CLIKE optional
+      !NAVIGATIONLABEL type CLIKE optional
+      !NAVIGATIONROLE type CLIKE optional
+      !ROOTLABEL type CLIKE optional
+      !ROOTROLE type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CONTENTLABEL
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods OBJECT_PAGE_DYNAMIC_HEADER_CON
     importing
       !BACKGROUNDDESIGN type CLIKE optional
@@ -13627,6 +18657,29 @@ public section.
     preferred parameter CONTENTDESIGN
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OBJECT_PAGE_HEADER_LAYOUT_DATA
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !SHOWSEPARATORAFTER type CLIKE optional
+      !SHOWSEPARATORBEFORE type CLIKE optional
+      !VISIBLEL type CLIKE optional
+      !VISIBLEM type CLIKE optional
+      !VISIBLES type CLIKE optional
+      !WIDTH type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter SHOWSEPARATORAFTER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods OBJECT_PAGE_LAYOUT
     importing
       !ALWAYSSHOWCONTENTHEADER type CLIKE optional
@@ -13684,6 +18737,24 @@ public section.
       !VALIDATIONERROR type CLIKE optional
       !VALIDATIONSUCCESS type CLIKE optional
     preferred parameter ALWAYSSHOWCONTENTHEADER
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods OBJECT_PAGE_LAZY_LOADER
+    importing
+      !CLASS type CLIKE optional
+      !ID type CLIKE optional
+      !CONTENT type CLIKE optional
+      !CUSTOMDATA type CLIKE optional
+      !DEPENDENTS type CLIKE optional
+      !DRAGDROPCONFIG type CLIKE optional
+      !LAYOUTDATA type CLIKE optional
+      !TOOLTIP type CLIKE optional
+      !FORMATERROR type CLIKE optional
+      !MODELCONTEXTCHANGE type CLIKE optional
+      !PARSEERROR type CLIKE optional
+      !VALIDATIONERROR type CLIKE optional
+      !VALIDATIONSUCCESS type CLIKE optional
+    preferred parameter CLASS
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods OBJECT_PAGE_SECTION
@@ -13785,7 +18856,7 @@ public section.
     preferred parameter TITLE
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods OBJECT_PAGE_COMPONENT_CONT
+  methods OBJECT_PAGE_COMPONENT_CONTAINE
     importing
       !ASYNC type CLIKE optional
       !AUTOPREFIXID type CLIKE optional
@@ -13825,23 +18896,6 @@ public section.
     preferred parameter JSONCONFIGURATIONURL
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods _GENERIC
-    importing
-      !NAME type CLIKE
-      !NS type CLIKE optional
-      !T_PROP type Z2UI5_IF_TYPES=>TY_T_NAME_VALUE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ACCOUNTS
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ACTION
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ACTION_BUTTONS
     importing
       !NS type CLIKE optional
@@ -13857,7 +18911,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ADD_ACTION
+  methods ADD_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13872,7 +18926,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ADDITIONAL_FOOTER_BUTTONS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ADDITIONAL_NUMBERS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods APP_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13887,17 +18951,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ASSISTANT
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ATTRIBUTES
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods AVAILABLE_CHART_TYPES
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods AVATAR_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13927,12 +18991,12 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods BRANDING
+  methods BREAD_CRUMBS_LINKS
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods BREAD_CRUMBS_LINKS
+  methods BREADCRUMBS_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13942,7 +19006,12 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods CANCEL_ACTION
+  methods CALENDAR_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CANCEL_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13957,7 +19026,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods CLOSE_ACTION
+  methods CLOSE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -13992,7 +19061,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods CONTENT_CONFIG
+  methods CONTENT_CONFIG_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14012,7 +19081,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods CONTEXT_MENU
+  methods CONTEXT_MENU_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14022,7 +19091,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods COPY_ACTION
+  methods COPY_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14050,6 +19119,17 @@ public section.
   methods CUSTOM_CONTENT
     importing
       !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CUSTOM_CONTROL
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods CORE_ITEM
+    importing
+      !KEY type CLIKE optional
+      !TEXT type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods CORE_CUSTOM_DATA
@@ -14119,12 +19199,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods DELETE_ACTION
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods DELETE_BUTTON
+  methods DELETE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14134,7 +19209,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods DESCRIPTION
+  methods DESKTOP_LAYOUT_DATA
     importing
       !NS type CLIKE optional
     returning
@@ -14159,7 +19234,12 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods DISCUSS_IN_JAM_ACTION
+  methods DISCUSS_IN_JAM_ACTION_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods DRAFT_INDICATOR_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14169,7 +19249,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods EDIT_ACTION
+  methods EDIT_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14199,7 +19279,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods EXIT_FULL_SCREEN_ACTION
+  methods EXIT_FULL_SCREEN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14224,17 +19304,22 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FAVORITE_ACTION
+  methods FAVORITE_ACTION_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FIELD_LABELS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FIELDS
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FILTER
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FILTER_BUTTON
     importing
       !NS type CLIKE optional
     returning
@@ -14264,7 +19349,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FLAG_ACTION
+  methods FLAG_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14284,12 +19369,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FOOTER_MAIN_ACTION
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FOOTNOTES
+  methods FOOTER_MAIN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14299,17 +19379,27 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FORM_ELEMENTS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods FORMATTED_TEXT_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods FORMATTED_VALUE_STATE_TEXT
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FORWARD_ACTION
+  methods FORWARD_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods FULL_SCREEN_ACTION
+  methods FULL_SCREEN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14349,6 +19439,11 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods HEADER_CONTAINER_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods HEADER_CONTENT
     importing
       !NS type CLIKE optional
@@ -14384,12 +19479,22 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods INCOMPLETE_ITEMS
+  methods ICON_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods INFO_AREA
+  methods ILLUSTRATED_MESSAGE_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods IMAGE_CONTENT_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods INCOMPLETE_ITEMS
     importing
       !NS type CLIKE optional
     returning
@@ -14409,7 +19514,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ITEM_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ITEMS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LABEL_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14424,7 +19539,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods LAYOUT_DATA
+  methods LAYOUT_DATA_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14454,6 +19569,16 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LINES
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods LINK_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods LINK_ARIA_DESCRIBED_BY
     importing
       !NS type CLIKE optional
@@ -14474,12 +19599,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods LOGO
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods MAIN_ACTION
+  methods MAIN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14504,22 +19624,27 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MARKERS_AS_STATUS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods MASTER_PAGES
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods MENU_ITEMS
+  methods MENU_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods MESSAGE_AREA
+  methods MESSAGE_STRIP_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods MESSAGES_INDICATOR
+  methods MESSAGES_INDICATOR_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14539,7 +19664,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods MULTI_SELECT_ACTION
+  methods MULTI_LABELS
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MULTI_SELECT_ACTION_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods MULTIPLE_LAYOUT_DATA
     importing
       !NS type CLIKE optional
     returning
@@ -14554,7 +19689,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods NEGATIVE_ACTION
+  methods NEGATIVE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14564,12 +19699,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods NO_DATA_ILLUSTRATION
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods NON_WORKING_PERIODS
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods OPEN_IN_ACTION
+  methods OPEN_IN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14594,6 +19734,11 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods PANES
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods PARAMETERS
     importing
       !NS type CLIKE optional
@@ -14609,7 +19754,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods POSITIVE_ACTION
+  methods POSITIVE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14619,7 +19764,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods PRINT_ACTION
+  methods PRINT_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14639,6 +19784,11 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods RECURRENCE_RULE_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods ROOT_PANE_CONTAINER
     importing
       !NS type CLIKE optional
@@ -14649,7 +19799,12 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ROW_MODE
+  methods ROW_CONFIGURATION
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods ROW_MODE_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14669,7 +19824,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SAVE_ACTION
+  methods SAVE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14684,12 +19839,12 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SCOPES
+  methods SEARCH_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SEARCH_MANAGER
+  methods SEARCH_MANAGER_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14719,17 +19874,17 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SEND_EMAIL_ACTION
+  methods SEND_EMAIL_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SEND_MESSAGE_ACTION
+  methods SEND_MESSAGE_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SHARE_IN_JAM_ACTION
+  methods SHARE_IN_JAM_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14784,11 +19939,6 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods START_BUTTON
-    importing
-      !NS type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods START_CONTENT
     importing
       !NS type CLIKE optional
@@ -14814,7 +19964,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods SUBTITLE
+  methods SUBMENU
     importing
       !NS type CLIKE optional
     returning
@@ -14839,12 +19989,37 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TABLET_LAYOUT_DATA
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TAG
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TEMPLATE
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TILE_CONTENT_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TILES
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TIME_RANGE_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TITLE_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14889,7 +20064,7 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods TITLE_MAIN_ACTION
+  methods TITLE_MAIN_ACTION_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14919,12 +20094,22 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods TOOLBAR_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
   methods TOOLBAR_CONTENT
     importing
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods UPLOADER
+  methods TOOLTIP_AGG
+    importing
+      !NS type CLIKE optional
+    returning
+      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
+  methods UPLOADER_AGG
     importing
       !NS type CLIKE optional
     returning
@@ -14954,12 +20139,6 @@ public section.
       !NS type CLIKE optional
     returning
       value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
-  methods ITEM
-    importing
-      !KEY type CLIKE optional
-      !TEXT type CLIKE optional
-    returning
-      value(RESULT) type ref to Z2UI5_CL_XML_FRAGMENT .
 protected section.
 
   data MV_NAME type STRING .
@@ -14977,17 +20156,12 @@ protected section.
 private section.
 
   class-data ST_NS_MAP type TT_NS_MAP .
+
 ENDCLASS.
 
 
 
 CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
-
-
-  METHOD accounts.
-    result = _generic( name = `accounts`
-                        ns   = ns ).
-  ENDMETHOD.
 
 
   METHOD acc_button.
@@ -14997,6 +20171,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `accessibleRole`       v = accessiblerole )
                                 ( n = `activeIcon`           v = activeicon )
                                 ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `ariaHaspopup`         v = ariahaspopup )
                                 ( n = `ariaHidden`           v = ariahidden )
                                 ( n = `badgeStyle`           v = badgestyle )
                                 ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
@@ -15029,12 +20204,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD action.
-    result = _generic( name = `action`
-                        ns   = ns ).
   ENDMETHOD.
 
 
@@ -15374,8 +20543,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD add_action.
-    result = _generic( name = `addAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `AddAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -15663,12 +20848,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
   METHOD appointment_items.
     result = _generic( name = `appointmentItems`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD assistant.
-    result = _generic( name = `assistant`
                         ns   = ns ).
   ENDMETHOD.
 
@@ -16113,12 +21292,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD branding.
-    result = _generic( name = `branding`
-                        ns   = ns ).
   ENDMETHOD.
 
 
@@ -16767,8 +21940,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD cancel_action.
-    result = _generic( name = `cancelAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `CancelAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -16936,8 +22125,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD close_action.
-    result = _generic( name = `closeAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `CloseAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -17373,8 +22579,8 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method CONSTRUCTOR.
-  endmethod.
+  METHOD constructor.
+  ENDMETHOD.
 
 
   METHOD content.
@@ -17402,8 +22608,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD content_config.
-    result = _generic( name = `contentConfig`
-                        ns   = ns ).
+    result =
+    _generic( name   = `ContentConfig`
+              t_prop = VALUE #(
+                                ( n = `accessibleRole`       v = accessiblerole )
+                                ( n = `class`                v = class )
+                                ( n = `href`                 v = href )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -17457,8 +22680,23 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD context_menu.
-    result = _generic( name = `contextMenu`
-                        ns   = ns ).
+    result =
+    _generic( name   = `ContextMenu`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `menu`                 v = menu )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -17524,19 +22762,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD copy_action.
-    result = _generic( name = `copyAction`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD CORE_CUSTOM_DATA.
-    result = _generic( name = `CustomData`
-                        ns   = 'core'
-                        t_prop = VALUE #(
-                                ( n = `key`                  v = key )
-                                ( n = `value`                v = value )
-                                ( n = `writeToDom`           v = z2ui5_cl_util=>boolean_abap_2_json( write_to_dom ) ) ) ).
-
+    result =
+    _generic( name   = `CopyAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -17702,7 +22946,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
   METHOD custom_data.
     result = _generic( name = `customData`
-                            ns   = ns ).
+                        ns   = ns ).
   ENDMETHOD.
 
 
@@ -18427,25 +23671,29 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD delete_action.
-    result = _generic( name = `deleteAction`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD delete_button.
-    result = _generic( name = `deleteButton`
-                        ns   = ns ).
+    result =
+    _generic( name   = `DeleteAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
   METHOD dependents.
     result = _generic( name = `dependents`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD description.
-    result = _generic( name = `description`
                         ns   = ns ).
   ENDMETHOD.
 
@@ -18592,8 +23840,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD discuss_in_jam_action.
-    result = _generic( name = `discussInJamAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `DiscussInJamAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19054,8 +24318,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD edit_action.
-    result = _generic( name = `editAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `EditAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19090,8 +24370,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD exit_full_screen_action.
-    result = _generic( name = `exitFullScreenAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `ExitFullScreenAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19366,8 +24663,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD favorite_action.
-    result = _generic( name = `favoriteAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `FavoriteAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19584,12 +24898,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD filter_button.
-    result = _generic( name = `filterButton`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
   METHOD filter_items.
     result = _generic( name = `filterItems`
                         ns   = ns ).
@@ -19654,8 +24962,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD flag_action.
-    result = _generic( name = `flagAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `FlagAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19671,7 +24996,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `busyIndicatorDelay`   v = busyindicatordelay )
                                 ( n = `busyIndicatorSize`    v = busyindicatorsize )
                                 ( n = `class`                v = class )
-                                ( n = `defaultTransitionNameBeginColumn` v = defaulttransitionnamebegincol )
+                                ( n = `defaultTransitionNameBeginColumn` v = defaulttransitionnamebegincolu )
                                 ( n = `defaultTransitionNameEndColumn` v = defaulttransitionnameendcolumn )
                                 ( n = `defaultTransitionNameMidColumn` v = defaulttransitionnamemidcolumn )
                                 ( n = `fieldGroupIds`        v = fieldgroupids )
@@ -19766,14 +25091,26 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD footer_main_action.
-    result = _generic( name = `footerMainAction`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD footnotes.
-    result = _generic( name = `footnotes`
-                        ns   = ns ).
+    result =
+    _generic( name   = `FooterMainAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19886,8 +25223,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD forward_action.
-    result = _generic( name = `forwardAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `ForwardAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -19955,8 +25308,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD full_screen_action.
-    result = _generic( name = `fullScreenAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `FullScreenAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -20070,7 +25440,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `class`                v = class )
                                 ( n = `decorative`           v = z2ui5_cl_util=>boolean_abap_2_json( decorative ) )
                                 ( n = `description`          v = description )
-                                ( n = `enableDefaultTitleAndDescription` v = z2ui5_cl_util=>boolean_abap_2_json( enabledefaulttitleanddesc ) )
+                                ( n = `enableDefaultTitleAndDescription` v = z2ui5_cl_util=>boolean_abap_2_json( enabledefaulttitleanddescripti ) )
                                 ( n = `enableFormattedText`  v = z2ui5_cl_util=>boolean_abap_2_json( enableformattedtext ) )
                                 ( n = `enableVerticalResponsiveness` v = z2ui5_cl_util=>boolean_abap_2_json( enableverticalresponsiveness ) )
                                 ( n = `fieldGroupIds`        v = fieldgroupids )
@@ -20678,47 +26048,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD HBOX.
-    result =
-    _generic( name   = `HBox`
-              t_prop = VALUE #(
-                                ( n = `alignContent`         v = aligncontent )
-                                ( n = `alignItems`           v = alignitems )
-                                ( n = `backgroundDesign`     v = backgrounddesign )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `columnGap`            v = columngap )
-                                ( n = `direction`            v = direction )
-                                ( n = `displayInline`        v = z2ui5_cl_util=>boolean_abap_2_json( displayinline ) )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `fitContainer`         v = z2ui5_cl_util=>boolean_abap_2_json( fitcontainer ) )
-                                ( n = `gap`                  v = gap )
-                                ( n = `height`               v = height )
-                                ( n = `id`                   v = id )
-                                ( n = `justifyContent`       v = justifycontent )
-                                ( n = `renderType`           v = rendertype )
-                                ( n = `rowGap`               v = rowgap )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `width`                v = width )
-                                ( n = `wrap`                 v = wrap )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `items`                v = items )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
   METHOD header.
     result = _generic( name = `header`
                         ns   = ns ).
@@ -20764,36 +26093,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `modelContextChange`   v = modelcontextchange )
                                 ( n = `parseError`           v = parseerror )
                                 ( n = `scroll`               v = scroll )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD header_container_item_cont.
-    result =
-    _generic( name   = `HeaderContainerItemContainer`
-              t_prop = VALUE #(
-                                ( n = `ariaLabelledBy`       v = arialabelledby )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `id`                   v = id )
-                                ( n = `position`             v = position )
-                                ( n = `setSize`              v = setsize )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `item`                 v = item )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
@@ -21189,32 +26488,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD icon_tab_filter_expand_buttonb.
-    result =
-    _generic( name   = `IconTabFilterExpandButtonBadge`
-              t_prop = VALUE #(
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `id`                   v = id )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
   METHOD icon_tab_header.
     result =
     _generic( name   = `IconTabHeader`
@@ -21265,7 +26538,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `class`                v = class )
                                 ( n = `decorative`           v = z2ui5_cl_util=>boolean_abap_2_json( decorative ) )
                                 ( n = `description`          v = description )
-                                ( n = `enableDefaultTitleAndDescription` v = z2ui5_cl_util=>boolean_abap_2_json( enabledefaulttitleanddescr ) )
+                                ( n = `enableDefaultTitleAndDescription` v = z2ui5_cl_util=>boolean_abap_2_json( enabledefaulttitleanddescripti ) )
                                 ( n = `enableFormattedText`  v = z2ui5_cl_util=>boolean_abap_2_json( enableformattedtext ) )
                                 ( n = `enableVerticalResponsiveness` v = z2ui5_cl_util=>boolean_abap_2_json( enableverticalresponsiveness ) )
                                 ( n = `fieldGroupIds`        v = fieldgroupids )
@@ -21433,12 +26706,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD info_area.
-    result = _generic( name = `infoArea`
-                        ns   = ns ).
   ENDMETHOD.
 
 
@@ -21674,13 +26941,34 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  method ITEM.
-    result = me.
+  METHOD item.
+    result =
     _generic( name   = `Item`
-              ns     = `core`
-              t_prop = VALUE #( ( n = `key`  v = key )
-                                ( n = `text` v = text ) ) ).
-  endmethod.
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `resetButtonEnabled`   v = z2ui5_cl_util=>boolean_abap_2_json( resetbuttonenabled ) )
+                                ( n = `showCancelButton`     v = z2ui5_cl_util=>boolean_abap_2_json( showcancelbutton ) )
+                                ( n = `showConfirmButton`    v = z2ui5_cl_util=>boolean_abap_2_json( showconfirmbutton ) )
+                                ( n = `showResetButton`      v = z2ui5_cl_util=>boolean_abap_2_json( showresetbutton ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `cancel`               v = cancel )
+                                ( n = `confirm`              v = confirm )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `reset`                v = reset )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
 
 
   METHOD items.
@@ -21811,8 +27099,22 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD layout_data.
-    result = _generic( name = `layoutData`
-                        ns   = ns ).
+    result =
+    _generic( name   = `LayoutData`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -22184,15 +27486,26 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD logo.
-    result = _generic( name = `logo`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
   METHOD main_action.
-    result = _generic( name = `mainAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `MainAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -22464,12 +27777,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD menu_items.
-    result = _generic( name = `menuItems`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
   METHOD menu_list_item.
     result =
     _generic( name   = `MenuListItem`
@@ -22548,14 +27855,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD messages_indicator.
-    result = _generic( name = `messagesIndicator`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD message_area.
-    result = _generic( name = `messageArea`
-                        ns   = ns ).
+    result =
+    _generic( name   = `MessagesIndicator`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -23003,8 +28320,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD multi_select_action.
-    result = _generic( name = `multiSelectAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `MultiSelectAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -23131,8 +28465,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD negative_action.
-    result = _generic( name = `negativeAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `NegativeAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -23987,49 +29338,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD object_page_component_cont.
-    result =
-    _generic( name   = `ObjectPageComponentContainer`
-              ns     = `uxap`
-              t_prop = VALUE #(
-                                ( n = `async`                v = z2ui5_cl_util=>boolean_abap_2_json( async ) )
-                                ( n = `autoPrefixId`         v = z2ui5_cl_util=>boolean_abap_2_json( autoprefixid ) )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `handleValidation`     v = z2ui5_cl_util=>boolean_abap_2_json( handlevalidation ) )
-                                ( n = `height`               v = height )
-                                ( n = `id`                   v = id )
-                                ( n = `jsonConfigurationURL` v = jsonconfigurationurl )
-                                ( n = `lifecycle`            v = lifecycle )
-                                ( n = `manifest`             v = manifest )
-                                ( n = `mode`                 v = mode )
-                                ( n = `name`                 v = name )
-                                ( n = `propagateModel`       v = z2ui5_cl_util=>boolean_abap_2_json( propagatemodel ) )
-                                ( n = `settings`             v = settings )
-                                ( n = `url`                  v = url )
-                                ( n = `usage`                v = usage )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `width`                v = width )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `componentCreated`     v = componentcreated )
-                                ( n = `componentFailed`      v = componentfailed )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
   METHOD object_page_dynamic_header_con.
     result =
     _generic( name   = `ObjectPageDynamicHeaderContent`
@@ -24517,8 +29825,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD open_in_action.
-    result = _generic( name = `openInAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `OpenInAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -25422,40 +30746,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD planning_calendar_in_card_leg.
-    result =
-    _generic( name   = `PlanningCalendarInCardLegend`
-              ns     = `f`
-              t_prop = VALUE #(
-                                ( n = `appointmentItemsHeader` v = appointmentitemsheader )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `columnWidth`          v = columnwidth )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `id`                   v = id )
-                                ( n = `itemsHeader`          v = itemsheader )
-                                ( n = `standardItems`        v = standarditems )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `visibleLegendItemsCount` v = visiblelegenditemscount )
-                                ( n = `appointmentItems`     v = appointmentitems )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `items`                v = items )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
   METHOD planning_calendar_legend.
     result =
     _generic( name   = `PlanningCalendarLegend`
@@ -25482,46 +30772,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `formatError`          v = formaterror )
                                 ( n = `modelContextChange`   v = modelcontextchange )
                                 ( n = `parseError`           v = parseerror )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD planning_calendar_row_list_itm.
-    result =
-    _generic( name   = `PlanningCalendarRowListItem`
-              t_prop = VALUE #(
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `counter`              v = counter )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `highlight`            v = highlight )
-                                ( n = `highlightText`        v = highlighttext )
-                                ( n = `id`                   v = id )
-                                ( n = `navigated`            v = z2ui5_cl_util=>boolean_abap_2_json( navigated ) )
-                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
-                                ( n = `type`                 v = type )
-                                ( n = `unread`               v = z2ui5_cl_util=>boolean_abap_2_json( unread ) )
-                                ( n = `vAlign`               v = valign )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `actions`              v = actions )
-                                ( n = `cells`                v = cells )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `detailPress`          v = detailpress )
-                                ( n = `detailTap`            v = detailtap )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `press`                v = press )
-                                ( n = `tap`                  v = tap )
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
@@ -25594,8 +30844,25 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD positive_action.
-    result = _generic( name = `positiveAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `PositiveAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -25606,8 +30873,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD print_action.
-    result = _generic( name = `printAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `PrintAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -26358,8 +31641,22 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD row_mode.
-    result = _generic( name = `rowMode`
-                        ns   = ns ).
+    result =
+    _generic( name   = `RowMode`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -26376,8 +31673,24 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD save_action.
-    result = _generic( name = `saveAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `SaveAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -26389,12 +31702,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
   METHOD scale.
     result = _generic( name = `scale`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
-  METHOD scopes.
-    result = _generic( name = `scopes`
                         ns   = ns ).
   ENDMETHOD.
 
@@ -26536,8 +31843,31 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD search_manager.
-    result = _generic( name = `searchManager`
-                        ns   = ns ).
+    result =
+    _generic( name   = `SearchManager`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `enableSuggestions`    v = z2ui5_cl_util=>boolean_abap_2_json( enablesuggestions ) )
+                                ( n = `id`                   v = id )
+                                ( n = `maxLength`            v = maxlength )
+                                ( n = `placeholder`          v = placeholder )
+                                ( n = `value`                v = value )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `suggestionItems`      v = suggestionitems )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `liveChange`           v = livechange )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `search`               v = search )
+                                ( n = `suggest`              v = suggest )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -26883,47 +32213,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD semantic_overflow_toolbar_tb.
-    result =
-    _generic( name   = `SemanticOverflowToolbarToggleButton`
-              t_prop = VALUE #(
-                                ( n = `accessibleRole`       v = accessiblerole )
-                                ( n = `activeIcon`           v = activeicon )
-                                ( n = `ariaHasPopup`         v = ariahaspopup )
-                                ( n = `badgeStyle`           v = badgestyle )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `icon`                 v = icon )
-                                ( n = `iconDensityAware`     v = z2ui5_cl_util=>boolean_abap_2_json( icondensityaware ) )
-                                ( n = `iconFirst`            v = z2ui5_cl_util=>boolean_abap_2_json( iconfirst ) )
-                                ( n = `id`                   v = id )
-                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
-                                ( n = `text`                 v = text )
-                                ( n = `textDirection`        v = textdirection )
-                                ( n = `type`                 v = type )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `width`                v = width )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
-                                ( n = `press`                v = press )
-                                ( n = `tap`                  v = tap )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
   METHOD semantic_page.
     result =
     _generic( name   = `SemanticPage`
@@ -26966,20 +32255,68 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD send_email_action.
-    result = _generic( name = `sendEmailAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `SendEmailAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
   METHOD send_message_action.
-    result = _generic( name = `sendMessageAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `SendMessageAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
   METHOD share_in_jam_action.
-    result = _generic( name = `shareInJamAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `ShareInJamAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -28030,12 +33367,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD start_button.
-    result = _generic( name = `startButton`
-                        ns   = ns ).
-  ENDMETHOD.
-
-
   METHOD start_content.
     result = _generic( name = `startContent`
                         ns   = ns ).
@@ -28106,12 +33437,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
     get_root( )->xml_get_parts( CHANGING ct_parts = lt_parts ).
     result = concat_lines_of( lt_parts ).
 
-  ENDMETHOD.
-
-
-  METHOD subtitle.
-    result = _generic( name = `subtitle`
-                        ns   = ns ).
   ENDMETHOD.
 
 
@@ -29271,8 +34596,26 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD title_main_action.
-    result = _generic( name = `titleMainAction`
-                        ns   = ns ).
+    result =
+    _generic( name   = `TitleMainAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -30205,8 +35548,29 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
 
   METHOD uploader.
-    result = _generic( name = `uploader`
-                        ns   = ns ).
+    result =
+    _generic( name   = `Uploader`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `downloadUrl`          v = downloadurl )
+                                ( n = `httpRequestMethod`    v = httprequestmethod )
+                                ( n = `id`                   v = id )
+                                ( n = `uploadUrl`            v = uploadurl )
+                                ( n = `useMultipart`         v = z2ui5_cl_util=>boolean_abap_2_json( usemultipart ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `uploadAborted`        v = uploadaborted )
+                                ( n = `uploadCompleted`      v = uploadcompleted )
+                                ( n = `uploadProgressed`     v = uploadprogressed )
+                                ( n = `uploadStarted`        v = uploadstarted )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 
 
@@ -30261,32 +35625,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `typeMissmatch`        v = typemissmatch )
                                 ( n = `uploadComplete`       v = uploadcomplete )
                                 ( n = `uploadTerminated`     v = uploadterminated )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD upload_collection_toolbar_phld.
-    result =
-    _generic( name   = `UploadCollectionToolbarPlaceholder`
-              t_prop = VALUE #(
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `id`                   v = id )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
@@ -30482,47 +35820,6 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
                                 ( n = `parseError`           v = parseerror )
                                 ( n = `save`                 v = save )
                                 ( n = `select`               v = select )
-                                ( n = `validateFieldGroup`   v = validatefieldgroup )
-                                ( n = `validationError`      v = validationerror )
-                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
-  ENDMETHOD.
-
-
-  METHOD VBOX.
-    result =
-    _generic( name   = `VBox`
-              t_prop = VALUE #(
-                                ( n = `alignContent`         v = aligncontent )
-                                ( n = `alignItems`           v = alignitems )
-                                ( n = `backgroundDesign`     v = backgrounddesign )
-                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
-                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
-                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
-                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
-                                ( n = `class`                v = class )
-                                ( n = `columnGap`            v = columngap )
-                                ( n = `direction`            v = direction )
-                                ( n = `displayInline`        v = z2ui5_cl_util=>boolean_abap_2_json( displayinline ) )
-                                ( n = `fieldGroupIds`        v = fieldgroupids )
-                                ( n = `fitContainer`         v = z2ui5_cl_util=>boolean_abap_2_json( fitcontainer ) )
-                                ( n = `gap`                  v = gap )
-                                ( n = `height`               v = height )
-                                ( n = `id`                   v = id )
-                                ( n = `justifyContent`       v = justifycontent )
-                                ( n = `renderType`           v = rendertype )
-                                ( n = `rowGap`               v = rowgap )
-                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
-                                ( n = `width`                v = width )
-                                ( n = `wrap`                 v = wrap )
-                                ( n = `customData`           v = customdata )
-                                ( n = `dependents`           v = dependents )
-                                ( n = `dragDropConfig`       v = dragdropconfig )
-                                ( n = `items`                v = items )
-                                ( n = `layoutData`           v = layoutdata )
-                                ( n = `tooltip`              v = tooltip )
-                                ( n = `formatError`          v = formaterror )
-                                ( n = `modelContextChange`   v = modelcontextchange )
-                                ( n = `parseError`           v = parseerror )
                                 ( n = `validateFieldGroup`   v = validatefieldgroup )
                                 ( n = `validationError`      v = validationerror )
                                 ( n = `validationSuccess`    v = validationsuccess ) ) ).
@@ -30933,7 +36230,7 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD xml_get_parts.
+    METHOD xml_get_parts.
     IF mv_name = `ZZPLAIN`.
       APPEND mt_prop[ n = `VALUE` ]-v TO ct_parts.
       RETURN.
@@ -31163,5 +36460,5661 @@ CLASS Z2UI5_CL_XML_FRAGMENT IMPLEMENTATION.
 
     mo_root->mo_previous = result2.
     result = result2.
+  ENDMETHOD.
+
+
+  METHOD _cc_plain_xml.
+    result =
+    _generic( name   = `ZZPLAIN`
+              ns     = `html`
+              t_prop = VALUE #( ( n = `VALUE` v = val ) ) ).
+  ENDMETHOD.
+
+
+  METHOD action_item.
+    result =
+    _generic( name   = `ActionItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD additional_footer_buttons.
+    result = _generic( name = `additionalFooterButtons`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD add_action_agg.
+    result = _generic( name = `addAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD analytical_column.
+    result =
+    _generic( name   = `AnalyticalColumn`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `autoResizable`        v = z2ui5_cl_util=>boolean_abap_2_json( autoresizable ) )
+                                ( n = `class`                v = class )
+                                ( n = `defaultFilterOperator` v = defaultfilteroperator )
+                                ( n = `filtered`             v = z2ui5_cl_util=>boolean_abap_2_json( filtered ) )
+                                ( n = `filterOperator`       v = filteroperator )
+                                ( n = `filterProperty`       v = filterproperty )
+                                ( n = `filterType`           v = filtertype )
+                                ( n = `filterValue`          v = filtervalue )
+                                ( n = `flexible`             v = z2ui5_cl_util=>boolean_abap_2_json( flexible ) )
+                                ( n = `grouped`              v = z2ui5_cl_util=>boolean_abap_2_json( grouped ) )
+                                ( n = `groupHeaderFormatter` v = groupheaderformatter )
+                                ( n = `hAlign`               v = halign )
+                                ( n = `headerSpan`           v = headerspan )
+                                ( n = `id`                   v = id )
+                                ( n = `inResult`             v = z2ui5_cl_util=>boolean_abap_2_json( inresult ) )
+                                ( n = `leadingProperty`      v = leadingproperty )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `name`                 v = name )
+                                ( n = `resizable`            v = z2ui5_cl_util=>boolean_abap_2_json( resizable ) )
+                                ( n = `showFilterMenuEntry`  v = z2ui5_cl_util=>boolean_abap_2_json( showfiltermenuentry ) )
+                                ( n = `showIfGrouped`        v = z2ui5_cl_util=>boolean_abap_2_json( showifgrouped ) )
+                                ( n = `showSortMenuEntry`    v = z2ui5_cl_util=>boolean_abap_2_json( showsortmenuentry ) )
+                                ( n = `sorted`               v = z2ui5_cl_util=>boolean_abap_2_json( sorted ) )
+                                ( n = `sortOrder`            v = sortorder )
+                                ( n = `sortProperty`         v = sortproperty )
+                                ( n = `summed`               v = z2ui5_cl_util=>boolean_abap_2_json( summed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `label`                v = label )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `menu`                 v = menu )
+                                ( n = `multiLabels`          v = multilabels )
+                                ( n = `template`             v = template )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `columnMenuOpen`       v = columnmenuopen )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD analytical_table_context_menu.
+    result =
+    _generic( name   = `AnalyticalTableContextMenu`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `menu`                 v = menu )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD app_agg.
+    result = _generic( name = `app`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD auto.
+    result =
+    _generic( name   = `Auto`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `fixedBottomRowCount`  v = fixedbottomrowcount )
+                                ( n = `fixedTopRowCount`     v = fixedtoprowcount )
+                                ( n = `id`                   v = id )
+                                ( n = `maxRowCount`          v = maxrowcount )
+                                ( n = `minRowCount`          v = minrowcount )
+                                ( n = `rowContentHeight`     v = rowcontentheight )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD avatar_agg.
+    result = _generic( name = `avatar`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD binding_selection.
+    result =
+    _generic( name   = `BindingSelection`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectionMode`        v = selectionmode )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD block_layout_cell_data.
+    result =
+    _generic( name   = `BlockLayoutCellData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `lSize`                v = lsize )
+                                ( n = `mSize`                v = msize )
+                                ( n = `sSize`                v = ssize )
+                                ( n = `xlSize`               v = xlsize )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD breadcrumbs_agg.
+    result = _generic( name = `breadcrumbs`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD calendar_agg.
+    result = _generic( name = `calendar`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD calendar_appointment.
+    result =
+    _generic( name   = `CalendarAppointment`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `class`                v = class )
+                                ( n = `color`                v = color )
+                                ( n = `description`          v = description )
+                                ( n = `endDate`              v = enddate )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `secondaryType`        v = secondarytype )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `startDate`            v = startdate )
+                                ( n = `tentative`            v = z2ui5_cl_util=>boolean_abap_2_json( tentative ) )
+                                ( n = `text`                 v = text )
+                                ( n = `title`                v = title )
+                                ( n = `type`                 v = type )
+                                ( n = `customContent`        v = customcontent )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD calendar_appointment_in_card.
+    result =
+    _generic( name   = `CalendarAppointmentInCard`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `class`                v = class )
+                                ( n = `clickable`            v = z2ui5_cl_util=>boolean_abap_2_json( clickable ) )
+                                ( n = `color`                v = color )
+                                ( n = `description`          v = description )
+                                ( n = `endDate`              v = enddate )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `secondaryType`        v = secondarytype )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `startDate`            v = startdate )
+                                ( n = `tentative`            v = z2ui5_cl_util=>boolean_abap_2_json( tentative ) )
+                                ( n = `text`                 v = text )
+                                ( n = `title`                v = title )
+                                ( n = `type`                 v = type )
+                                ( n = `customContent`        v = customcontent )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD calendar_legend_item.
+    result =
+    _generic( name   = `CalendarLegendItem`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `color`                v = color )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD cancel_action_agg.
+    result = _generic( name = `cancelAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD cell_selector.
+    result =
+    _generic( name   = `CellSelector`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `rangeLimit`           v = rangelimit )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD close_action_agg.
+    result = _generic( name = `closeAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD column.
+    result =
+    _generic( name   = `Column`
+              t_prop = VALUE #(
+                                ( n = `autoPopinWidth`       v = autopopinwidth )
+                                ( n = `class`                v = class )
+                                ( n = `demandPopin`          v = z2ui5_cl_util=>boolean_abap_2_json( demandpopin ) )
+                                ( n = `hAlign`               v = halign )
+                                ( n = `id`                   v = id )
+                                ( n = `importance`           v = importance )
+                                ( n = `mergeDuplicates`      v = z2ui5_cl_util=>boolean_abap_2_json( mergeduplicates ) )
+                                ( n = `mergeFunctionName`    v = mergefunctionname )
+                                ( n = `minScreenWidth`       v = minscreenwidth )
+                                ( n = `popinDisplay`         v = popindisplay )
+                                ( n = `popinHAlign`          v = popinhalign )
+                                ( n = `sortIndicator`        v = sortindicator )
+                                ( n = `styleClass`           v = styleclass )
+                                ( n = `vAlign`               v = valign )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `footer`               v = footer )
+                                ( n = `header`               v = header )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD column_ai_action.
+    result =
+    _generic( name   = `ColumnAIAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD column_container_data.
+    result =
+    _generic( name   = `ColumnContainerData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnsL`             v = columnsl )
+                                ( n = `columnsM`             v = columnsm )
+                                ( n = `columnsXL`            v = columnsxl )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD column_element_data.
+    result =
+    _generic( name   = `ColumnElementData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `cellsLarge`           v = cellslarge )
+                                ( n = `cellsSmall`           v = cellssmall )
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD column_resizer.
+    result =
+    _generic( name   = `ColumnResizer`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `columnResize`         v = columnresize )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD command_execution.
+    result =
+    _generic( name   = `CommandExecution`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `command`              v = command )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `execute`              v = execute )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD content_config_agg.
+    result = _generic( name = `contentConfig`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD context_menu_agg.
+    result = _generic( name = `contextMenu`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD context_menu_setting.
+    result =
+    _generic( name   = `ContextMenuSetting`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `scope`                v = scope )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD copy_action_agg.
+    result = _generic( name = `copyAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD copy_provider.
+    result =
+    _generic( name   = `CopyProvider`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `copyPreference`       v = copypreference )
+                                ( n = `copySparse`           v = z2ui5_cl_util=>boolean_abap_2_json( copysparse ) )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `excludeContext`       v = excludecontext )
+                                ( n = `extractData`          v = extractdata )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `copy`                 v = copy )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+    METHOD CORE_CUSTOM_DATA.
+    result = _generic( name = `CustomData`
+                        ns   = 'core'
+                        t_prop = VALUE #(
+                                ( n = `key`                  v = key )
+                                ( n = `value`                v = value )
+                                ( n = `writeToDom`           v = z2ui5_cl_util=>boolean_abap_2_json( write_to_dom ) ) ) ).
+
+  ENDMETHOD.
+
+
+    method core_ITEM.
+    result =
+    _generic( name   = `Item`
+              ns     = `core`
+              t_prop = VALUE #( ( n = `key`  v = key )
+                                ( n = `text` v = text ) ) ).
+  endmethod.
+
+
+  METHOD custom_control.
+    result = _generic( name = `customControl`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD data_state_indicator.
+    result =
+    _generic( name   = `DataStateIndicator`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `enableFiltering`      v = z2ui5_cl_util=>boolean_abap_2_json( enablefiltering ) )
+                                ( n = `filter`               v = filter )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `applyFilter`          v = applyfilter )
+                                ( n = `clearFilter`          v = clearfilter )
+                                ( n = `close`                v = close )
+                                ( n = `dataStateChange`      v = datastatechange )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD date_range.
+    result =
+    _generic( name   = `DateRange`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `endDate`              v = enddate )
+                                ( n = `id`                   v = id )
+                                ( n = `startDate`            v = startdate )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD date_type_range.
+    result =
+    _generic( name   = `DateTypeRange`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `class`                v = class )
+                                ( n = `color`                v = color )
+                                ( n = `endDate`              v = enddate )
+                                ( n = `id`                   v = id )
+                                ( n = `secondaryType`        v = secondarytype )
+                                ( n = `startDate`            v = startdate )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD delete_action_agg.
+    result = _generic( name = `deleteAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD desktop_layout_data.
+    result = _generic( name = `desktopLayoutData`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD discuss_in_jam_action_agg.
+    result = _generic( name = `discussInJamAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD dom_attribute.
+    result =
+    _generic( name   = `DOMAttribute`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `name`                 v = name )
+                                ( n = `value`                v = value )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD draft_indicator_agg.
+    result = _generic( name = `draftIndicator`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD dynamic_date_option.
+    result =
+    _generic( name   = `DynamicDateOption`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `valueTypes`           v = valuetypes )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD dynamic_date_value_help_ui_typ.
+    result =
+    _generic( name   = `DynamicDateValueHelpUIType`
+              t_prop = VALUE #(
+                                ( n = `additionalText`       v = additionaltext )
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `included`             v = included )
+                                ( n = `options`              v = options )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD dynamic_page_accessible_landma.
+    result =
+    _generic( name   = `DynamicPageAccessibleLandmarkInfo`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `contentLabel`         v = contentlabel )
+                                ( n = `contentRole`          v = contentrole )
+                                ( n = `footerLabel`          v = footerlabel )
+                                ( n = `footerRole`           v = footerrole )
+                                ( n = `headerContentLabel`   v = headercontentlabel )
+                                ( n = `headerLabel`          v = headerlabel )
+                                ( n = `headerRole`           v = headerrole )
+                                ( n = `id`                   v = id )
+                                ( n = `rootLabel`            v = rootlabel )
+                                ( n = `rootRole`             v = rootrole )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD edit_action_agg.
+    result = _generic( name = `editAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD element.
+    result =
+    _generic( name   = `Element`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD entry.
+    result =
+    _generic( name   = `Entry`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD exit_full_screen_action_agg.
+    result = _generic( name = `exitFullScreenAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD export_cell.
+    result =
+    _generic( name   = `ExportCell`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `content`              v = content )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD favorite_action_agg.
+    result = _generic( name = `favoriteAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD feed_list_item_action.
+    result =
+    _generic( name   = `FeedListItemAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD fields.
+    result = _generic( name = `fields`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD field_labels.
+    result = _generic( name = `fieldLabels`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD file_preview_dialog.
+    result =
+    _generic( name   = `FilePreviewDialog`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `customPageContentHandler` v = custompagecontenthandler )
+                                ( n = `id`                   v = id )
+                                ( n = `maxFileSizeforPreview` v = maxfilesizeforpreview )
+                                ( n = `showCarouselArrows`   v = z2ui5_cl_util=>boolean_abap_2_json( showcarouselarrows ) )
+                                ( n = `additionalFooterButtons` v = additionalfooterbuttons )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD file_uploader_parameter.
+    result =
+    _generic( name   = `FileUploaderParameter`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `name`                 v = name )
+                                ( n = `value`                v = value )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD file_uploader_xhr_settings.
+    result =
+    _generic( name   = `FileUploaderXHRSettings`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `withCredentials`      v = z2ui5_cl_util=>boolean_abap_2_json( withcredentials ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD filter_action.
+    result =
+    _generic( name   = `FilterAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD filter_select.
+    result =
+    _generic( name   = `FilterSelect`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectedKey`          v = selectedkey )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD fixed.
+    result =
+    _generic( name   = `Fixed`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `fixedBottomRowCount`  v = fixedbottomrowcount )
+                                ( n = `fixedTopRowCount`     v = fixedtoprowcount )
+                                ( n = `id`                   v = id )
+                                ( n = `rowContentHeight`     v = rowcontentheight )
+                                ( n = `rowCount`             v = rowcount )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD flag_action_agg.
+    result = _generic( name = `flagAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD flexible_column_layout_accessi.
+    result =
+    _generic( name   = `FlexibleColumnLayoutAccessibleLandmarkInfo`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `firstColumnBackArrowLabel` v = firstcolumnbackarrowlabel )
+                                ( n = `firstColumnLabel`     v = firstcolumnlabel )
+                                ( n = `id`                   v = id )
+                                ( n = `lastColumnForwardArrowLabel` v = lastcolumnforwardarrowlabel )
+                                ( n = `lastColumnLabel`      v = lastcolumnlabel )
+                                ( n = `middleColumnBackArrowLabel` v = middlecolumnbackarrowlabel )
+                                ( n = `middleColumnForwardArrowLabel` v = middlecolumnforwardarrowlabel )
+                                ( n = `middleColumnLabel`    v = middlecolumnlabel )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD flexible_column_layout_data.
+    result =
+    _generic( name   = `FlexibleColumnLayoutData`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `desktopLayoutData`    v = desktoplayoutdata )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tabletLayoutData`     v = tabletlayoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD flexible_column_layout_data_f1.
+    result =
+    _generic( name   = `FlexibleColumnLayoutDataForTablet`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `threeColumnsBeginExpandedEndHidden` v = threecolumnsbeginexpandedendhi )
+                                ( n = `threeColumnsEndExpanded` v = threecolumnsendexpanded )
+                                ( n = `threeColumnsMidExpanded` v = threecolumnsmidexpanded )
+                                ( n = `threeColumnsMidExpandedEndHidden` v = threecolumnsmidexpandedendhidd )
+                                ( n = `twoColumnsBeginExpanded` v = twocolumnsbeginexpanded )
+                                ( n = `twoColumnsMidExpanded` v = twocolumnsmidexpanded )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD flexible_column_layout_data_fo.
+    result =
+    _generic( name   = `FlexibleColumnLayoutDataForDesktop`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `threeColumnsBeginExpandedEndHidden` v = threecolumnsbeginexpandedendhi )
+                                ( n = `threeColumnsEndExpanded` v = threecolumnsendexpanded )
+                                ( n = `threeColumnsMidExpanded` v = threecolumnsmidexpanded )
+                                ( n = `threeColumnsMidExpandedEndHidden` v = threecolumnsmidexpandedendhidd )
+                                ( n = `twoColumnsBeginExpanded` v = twocolumnsbeginexpanded )
+                                ( n = `twoColumnsMidExpanded` v = twocolumnsmidexpanded )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD flex_item_data.
+    result =
+    _generic( name   = `FlexItemData`
+              t_prop = VALUE #(
+                                ( n = `alignSelf`            v = alignself )
+                                ( n = `backgroundDesign`     v = backgrounddesign )
+                                ( n = `baseSize`             v = basesize )
+                                ( n = `class`                v = class )
+                                ( n = `growFactor`           v = growfactor )
+                                ( n = `id`                   v = id )
+                                ( n = `maxHeight`            v = maxheight )
+                                ( n = `maxWidth`             v = maxwidth )
+                                ( n = `minHeight`            v = minheight )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `order`                v = order )
+                                ( n = `shrinkFactor`         v = shrinkfactor )
+                                ( n = `styleClass`           v = styleclass )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD footer_main_action_agg.
+    result = _generic( name = `footerMainAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD formatted_text_agg.
+    result = _generic( name = `formattedText`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD form_container.
+    result =
+    _generic( name   = `FormContainer`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `expandable`           v = z2ui5_cl_util=>boolean_abap_2_json( expandable ) )
+                                ( n = `expanded`             v = z2ui5_cl_util=>boolean_abap_2_json( expanded ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `formElements`         v = formelements )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `title`                v = title )
+                                ( n = `toolbar`              v = toolbar )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD form_element.
+    result =
+    _generic( name   = `FormElement`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `fields`               v = fields )
+                                ( n = `label`                v = label )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD form_elements.
+    result = _generic( name = `formElements`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD forward_action_agg.
+    result = _generic( name = `forwardAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD full_screen_action_agg.
+    result = _generic( name = `fullScreenAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD f_add_action.
+    result =
+    _generic( name   = `AddAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_delete_action.
+    result =
+    _generic( name   = `DeleteAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_discuss_in_jam_action.
+    result =
+    _generic( name   = `DiscussInJamAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_edit_action.
+    result =
+    _generic( name   = `EditAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_favorite_action.
+    result =
+    _generic( name   = `FavoriteAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_flag_action.
+    result =
+    _generic( name   = `FlagAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_main_action.
+    result =
+    _generic( name   = `MainAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_messages_indicator.
+    result =
+    _generic( name   = `MessagesIndicator`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_negative_action.
+    result =
+    _generic( name   = `NegativeAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_positive_action.
+    result =
+    _generic( name   = `PositiveAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_print_action.
+    result =
+    _generic( name   = `PrintAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_semantic_button.
+    result =
+    _generic( name   = `SemanticButton`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_semantic_control.
+    result =
+    _generic( name   = `SemanticControl`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_semantic_toggle_button.
+    result =
+    _generic( name   = `SemanticToggleButton`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_send_email_action.
+    result =
+    _generic( name   = `SendEmailAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_send_message_action.
+    result =
+    _generic( name   = `SendMessageAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD f_share_in_jam_action.
+    result =
+    _generic( name   = `ShareInJamAction`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD grid_container_data.
+    result =
+    _generic( name   = `GridContainerData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `halfGrid`             v = z2ui5_cl_util=>boolean_abap_2_json( halfgrid ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD grid_container_item_layout_dat.
+    result =
+    _generic( name   = `GridContainerItemLayoutData`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columns`              v = columns )
+                                ( n = `id`                   v = id )
+                                ( n = `minRows`              v = minrows )
+                                ( n = `rows`                 v = rows )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD grid_data.
+    result =
+    _generic( name   = `GridData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `indent`               v = indent )
+                                ( n = `indentL`              v = indentl )
+                                ( n = `indentLarge`          v = indentlarge )
+                                ( n = `indentM`              v = indentm )
+                                ( n = `indentMedium`         v = indentmedium )
+                                ( n = `indentS`              v = indents )
+                                ( n = `indentSmall`          v = indentsmall )
+                                ( n = `indentXL`             v = indentxl )
+                                ( n = `linebreak`            v = z2ui5_cl_util=>boolean_abap_2_json( linebreak ) )
+                                ( n = `linebreakL`           v = z2ui5_cl_util=>boolean_abap_2_json( linebreakl ) )
+                                ( n = `linebreakM`           v = z2ui5_cl_util=>boolean_abap_2_json( linebreakm ) )
+                                ( n = `linebreakS`           v = z2ui5_cl_util=>boolean_abap_2_json( linebreaks ) )
+                                ( n = `linebreakXL`          v = z2ui5_cl_util=>boolean_abap_2_json( linebreakxl ) )
+                                ( n = `moveBackwards`        v = movebackwards )
+                                ( n = `moveForward`          v = moveforward )
+                                ( n = `span`                 v = span )
+                                ( n = `spanL`                v = spanl )
+                                ( n = `spanLarge`            v = spanlarge )
+                                ( n = `spanM`                v = spanm )
+                                ( n = `spanMedium`           v = spanmedium )
+                                ( n = `spanS`                v = spans )
+                                ( n = `spanSmall`            v = spansmall )
+                                ( n = `spanXL`               v = spanxl )
+                                ( n = `visibleL`             v = z2ui5_cl_util=>boolean_abap_2_json( visiblel ) )
+                                ( n = `visibleM`             v = z2ui5_cl_util=>boolean_abap_2_json( visiblem ) )
+                                ( n = `visibleOnLarge`       v = z2ui5_cl_util=>boolean_abap_2_json( visibleonlarge ) )
+                                ( n = `visibleOnMedium`      v = z2ui5_cl_util=>boolean_abap_2_json( visibleonmedium ) )
+                                ( n = `visibleOnSmall`       v = z2ui5_cl_util=>boolean_abap_2_json( visibleonsmall ) )
+                                ( n = `visibleS`             v = z2ui5_cl_util=>boolean_abap_2_json( visibles ) )
+                                ( n = `visibleXL`            v = z2ui5_cl_util=>boolean_abap_2_json( visiblexl ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD grid_element_data.
+    result =
+    _generic( name   = `GridElementData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `hCells`               v = hcells )
+                                ( n = `id`                   v = id )
+                                ( n = `vCells`               v = vcells )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD grid_item_layout_data.
+    result =
+    _generic( name   = `GridItemLayoutData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `gridColumn`           v = gridcolumn )
+                                ( n = `gridColumnEnd`        v = gridcolumnend )
+                                ( n = `gridColumnStart`      v = gridcolumnstart )
+                                ( n = `gridRow`              v = gridrow )
+                                ( n = `gridRowEnd`           v = gridrowend )
+                                ( n = `gridRowStart`         v = gridrowstart )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD group_action.
+    result =
+    _generic( name   = `GroupAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD group_select.
+    result =
+    _generic( name   = `GroupSelect`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectedKey`          v = selectedkey )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD hbox.
+    result =
+    _generic( name   = `HBox`
+              t_prop = VALUE #(
+                                ( n = `alignContent`         v = aligncontent )
+                                ( n = `alignItems`           v = alignitems )
+                                ( n = `backgroundDesign`     v = backgrounddesign )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `columnGap`            v = columngap )
+                                ( n = `direction`            v = direction )
+                                ( n = `displayInline`        v = z2ui5_cl_util=>boolean_abap_2_json( displayinline ) )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `fitContainer`         v = z2ui5_cl_util=>boolean_abap_2_json( fitcontainer ) )
+                                ( n = `gap`                  v = gap )
+                                ( n = `height`               v = height )
+                                ( n = `id`                   v = id )
+                                ( n = `justifyContent`       v = justifycontent )
+                                ( n = `renderType`           v = rendertype )
+                                ( n = `rowGap`               v = rowgap )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `wrap`                 v = wrap )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD header_container_agg.
+    result = _generic( name = `headerContainer`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD header_container_item_containe.
+    result =
+    _generic( name   = `HeaderContainerItemContainer`
+              t_prop = VALUE #(
+                                ( n = `ariaLabelledBy`       v = arialabelledby )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `id`                   v = id )
+                                ( n = `position`             v = position )
+                                ( n = `setSize`              v = setsize )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `item`                 v = item )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD icon_agg.
+    result = _generic( name = `icon`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD icon_tab_filter.
+    result =
+    _generic( name   = `IconTabFilter`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `count`                v = count )
+                                ( n = `design`               v = design )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `iconColor`            v = iconcolor )
+                                ( n = `iconDensityAware`     v = z2ui5_cl_util=>boolean_abap_2_json( icondensityaware ) )
+                                ( n = `id`                   v = id )
+                                ( n = `interactionMode`      v = interactionmode )
+                                ( n = `key`                  v = key )
+                                ( n = `showAll`              v = z2ui5_cl_util=>boolean_abap_2_json( showall ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD icon_tab_filter_expand_button_.
+    result =
+    _generic( name   = `IconTabFilterExpandButtonBadge`
+              t_prop = VALUE #(
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD icon_tab_separator.
+    result =
+    _generic( name   = `IconTabSeparator`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `iconDensityAware`     v = z2ui5_cl_util=>boolean_abap_2_json( icondensityaware ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD illustrated_message_agg.
+    result = _generic( name = `illustratedMessage`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD image_content_agg.
+    result = _generic( name = `imageContent`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD interactive.
+    result =
+    _generic( name   = `Interactive`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `fixedBottomRowCount`  v = fixedbottomrowcount )
+                                ( n = `fixedTopRowCount`     v = fixedtoprowcount )
+                                ( n = `id`                   v = id )
+                                ( n = `maxRowCount`          v = maxrowcount )
+                                ( n = `minRowCount`          v = minrowcount )
+                                ( n = `rowContentHeight`     v = rowcontentheight )
+                                ( n = `rowCount`             v = rowcount )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD item_agg.
+    result = _generic( name = `item`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD item_base.
+    result =
+    _generic( name   = `ItemBase`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD item_container.
+    result =
+    _generic( name   = `ItemContainer`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD label_agg.
+    result = _generic( name = `label`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD layout_data_agg.
+    result = _generic( name = `layoutData`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD light_box_item.
+    result =
+    _generic( name   = `LightBoxItem`
+              t_prop = VALUE #(
+                                ( n = `alt`                  v = alt )
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `imageSrc`             v = imagesrc )
+                                ( n = `subtitle`             v = subtitle )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD lines.
+    result = _generic( name = `lines`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD link_agg.
+    result = _generic( name = `link`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD link_tile_content.
+    result =
+    _generic( name   = `LinkTileContent`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `iconSrc`              v = iconsrc )
+                                ( n = `id`                   v = id )
+                                ( n = `linkHref`             v = linkhref )
+                                ( n = `linkText`             v = linktext )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `linkPress`            v = linkpress )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD list_item.
+    result =
+    _generic( name   = `ListItem`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `additionalText`       v = additionaltext )
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD list_item_action.
+    result =
+    _generic( name   = `ListItemAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD list_item_action_base.
+    result =
+    _generic( name   = `ListItemActionBase`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD main_action_agg.
+    result = _generic( name = `mainAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD markers_as_status.
+    result = _generic( name = `markersAsStatus`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD mask_input_rule.
+    result =
+    _generic( name   = `MaskInputRule`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `maskFormatSymbol`     v = maskformatsymbol )
+                                ( n = `regex`                v = regex )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD menu_agg.
+    result = _generic( name = `menu`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD menu_item_base.
+    result =
+    _generic( name   = `MenuItemBase`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `startsSection`        v = z2ui5_cl_util=>boolean_abap_2_json( startssection ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `submenu`              v = submenu )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `select`               v = select )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD menu_item_group.
+    result =
+    _generic( name   = `MenuItemGroup`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `itemSelectionMode`    v = itemselectionmode )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD menu_text_field_item.
+    result =
+    _generic( name   = `MenuTextFieldItem`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `startsSection`        v = z2ui5_cl_util=>boolean_abap_2_json( startssection ) )
+                                ( n = `value`                v = value )
+                                ( n = `valueState`           v = valuestate )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `submenu`              v = submenu )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `select`               v = select )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD message.
+    result =
+    _generic( name   = `Message`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `level`                v = level )
+                                ( n = `readOnly`             v = z2ui5_cl_util=>boolean_abap_2_json( readonly ) )
+                                ( n = `text`                 v = text )
+                                ( n = `timestamp`            v = timestamp )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD messages_indicator_agg.
+    result = _generic( name = `messagesIndicator`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD message_item.
+    result =
+    _generic( name   = `MessageItem`
+              t_prop = VALUE #(
+                                ( n = `activeTitle`          v = z2ui5_cl_util=>boolean_abap_2_json( activetitle ) )
+                                ( n = `class`                v = class )
+                                ( n = `counter`              v = counter )
+                                ( n = `description`          v = description )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `groupName`            v = groupname )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `longtextUrl`          v = longtexturl )
+                                ( n = `markupDescription`    v = z2ui5_cl_util=>boolean_abap_2_json( markupdescription ) )
+                                ( n = `subtitle`             v = subtitle )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `title`                v = title )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `link`                 v = link )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD message_popover_item.
+    result =
+    _generic( name   = `MessagePopoverItem`
+              t_prop = VALUE #(
+                                ( n = `activeTitle`          v = z2ui5_cl_util=>boolean_abap_2_json( activetitle ) )
+                                ( n = `class`                v = class )
+                                ( n = `counter`              v = counter )
+                                ( n = `description`          v = description )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `groupName`            v = groupname )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `longtextUrl`          v = longtexturl )
+                                ( n = `markupDescription`    v = z2ui5_cl_util=>boolean_abap_2_json( markupdescription ) )
+                                ( n = `subtitle`             v = subtitle )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `title`                v = title )
+                                ( n = `type`                 v = type )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `link`                 v = link )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD message_strip_agg.
+    result = _generic( name = `messageStrip`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD model_mapping.
+    result =
+    _generic( name   = `ModelMapping`
+              ns     = `uxap`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `externalModelName`    v = externalmodelname )
+                                ( n = `externalPath`         v = externalpath )
+                                ( n = `id`                   v = id )
+                                ( n = `internalModelName`    v = internalmodelname )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD monthly_recurrence_rule.
+    result =
+    _generic( name   = `MonthlyRecurrenceRule`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `dayOfMonth`           v = dayofmonth )
+                                ( n = `dayOfWeek`            v = dayofweek )
+                                ( n = `days`                 v = days )
+                                ( n = `id`                   v = id )
+                                ( n = `month`                v = month )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `type`                 v = type )
+                                ( n = `weekOfMonth`          v = weekofmonth )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD multiple_layout_data.
+    result = _generic( name = `multipleLayoutData`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD multi_labels.
+    result = _generic( name = `multiLabels`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD multi_selection_plugin.
+    result =
+    _generic( name   = `MultiSelectionPlugin`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `enableNotification`   v = z2ui5_cl_util=>boolean_abap_2_json( enablenotification ) )
+                                ( n = `id`                   v = id )
+                                ( n = `limit`                v = limit )
+                                ( n = `selectionMode`        v = selectionmode )
+                                ( n = `showHeaderSelector`   v = z2ui5_cl_util=>boolean_abap_2_json( showheaderselector ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD multi_select_action_agg.
+    result = _generic( name = `multiSelectAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD navigation_list_group.
+    result =
+    _generic( name   = `NavigationListGroup`
+              ns     = `tnt`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `expanded`             v = z2ui5_cl_util=>boolean_abap_2_json( expanded ) )
+                                ( n = `hasExpander`          v = z2ui5_cl_util=>boolean_abap_2_json( hasexpander ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD navigation_list_item.
+    result =
+    _generic( name   = `NavigationListItem`
+              ns     = `tnt`
+              t_prop = VALUE #(
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `class`                v = class )
+                                ( n = `design`               v = design )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `expanded`             v = z2ui5_cl_util=>boolean_abap_2_json( expanded ) )
+                                ( n = `hasExpander`          v = z2ui5_cl_util=>boolean_abap_2_json( hasexpander ) )
+                                ( n = `href`                 v = href )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `selectable`           v = z2ui5_cl_util=>boolean_abap_2_json( selectable ) )
+                                ( n = `target`               v = target )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tag`                  v = tag )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `select`               v = select )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD navigation_list_item_base.
+    result =
+    _generic( name   = `NavigationListItemBase`
+              ns     = `tnt`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `expanded`             v = z2ui5_cl_util=>boolean_abap_2_json( expanded ) )
+                                ( n = `hasExpander`          v = z2ui5_cl_util=>boolean_abap_2_json( hasexpander ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD negative_action_agg.
+    result = _generic( name = `negativeAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD non_working_period.
+    result =
+    _generic( name   = `NonWorkingPeriod`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `date`                 v = date )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `timeRange`            v = timerange )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD no_data_illustration.
+    result = _generic( name = `noDataIllustration`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD object_page_accessible_landmar.
+    result =
+    _generic( name   = `ObjectPageAccessibleLandmarkInfo`
+              ns     = `uxap`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `contentLabel`         v = contentlabel )
+                                ( n = `contentRole`          v = contentrole )
+                                ( n = `footerLabel`          v = footerlabel )
+                                ( n = `footerRole`           v = footerrole )
+                                ( n = `headerContentLabel`   v = headercontentlabel )
+                                ( n = `headerLabel`          v = headerlabel )
+                                ( n = `headerRole`           v = headerrole )
+                                ( n = `id`                   v = id )
+                                ( n = `navigationLabel`      v = navigationlabel )
+                                ( n = `navigationRole`       v = navigationrole )
+                                ( n = `rootLabel`            v = rootlabel )
+                                ( n = `rootRole`             v = rootrole )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD object_page_component_containe.
+    result =
+    _generic( name   = `ObjectPageComponentContainer`
+              ns     = `uxap`
+              t_prop = VALUE #(
+                                ( n = `async`                v = z2ui5_cl_util=>boolean_abap_2_json( async ) )
+                                ( n = `autoPrefixId`         v = z2ui5_cl_util=>boolean_abap_2_json( autoprefixid ) )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `handleValidation`     v = z2ui5_cl_util=>boolean_abap_2_json( handlevalidation ) )
+                                ( n = `height`               v = height )
+                                ( n = `id`                   v = id )
+                                ( n = `jsonConfigurationURL` v = jsonconfigurationurl )
+                                ( n = `lifecycle`            v = lifecycle )
+                                ( n = `manifest`             v = manifest )
+                                ( n = `mode`                 v = mode )
+                                ( n = `name`                 v = name )
+                                ( n = `propagateModel`       v = z2ui5_cl_util=>boolean_abap_2_json( propagatemodel ) )
+                                ( n = `settings`             v = settings )
+                                ( n = `url`                  v = url )
+                                ( n = `usage`                v = usage )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `componentCreated`     v = componentcreated )
+                                ( n = `componentFailed`      v = componentfailed )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD object_page_header_layout_data.
+    result =
+    _generic( name   = `ObjectPageHeaderLayoutData`
+              ns     = `uxap`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `showSeparatorAfter`   v = z2ui5_cl_util=>boolean_abap_2_json( showseparatorafter ) )
+                                ( n = `showSeparatorBefore`  v = z2ui5_cl_util=>boolean_abap_2_json( showseparatorbefore ) )
+                                ( n = `visibleL`             v = z2ui5_cl_util=>boolean_abap_2_json( visiblel ) )
+                                ( n = `visibleM`             v = z2ui5_cl_util=>boolean_abap_2_json( visiblem ) )
+                                ( n = `visibleS`             v = z2ui5_cl_util=>boolean_abap_2_json( visibles ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD object_page_lazy_loader.
+    result =
+    _generic( name   = `ObjectPageLazyLoader`
+              ns     = `uxap`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD open_in_action_agg.
+    result = _generic( name = `openInAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD open_search_provider.
+    result =
+    _generic( name   = `OpenSearchProvider`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `suggestType`          v = suggesttype )
+                                ( n = `suggestUrl`           v = suggesturl )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD overflow_toolbar_layout_data.
+    result =
+    _generic( name   = `OverflowToolbarLayoutData`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `closeOverflowOnInteraction` v = z2ui5_cl_util=>boolean_abap_2_json( closeoverflowoninteraction ) )
+                                ( n = `group`                v = group )
+                                ( n = `id`                   v = id )
+                                ( n = `maxWidth`             v = maxwidth )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `moveToOverflow`       v = z2ui5_cl_util=>boolean_abap_2_json( movetooverflow ) )
+                                ( n = `priority`             v = priority )
+                                ( n = `shrinkable`           v = z2ui5_cl_util=>boolean_abap_2_json( shrinkable ) )
+                                ( n = `stayInOverflow`       v = z2ui5_cl_util=>boolean_abap_2_json( stayinoverflow ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_aggregation.
+    result =
+    _generic( name   = `ODataV4Aggregation`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `groupHeaderFormatter` v = groupheaderformatter )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_hierarchy.
+    result =
+    _generic( name   = `ODataV4Hierarchy`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_multi_level.
+    result =
+    _generic( name   = `ODataV4MultiLevel`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_multi_selection.
+    result =
+    _generic( name   = `ODataV4MultiSelection`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `enableNotification`   v = z2ui5_cl_util=>boolean_abap_2_json( enablenotification ) )
+                                ( n = `hideHeaderSelector`   v = z2ui5_cl_util=>boolean_abap_2_json( hideheaderselector ) )
+                                ( n = `id`                   v = id )
+                                ( n = `limit`                v = limit )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_selection.
+    result =
+    _generic( name   = `ODataV4Selection`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD o_data_v4_single_selection.
+    result =
+    _generic( name   = `ODataV4SingleSelection`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_any_filter_item.
+    result =
+    _generic( name   = `P13nAnyFilterItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `exclude`              v = z2ui5_cl_util=>boolean_abap_2_json( exclude ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `operation`            v = operation )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `value1`               v = value1 )
+                                ( n = `value2`               v = value2 )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_columns_item.
+    result =
+    _generic( name   = `P13nColumnsItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `index`                v = index )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `total`                v = z2ui5_cl_util=>boolean_abap_2_json( total ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_dim_measure_item.
+    result =
+    _generic( name   = `P13nDimMeasureItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `index`                v = index )
+                                ( n = `key`                  v = key )
+                                ( n = `role`                 v = role )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_filter_item.
+    result =
+    _generic( name   = `P13nFilterItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `exclude`              v = z2ui5_cl_util=>boolean_abap_2_json( exclude ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `operation`            v = operation )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `value1`               v = value1 )
+                                ( n = `value2`               v = value2 )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_group_item.
+    result =
+    _generic( name   = `P13nGroupItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `operation`            v = operation )
+                                ( n = `showIfGrouped`        v = z2ui5_cl_util=>boolean_abap_2_json( showifgrouped ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_item.
+    result =
+    _generic( name   = `P13nItem`
+              t_prop = VALUE #(
+                                ( n = `aggregationRole`      v = aggregationrole )
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `description`          v = description )
+                                ( n = `formatSettings`       v = formatsettings )
+                                ( n = `href`                 v = href )
+                                ( n = `id`                   v = id )
+                                ( n = `isDefault`            v = z2ui5_cl_util=>boolean_abap_2_json( isdefault ) )
+                                ( n = `maxLength`            v = maxlength )
+                                ( n = `nullable`             v = z2ui5_cl_util=>boolean_abap_2_json( nullable ) )
+                                ( n = `precision`            v = precision )
+                                ( n = `press`                v = press )
+                                ( n = `role`                 v = role )
+                                ( n = `scale`                v = scale )
+                                ( n = `target`               v = target )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `typeInstance`         v = typeinstance )
+                                ( n = `values`               v = values )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_selection_item.
+    result =
+    _generic( name   = `P13nSelectionItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD p13n_sort_item.
+    result =
+    _generic( name   = `P13nSortItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columnKey`            v = columnkey )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `operation`            v = operation )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD page_accessible_landmark_info.
+    result =
+    _generic( name   = `PageAccessibleLandmarkInfo`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `contentLabel`         v = contentlabel )
+                                ( n = `contentRole`          v = contentrole )
+                                ( n = `footerLabel`          v = footerlabel )
+                                ( n = `footerRole`           v = footerrole )
+                                ( n = `headerLabel`          v = headerlabel )
+                                ( n = `headerRole`           v = headerrole )
+                                ( n = `id`                   v = id )
+                                ( n = `rootLabel`            v = rootlabel )
+                                ( n = `rootRole`             v = rootrole )
+                                ( n = `subHeaderLabel`       v = subheaderlabel )
+                                ( n = `subHeaderRole`        v = subheaderrole )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD panes.
+    result = _generic( name = `panes`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD pane_container.
+    result =
+    _generic( name   = `PaneContainer`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `orientation`          v = orientation )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `panes`                v = panes )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `resize`               v = resize )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD paste_provider.
+    result =
+    _generic( name   = `PasteProvider`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `paste`                v = paste )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD planning_calendar_in_card_lege.
+    result =
+    _generic( name   = `PlanningCalendarInCardLegend`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `appointmentItemsHeader` v = appointmentitemsheader )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `columnWidth`          v = columnwidth )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `id`                   v = id )
+                                ( n = `itemsHeader`          v = itemsheader )
+                                ( n = `standardItems`        v = standarditems )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `visibleLegendItemsCount` v = visiblelegenditemscount )
+                                ( n = `appointmentItems`     v = appointmentitems )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD planning_calendar_row.
+    result =
+    _generic( name   = `PlanningCalendarRow`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enableAppointmentsCreate` v = z2ui5_cl_util=>boolean_abap_2_json( enableappointmentscreate ) )
+                                ( n = `enableAppointmentsDragAndDrop` v = z2ui5_cl_util=>boolean_abap_2_json( enableappointmentsdraganddrop ) )
+                                ( n = `enableAppointmentsResize` v = z2ui5_cl_util=>boolean_abap_2_json( enableappointmentsresize ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `noAppointmentsText`   v = noappointmentstext )
+                                ( n = `nonWorkingDays`       v = nonworkingdays )
+                                ( n = `nonWorkingHours`      v = nonworkinghours )
+                                ( n = `rowHeaderDescription` v = rowheaderdescription )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `text`                 v = text )
+                                ( n = `title`                v = title )
+                                ( n = `appointments`         v = appointments )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `headerContent`        v = headercontent )
+                                ( n = `intervalHeaders`      v = intervalheaders )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `nonWorkingPeriods`    v = nonworkingperiods )
+                                ( n = `specialDates`         v = specialdates )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `appointmentCreate`    v = appointmentcreate )
+                                ( n = `appointmentDragEnter` v = appointmentdragenter )
+                                ( n = `appointmentDrop`      v = appointmentdrop )
+                                ( n = `appointmentResize`    v = appointmentresize )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD planning_calendar_row_list_ite.
+    result =
+    _generic( name   = `PlanningCalendarRowListItem`
+              t_prop = VALUE #(
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `counter`              v = counter )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `highlight`            v = highlight )
+                                ( n = `highlightText`        v = highlighttext )
+                                ( n = `id`                   v = id )
+                                ( n = `navigated`            v = z2ui5_cl_util=>boolean_abap_2_json( navigated ) )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `type`                 v = type )
+                                ( n = `unread`               v = z2ui5_cl_util=>boolean_abap_2_json( unread ) )
+                                ( n = `vAlign`               v = valign )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `actions`              v = actions )
+                                ( n = `cells`                v = cells )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `detailPress`          v = detailpress )
+                                ( n = `detailTap`            v = detailtap )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `tap`                  v = tap )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD planning_calendar_view.
+    result =
+    _generic( name   = `PlanningCalendarView`
+              t_prop = VALUE #(
+                                ( n = `appointmentHeight`    v = appointmentheight )
+                                ( n = `class`                v = class )
+                                ( n = `description`          v = description )
+                                ( n = `id`                   v = id )
+                                ( n = `intervalLabelFormatter` v = intervallabelformatter )
+                                ( n = `intervalSize`         v = intervalsize )
+                                ( n = `intervalsL`           v = intervalsl )
+                                ( n = `intervalsM`           v = intervalsm )
+                                ( n = `intervalsS`           v = intervalss )
+                                ( n = `intervalType`         v = intervaltype )
+                                ( n = `key`                  v = key )
+                                ( n = `relative`             v = z2ui5_cl_util=>boolean_abap_2_json( relative ) )
+                                ( n = `showSubIntervals`     v = z2ui5_cl_util=>boolean_abap_2_json( showsubintervals ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD plugin_base.
+    result =
+    _generic( name   = `PluginBase`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD positive_action_agg.
+    result = _generic( name = `positiveAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD print_action_agg.
+    result = _generic( name = `printAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD quick_action.
+    result =
+    _generic( name   = `QuickAction`
+              t_prop = VALUE #(
+                                ( n = `category`             v = category )
+                                ( n = `class`                v = class )
+                                ( n = `contentSize`          v = contentsize )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_action_base.
+    result =
+    _generic( name   = `QuickActionBase`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_action_container.
+    result =
+    _generic( name   = `QuickActionContainer`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `quickActions`         v = quickactions )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_action_item.
+    result =
+    _generic( name   = `QuickActionItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `label`                v = label )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_group.
+    result =
+    _generic( name   = `QuickGroup`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_group_item.
+    result =
+    _generic( name   = `QuickGroupItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `grouped`              v = z2ui5_cl_util=>boolean_abap_2_json( grouped ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `label`                v = label )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_resize.
+    result =
+    _generic( name   = `QuickResize`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_sort.
+    result =
+    _generic( name   = `QuickSort`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_sort_item.
+    result =
+    _generic( name   = `QuickSortItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `label`                v = label )
+                                ( n = `sortOrder`            v = sortorder )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_total.
+    result =
+    _generic( name   = `QuickTotal`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_total_item.
+    result =
+    _generic( name   = `QuickTotalItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `label`                v = label )
+                                ( n = `totaled`              v = z2ui5_cl_util=>boolean_abap_2_json( totaled ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_view_group.
+    result =
+    _generic( name   = `QuickViewGroup`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `heading`              v = heading )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `elements`             v = elements )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD quick_view_group_element.
+    result =
+    _generic( name   = `QuickViewGroupElement`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `emailSubject`         v = emailsubject )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `pageLinkId`           v = pagelinkid )
+                                ( n = `target`               v = target )
+                                ( n = `type`                 v = type )
+                                ( n = `url`                  v = url )
+                                ( n = `value`                v = value )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD recurrence_rule.
+    result =
+    _generic( name   = `RecurrenceRule`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `dayOfMonth`           v = dayofmonth )
+                                ( n = `dayOfWeek`            v = dayofweek )
+                                ( n = `days`                 v = days )
+                                ( n = `id`                   v = id )
+                                ( n = `month`                v = month )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `type`                 v = type )
+                                ( n = `weekOfMonth`          v = weekofmonth )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD recurrence_rule_agg.
+    result = _generic( name = `recurrenceRule`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD recurring_calendar_appointment.
+    result =
+    _generic( name   = `RecurringCalendarAppointment`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `class`                v = class )
+                                ( n = `color`                v = color )
+                                ( n = `description`          v = description )
+                                ( n = `endDate`              v = enddate )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `recurrenceEndDate`    v = recurrenceenddate )
+                                ( n = `recurrencePattern`    v = recurrencepattern )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `secondaryType`        v = secondarytype )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `startDate`            v = startdate )
+                                ( n = `tentative`            v = z2ui5_cl_util=>boolean_abap_2_json( tentative ) )
+                                ( n = `text`                 v = text )
+                                ( n = `title`                v = title )
+                                ( n = `type`                 v = type )
+                                ( n = `customContent`        v = customcontent )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `recurrenceRule`       v = recurrencerule )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD recurring_non_working_period.
+    result =
+    _generic( name   = `RecurringNonWorkingPeriod`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `date`                 v = date )
+                                ( n = `id`                   v = id )
+                                ( n = `recurrenceEndDate`    v = recurrenceenddate )
+                                ( n = `recurrencePattern`    v = recurrencepattern )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `recurrenceRule`       v = recurrencerule )
+                                ( n = `timeRange`            v = timerange )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD responsive_column_item_layout_.
+    result =
+    _generic( name   = `ResponsiveColumnItemLayoutData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `columns`              v = columns )
+                                ( n = `id`                   v = id )
+                                ( n = `rows`                 v = rows )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD responsive_flow_layout_data.
+    result =
+    _generic( name   = `ResponsiveFlowLayoutData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `linebreak`            v = z2ui5_cl_util=>boolean_abap_2_json( linebreak ) )
+                                ( n = `linebreakable`        v = z2ui5_cl_util=>boolean_abap_2_json( linebreakable ) )
+                                ( n = `margin`               v = z2ui5_cl_util=>boolean_abap_2_json( margin ) )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `weight`               v = weight )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD responsive_scale.
+    result =
+    _generic( name   = `ResponsiveScale`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `tickmarksBetweenLabels` v = tickmarksbetweenlabels )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD row.
+    result =
+    _generic( name   = `Row`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `cells`                v = cells )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD row_action_item.
+    result =
+    _generic( name   = `RowActionItem`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `text`                 v = text )
+                                ( n = `type`                 v = type )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD row_configuration.
+    result = _generic( name = `rowConfiguration`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD row_mode_agg.
+    result = _generic( name = `rowMode`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD row_settings.
+    result =
+    _generic( name   = `RowSettings`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `highlight`            v = highlight )
+                                ( n = `highlightText`        v = highlighttext )
+                                ( n = `id`                   v = id )
+                                ( n = `navigated`            v = z2ui5_cl_util=>boolean_abap_2_json( navigated ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD save_action_agg.
+    result = _generic( name = `saveAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD search_agg.
+    result = _generic( name = `search`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD search_manager_agg.
+    result = _generic( name = `searchManager`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD search_provider.
+    result =
+    _generic( name   = `SearchProvider`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD segmented_button_item.
+    result =
+    _generic( name   = `SegmentedButtonItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD selection_details_item.
+    result =
+    _generic( name   = `SelectionDetailsItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enableNav`            v = z2ui5_cl_util=>boolean_abap_2_json( enablenav ) )
+                                ( n = `id`                   v = id )
+                                ( n = `actions`              v = actions )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `lines`                v = lines )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD selection_details_item_line.
+    result =
+    _generic( name   = `SelectionDetailsItemLine`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `displayValue`         v = displayvalue )
+                                ( n = `id`                   v = id )
+                                ( n = `label`                v = label )
+                                ( n = `lineMarker`           v = linemarker )
+                                ( n = `unit`                 v = unit )
+                                ( n = `value`                v = value )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD selection_model_selection.
+    result =
+    _generic( name   = `SelectionModelSelection`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectionMode`        v = selectionmode )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD selection_plugin.
+    result =
+    _generic( name   = `SelectionPlugin`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `selectionChange`      v = selectionchange )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_button.
+    result =
+    _generic( name   = `SemanticButton`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_control.
+    result =
+    _generic( name   = `SemanticControl`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_form_element.
+    result =
+    _generic( name   = `SemanticFormElement`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `delimiter`            v = delimiter )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `fieldLabels`          v = fieldlabels )
+                                ( n = `fields`               v = fields )
+                                ( n = `label`                v = label )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_overflow_toolbar_togg.
+    result =
+    _generic( name   = `SemanticOverflowToolbarToggleButton`
+              t_prop = VALUE #(
+                                ( n = `accessibleRole`       v = accessiblerole )
+                                ( n = `activeIcon`           v = activeicon )
+                                ( n = `ariaHasPopup`         v = ariahaspopup )
+                                ( n = `badgeStyle`           v = badgestyle )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `icon`                 v = icon )
+                                ( n = `iconDensityAware`     v = z2ui5_cl_util=>boolean_abap_2_json( icondensityaware ) )
+                                ( n = `iconFirst`            v = z2ui5_cl_util=>boolean_abap_2_json( iconfirst ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `type`                 v = type )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `tap`                  v = tap )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_select.
+    result =
+    _generic( name   = `SemanticSelect`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectedKey`          v = selectedkey )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD semantic_toggle_button.
+    result =
+    _generic( name   = `SemanticToggleButton`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `pressed`              v = z2ui5_cl_util=>boolean_abap_2_json( pressed ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD send_email_action_agg.
+    result = _generic( name = `sendEmailAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD send_message_action_agg.
+    result = _generic( name = `sendMessageAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD separator_item.
+    result =
+    _generic( name   = `SeparatorItem`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD share_in_jam_action_agg.
+    result = _generic( name = `shareInJamAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD shell_head_item.
+    result =
+    _generic( name   = `ShellHeadItem`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `showMarker`           v = z2ui5_cl_util=>boolean_abap_2_json( showmarker ) )
+                                ( n = `showSeparator`        v = z2ui5_cl_util=>boolean_abap_2_json( showseparator ) )
+                                ( n = `startsSection`        v = z2ui5_cl_util=>boolean_abap_2_json( startssection ) )
+                                ( n = `toggleEnabled`        v = z2ui5_cl_util=>boolean_abap_2_json( toggleenabled ) )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD shell_head_user_item.
+    result =
+    _generic( name   = `ShellHeadUserItem`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `image`                v = image )
+                                ( n = `showPopupIndicator`   v = z2ui5_cl_util=>boolean_abap_2_json( showpopupindicator ) )
+                                ( n = `username`             v = username )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD side_panel_item.
+    result =
+    _generic( name   = `SidePanelItem`
+              ns     = `f`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `title`                v = title )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD single_planning_calendar_day_v.
+    result =
+    _generic( name   = `SinglePlanningCalendarDayView`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `firstDayOfWeek`       v = firstdayofweek )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD single_planning_calendar_month.
+    result =
+    _generic( name   = `SinglePlanningCalendarMonthView`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `firstDayOfWeek`       v = firstdayofweek )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD single_planning_calendar_view.
+    result =
+    _generic( name   = `SinglePlanningCalendarView`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `firstDayOfWeek`       v = firstdayofweek )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD single_planning_calendar_week_.
+    result =
+    _generic( name   = `SinglePlanningCalendarWeekView`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `firstDayOfWeek`       v = firstdayofweek )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD single_planning_calendar_work_.
+    result =
+    _generic( name   = `SinglePlanningCalendarWorkWeekView`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `firstDayOfWeek`       v = firstdayofweek )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD sort_action.
+    result =
+    _generic( name   = `SortAction`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD sort_select.
+    result =
+    _generic( name   = `SortSelect`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `selectedKey`          v = selectedkey )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `change`               v = change )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD splitter_layout_data.
+    result =
+    _generic( name   = `SplitterLayoutData`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `minSize`              v = minsize )
+                                ( n = `resizable`            v = z2ui5_cl_util=>boolean_abap_2_json( resizable ) )
+                                ( n = `size`                 v = size )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD split_pane.
+    result =
+    _generic( name   = `SplitPane`
+              ns     = `layout`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `demandPane`           v = z2ui5_cl_util=>boolean_abap_2_json( demandpane ) )
+                                ( n = `id`                   v = id )
+                                ( n = `requiredParentWidth`  v = requiredparentwidth )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD standard_dynamic_date_option.
+    result =
+    _generic( name   = `StandardDynamicDateOption`
+              t_prop = VALUE #(
+                                ( n = `calendarWeekNumbering` v = calendarweeknumbering )
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `valueTypes`           v = valuetypes )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD submenu.
+    result = _generic( name = `submenu`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD suggestion_item.
+    result =
+    _generic( name   = `SuggestionItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `description`          v = description )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD tablet_layout_data.
+    result = _generic( name = `tabletLayoutData`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD table_popin.
+    result =
+    _generic( name   = `TablePopin`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD tab_container_item.
+    result =
+    _generic( name   = `TabContainerItem`
+              t_prop = VALUE #(
+                                ( n = `additionalText`       v = additionaltext )
+                                ( n = `class`                v = class )
+                                ( n = `icon`                 v = icon )
+                                ( n = `iconTooltip`          v = icontooltip )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `modified`             v = z2ui5_cl_util=>boolean_abap_2_json( modified ) )
+                                ( n = `name`                 v = name )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemPropertyChanged`  v = itempropertychanged )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD tab_strip_item.
+    result =
+    _generic( name   = `TabStripItem`
+              t_prop = VALUE #(
+                                ( n = `additionalText`       v = additionaltext )
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `iconTooltip`          v = icontooltip )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `modified`             v = z2ui5_cl_util=>boolean_abap_2_json( modified ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemClosePressed`     v = itemclosepressed )
+                                ( n = `itemPropertyChanged`  v = itempropertychanged )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD template.
+    result = _generic( name = `template`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD tile_content_agg.
+    result = _generic( name = `tileContent`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD tile_info.
+    result =
+    _generic( name   = `TileInfo`
+              t_prop = VALUE #(
+                                ( n = `backgroundColor`      v = backgroundcolor )
+                                ( n = `borderColor`          v = bordercolor )
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `src`                  v = src )
+                                ( n = `text`                 v = text )
+                                ( n = `textColor`            v = textcolor )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD time_range.
+    result =
+    _generic( name   = `TimeRange`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `end`                  v = end )
+                                ( n = `id`                   v = id )
+                                ( n = `start`                v = start )
+                                ( n = `valueFormat`          v = valueformat )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD time_range_agg.
+    result = _generic( name = `timeRange`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD title_agg.
+    result = _generic( name = `title`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD title_main_action_agg.
+    result = _generic( name = `titleMainAction`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD title_provider.
+    result =
+    _generic( name   = `TitleProvider`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `manageSelectedCount`  v = z2ui5_cl_util=>boolean_abap_2_json( manageselectedcount ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD toolbar_agg.
+    result = _generic( name = `toolbar`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD toolbar_layout_data.
+    result =
+    _generic( name   = `ToolbarLayoutData`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `maxWidth`             v = maxwidth )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `shrinkable`           v = z2ui5_cl_util=>boolean_abap_2_json( shrinkable ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD tooltip_agg.
+    result = _generic( name = `tooltip`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD ui_core_item.
+    result =
+    _generic( name   = `Item`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_core_title.
+    result =
+    _generic( name   = `Title`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `emphasized`           v = z2ui5_cl_util=>boolean_abap_2_json( emphasized ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `level`                v = level )
+                                ( n = `text`                 v = text )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_core_title_provider.
+    result =
+    _generic( name   = `TitleProvider`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `title`                v = title )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_table_column.
+    result =
+    _generic( name   = `Column`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `autoResizable`        v = z2ui5_cl_util=>boolean_abap_2_json( autoresizable ) )
+                                ( n = `class`                v = class )
+                                ( n = `defaultFilterOperator` v = defaultfilteroperator )
+                                ( n = `filtered`             v = z2ui5_cl_util=>boolean_abap_2_json( filtered ) )
+                                ( n = `filterOperator`       v = filteroperator )
+                                ( n = `filterProperty`       v = filterproperty )
+                                ( n = `filterType`           v = filtertype )
+                                ( n = `filterValue`          v = filtervalue )
+                                ( n = `flexible`             v = z2ui5_cl_util=>boolean_abap_2_json( flexible ) )
+                                ( n = `grouped`              v = z2ui5_cl_util=>boolean_abap_2_json( grouped ) )
+                                ( n = `hAlign`               v = halign )
+                                ( n = `headerSpan`           v = headerspan )
+                                ( n = `id`                   v = id )
+                                ( n = `minWidth`             v = minwidth )
+                                ( n = `name`                 v = name )
+                                ( n = `resizable`            v = z2ui5_cl_util=>boolean_abap_2_json( resizable ) )
+                                ( n = `showFilterMenuEntry`  v = z2ui5_cl_util=>boolean_abap_2_json( showfiltermenuentry ) )
+                                ( n = `showSortMenuEntry`    v = z2ui5_cl_util=>boolean_abap_2_json( showsortmenuentry ) )
+                                ( n = `sorted`               v = z2ui5_cl_util=>boolean_abap_2_json( sorted ) )
+                                ( n = `sortOrder`            v = sortorder )
+                                ( n = `sortProperty`         v = sortproperty )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `label`                v = label )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `menu`                 v = menu )
+                                ( n = `multiLabels`          v = multilabels )
+                                ( n = `template`             v = template )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `columnMenuOpen`       v = columnmenuopen )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_table_plugin_base.
+    result =
+    _generic( name   = `PluginBase`
+              ns     = `table`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_unified_menu_item.
+    result =
+    _generic( name   = `MenuItem`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `shortcutText`         v = shortcuttext )
+                                ( n = `startsSection`        v = z2ui5_cl_util=>boolean_abap_2_json( startssection ) )
+                                ( n = `text`                 v = text )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `endContent`           v = endcontent )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `submenu`              v = submenu )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `select`               v = select )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD ui_unified_menu_item_group.
+    result =
+    _generic( name   = `MenuItemGroup`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `itemSelectionMode`    v = itemselectionmode )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD uploader_agg.
+    result = _generic( name = `uploader`
+                        ns   = ns ).
+  ENDMETHOD.
+
+
+  METHOD uploader_table_item.
+    result =
+    _generic( name   = `UploaderTableItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `downloadUrl`          v = downloadurl )
+                                ( n = `httpRequestMethod`    v = httprequestmethod )
+                                ( n = `id`                   v = id )
+                                ( n = `uploadUrl`            v = uploadurl )
+                                ( n = `useMultipart`         v = z2ui5_cl_util=>boolean_abap_2_json( usemultipart ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `uploadCompleted`      v = uploadcompleted )
+                                ( n = `uploadProgressed`     v = uploadprogressed )
+                                ( n = `uploadStarted`        v = uploadstarted )
+                                ( n = `uploadTerminated`     v = uploadterminated )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_collection_item.
+    result =
+    _generic( name   = `UploadCollectionItem`
+              t_prop = VALUE #(
+                                ( n = `ariaLabelForPicture`  v = arialabelforpicture )
+                                ( n = `class`                v = class )
+                                ( n = `contributor`          v = contributor )
+                                ( n = `documentId`           v = documentid )
+                                ( n = `enableDelete`         v = z2ui5_cl_util=>boolean_abap_2_json( enabledelete ) )
+                                ( n = `enableEdit`           v = z2ui5_cl_util=>boolean_abap_2_json( enableedit ) )
+                                ( n = `fileName`             v = filename )
+                                ( n = `fileSize`             v = filesize )
+                                ( n = `id`                   v = id )
+                                ( n = `mimeType`             v = mimetype )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `thumbnailUrl`         v = thumbnailurl )
+                                ( n = `uploadedDate`         v = uploadeddate )
+                                ( n = `url`                  v = url )
+                                ( n = `visibleDelete`        v = z2ui5_cl_util=>boolean_abap_2_json( visibledelete ) )
+                                ( n = `visibleEdit`          v = z2ui5_cl_util=>boolean_abap_2_json( visibleedit ) )
+                                ( n = `attributes`           v = attributes )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `markers`              v = markers )
+                                ( n = `statuses`             v = statuses )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `deletePress`          v = deletepress )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `press`                v = press )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_collection_parameter.
+    result =
+    _generic( name   = `UploadCollectionParameter`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `name`                 v = name )
+                                ( n = `value`                v = value )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_collection_toolbar_plac.
+    result =
+    _generic( name   = `UploadCollectionToolbarPlaceholder`
+              t_prop = VALUE #(
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `id`                   v = id )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_column.
+    result =
+    _generic( name   = `Column`
+              t_prop = VALUE #(
+                                ( n = `autoPopinWidth`       v = autopopinwidth )
+                                ( n = `class`                v = class )
+                                ( n = `columnPersonalizationText` v = columnpersonalizationtext )
+                                ( n = `demandPopin`          v = z2ui5_cl_util=>boolean_abap_2_json( demandpopin ) )
+                                ( n = `filterable`           v = z2ui5_cl_util=>boolean_abap_2_json( filterable ) )
+                                ( n = `groupable`            v = z2ui5_cl_util=>boolean_abap_2_json( groupable ) )
+                                ( n = `hAlign`               v = halign )
+                                ( n = `id`                   v = id )
+                                ( n = `importance`           v = importance )
+                                ( n = `mergeDuplicates`      v = z2ui5_cl_util=>boolean_abap_2_json( mergeduplicates ) )
+                                ( n = `mergeFunctionName`    v = mergefunctionname )
+                                ( n = `minScreenWidth`       v = minscreenwidth )
+                                ( n = `path`                 v = path )
+                                ( n = `popinDisplay`         v = popindisplay )
+                                ( n = `popinHAlign`          v = popinhalign )
+                                ( n = `sortable`             v = z2ui5_cl_util=>boolean_abap_2_json( sortable ) )
+                                ( n = `sortIndicator`        v = sortindicator )
+                                ( n = `styleClass`           v = styleclass )
+                                ( n = `vAlign`               v = valign )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `footer`               v = footer )
+                                ( n = `header`               v = header )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_item.
+    result =
+    _generic( name   = `UploadItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `fileName`             v = filename )
+                                ( n = `fileSize`             v = filesize )
+                                ( n = `id`                   v = id )
+                                ( n = `isDirectory`          v = z2ui5_cl_util=>boolean_abap_2_json( isdirectory ) )
+                                ( n = `isTrustedSource`      v = z2ui5_cl_util=>boolean_abap_2_json( istrustedsource ) )
+                                ( n = `mediaType`            v = mediatype )
+                                ( n = `previewable`          v = z2ui5_cl_util=>boolean_abap_2_json( previewable ) )
+                                ( n = `uploadState`          v = uploadstate )
+                                ( n = `uploadUrl`            v = uploadurl )
+                                ( n = `url`                  v = url )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `headerFields`         v = headerfields )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `uploadProgress`       v = uploadprogress )
+                                ( n = `uploadTerminated`     v = uploadterminated )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_item_configuration.
+    result =
+    _generic( name   = `UploadItemConfiguration`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `fileNamePath`         v = filenamepath )
+                                ( n = `fileSizePath`         v = filesizepath )
+                                ( n = `id`                   v = id )
+                                ( n = `isDirectoryPath`      v = isdirectorypath )
+                                ( n = `isTrustedSourcePath`  v = istrustedsourcepath )
+                                ( n = `mediaTypePath`        v = mediatypepath )
+                                ( n = `previewablePath`      v = previewablepath )
+                                ( n = `uploadUrlPath`        v = uploadurlpath )
+                                ( n = `urlPath`              v = urlpath )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_setwith_table.
+    result =
+    _generic( name   = `UploadSetwithTable`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `cloudFilePickerButtonText` v = cloudfilepickerbuttontext )
+                                ( n = `cloudFilePickerEnabled` v = z2ui5_cl_util=>boolean_abap_2_json( cloudfilepickerenabled ) )
+                                ( n = `cloudFilePickerServiceUrl` v = cloudfilepickerserviceurl )
+                                ( n = `directory`            v = z2ui5_cl_util=>boolean_abap_2_json( directory ) )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `fileNameValidationConfig` v = filenamevalidationconfig )
+                                ( n = `fileTypes`            v = filetypes )
+                                ( n = `httpRequestMethod`    v = httprequestmethod )
+                                ( n = `id`                   v = id )
+                                ( n = `itemValidationHandler` v = itemvalidationhandler )
+                                ( n = `maxFileNameLength`    v = maxfilenamelength )
+                                ( n = `maxFileSize`          v = maxfilesize )
+                                ( n = `mediaTypes`           v = mediatypes )
+                                ( n = `multiple`             v = z2ui5_cl_util=>boolean_abap_2_json( multiple ) )
+                                ( n = `uploadButtonInvisible` v = z2ui5_cl_util=>boolean_abap_2_json( uploadbuttoninvisible ) )
+                                ( n = `uploadEnabled`        v = z2ui5_cl_util=>boolean_abap_2_json( uploadenabled ) )
+                                ( n = `uploadUrl`            v = uploadurl )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `headerFields`         v = headerfields )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `noDataIllustration`   v = nodataillustration )
+                                ( n = `rowConfiguration`     v = rowconfiguration )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `uploader`             v = uploader )
+                                ( n = `beforeInitiatingItemUpload` v = beforeinitiatingitemupload )
+                                ( n = `beforeUploadStarts`   v = beforeuploadstarts )
+                                ( n = `fileNameLengthExceeded` v = filenamelengthexceeded )
+                                ( n = `fileSizeExceeded`     v = filesizeexceeded )
+                                ( n = `fileTypeMismatch`     v = filetypemismatch )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemRenameCanceled`   v = itemrenamecanceled )
+                                ( n = `itemRenamed`          v = itemrenamed )
+                                ( n = `mediaTypeMismatch`    v = mediatypemismatch )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `onActivated`          v = onactivated )
+                                ( n = `onDeactivated`        v = ondeactivated )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `uploadCompleted`      v = uploadcompleted )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD upload_set_item.
+    result =
+    _generic( name   = `UploadSetItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabledEdit`          v = z2ui5_cl_util=>boolean_abap_2_json( enablededit ) )
+                                ( n = `enabledRemove`        v = z2ui5_cl_util=>boolean_abap_2_json( enabledremove ) )
+                                ( n = `fileName`             v = filename )
+                                ( n = `id`                   v = id )
+                                ( n = `mediaType`            v = mediatype )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `thumbnailUrl`         v = thumbnailurl )
+                                ( n = `uploadState`          v = uploadstate )
+                                ( n = `uploadUrl`            v = uploadurl )
+                                ( n = `url`                  v = url )
+                                ( n = `visibleEdit`          v = z2ui5_cl_util=>boolean_abap_2_json( visibleedit ) )
+                                ( n = `visibleRemove`        v = z2ui5_cl_util=>boolean_abap_2_json( visibleremove ) )
+                                ( n = `attributes`           v = attributes )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `headerFields`         v = headerfields )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `markers`              v = markers )
+                                ( n = `markersAsStatus`      v = markersasstatus )
+                                ( n = `statuses`             v = statuses )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `openPressed`          v = openpressed )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `removePressed`        v = removepressed )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD variant_item.
+    result =
+    _generic( name   = `VariantItem`
+              t_prop = VALUE #(
+                                ( n = `author`               v = author )
+                                ( n = `changeable`           v = z2ui5_cl_util=>boolean_abap_2_json( changeable ) )
+                                ( n = `class`                v = class )
+                                ( n = `contexts`             v = contexts )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `executeOnSelect`      v = z2ui5_cl_util=>boolean_abap_2_json( executeonselect ) )
+                                ( n = `favorite`             v = z2ui5_cl_util=>boolean_abap_2_json( favorite ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `remove`               v = z2ui5_cl_util=>boolean_abap_2_json( remove ) )
+                                ( n = `rename`               v = z2ui5_cl_util=>boolean_abap_2_json( rename ) )
+                                ( n = `sharing`              v = sharing )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `title`                v = title )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD variant_layout_data.
+    result =
+    _generic( name   = `VariantLayoutData`
+              ns     = `core`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `id`                   v = id )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `multipleLayoutData`   v = multiplelayoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD vbox.
+    result =
+    _generic( name   = `VBox`
+              t_prop = VALUE #(
+                                ( n = `alignContent`         v = aligncontent )
+                                ( n = `alignItems`           v = alignitems )
+                                ( n = `backgroundDesign`     v = backgrounddesign )
+                                ( n = `blocked`              v = z2ui5_cl_util=>boolean_abap_2_json( blocked ) )
+                                ( n = `busy`                 v = z2ui5_cl_util=>boolean_abap_2_json( busy ) )
+                                ( n = `busyIndicatorDelay`   v = busyindicatordelay )
+                                ( n = `busyIndicatorSize`    v = busyindicatorsize )
+                                ( n = `class`                v = class )
+                                ( n = `columnGap`            v = columngap )
+                                ( n = `direction`            v = direction )
+                                ( n = `displayInline`        v = z2ui5_cl_util=>boolean_abap_2_json( displayinline ) )
+                                ( n = `fieldGroupIds`        v = fieldgroupids )
+                                ( n = `fitContainer`         v = z2ui5_cl_util=>boolean_abap_2_json( fitcontainer ) )
+                                ( n = `gap`                  v = gap )
+                                ( n = `height`               v = height )
+                                ( n = `id`                   v = id )
+                                ( n = `justifyContent`       v = justifycontent )
+                                ( n = `renderType`           v = rendertype )
+                                ( n = `rowGap`               v = rowgap )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `width`                v = width )
+                                ( n = `wrap`                 v = wrap )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validateFieldGroup`   v = validatefieldgroup )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD view_settings_custom_item.
+    result =
+    _generic( name   = `ViewSettingsCustomItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `filterCount`          v = filtercount )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `wrapping`             v = z2ui5_cl_util=>boolean_abap_2_json( wrapping ) )
+                                ( n = `customControl`        v = customcontrol )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemPropertyChanged`  v = itempropertychanged )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD view_settings_custom_tab.
+    result =
+    _generic( name   = `ViewSettingsCustomTab`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `icon`                 v = icon )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `title`                v = title )
+                                ( n = `content`              v = content )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD view_settings_filter_item.
+    result =
+    _generic( name   = `ViewSettingsFilterItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `multiSelect`          v = z2ui5_cl_util=>boolean_abap_2_json( multiselect ) )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `wrapping`             v = z2ui5_cl_util=>boolean_abap_2_json( wrapping ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `items`                v = items )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `filterDetailItemsAggregationChange` v = filterdetailitemsaggregationch )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemPropertyChanged`  v = itempropertychanged )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD view_settings_item.
+    result =
+    _generic( name   = `ViewSettingsItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `selected`             v = z2ui5_cl_util=>boolean_abap_2_json( selected ) )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `wrapping`             v = z2ui5_cl_util=>boolean_abap_2_json( wrapping ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `itemPropertyChanged`  v = itempropertychanged )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD visible_item.
+    result =
+    _generic( name   = `VisibleItem`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `enabled`              v = z2ui5_cl_util=>boolean_abap_2_json( enabled ) )
+                                ( n = `id`                   v = id )
+                                ( n = `key`                  v = key )
+                                ( n = `text`                 v = text )
+                                ( n = `textDirection`        v = textdirection )
+                                ( n = `visible`              v = z2ui5_cl_util=>boolean_abap_2_json( visible ) )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD weekly_recurrence_rule.
+    result =
+    _generic( name   = `WeeklyRecurrenceRule`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `dayOfMonth`           v = dayofmonth )
+                                ( n = `dayOfWeek`            v = dayofweek )
+                                ( n = `days`                 v = days )
+                                ( n = `id`                   v = id )
+                                ( n = `month`                v = month )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `type`                 v = type )
+                                ( n = `weekOfMonth`          v = weekofmonth )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
+  ENDMETHOD.
+
+
+  METHOD yearly_recurrence_rule.
+    result =
+    _generic( name   = `YearlyRecurrenceRule`
+              ns     = `u`
+              t_prop = VALUE #(
+                                ( n = `class`                v = class )
+                                ( n = `dayOfMonth`           v = dayofmonth )
+                                ( n = `dayOfWeek`            v = dayofweek )
+                                ( n = `days`                 v = days )
+                                ( n = `id`                   v = id )
+                                ( n = `month`                v = month )
+                                ( n = `recurrenceType`       v = recurrencetype )
+                                ( n = `type`                 v = type )
+                                ( n = `weekOfMonth`          v = weekofmonth )
+                                ( n = `customData`           v = customdata )
+                                ( n = `dependents`           v = dependents )
+                                ( n = `dragDropConfig`       v = dragdropconfig )
+                                ( n = `layoutData`           v = layoutdata )
+                                ( n = `tooltip`              v = tooltip )
+                                ( n = `formatError`          v = formaterror )
+                                ( n = `modelContextChange`   v = modelcontextchange )
+                                ( n = `parseError`           v = parseerror )
+                                ( n = `validationError`      v = validationerror )
+                                ( n = `validationSuccess`    v = validationsuccess ) ) ).
   ENDMETHOD.
 ENDCLASS.

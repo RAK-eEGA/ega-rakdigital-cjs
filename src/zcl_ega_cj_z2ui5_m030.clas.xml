@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZCL_EGA_CJ_Z2UI5_M030</CLSNAME>
+    <LANGU>E</LANGU>
+    <DESCRIPT>M030</DESCRIPT>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <TPOOL>
+    <item>
+     <ID>I</ID>
+     <KEY>100</KEY>
+     <ENTRY>New Tenancy contract</ENTRY>
+     <LENGTH>44</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>102</KEY>
+     <ENTRY>Property Selection</ENTRY>
+     <LENGTH>28</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>103</KEY>
+     <ENTRY>Select Property List</ENTRY>
+     <LENGTH>40</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>104</KEY>
+     <ENTRY>Search</ENTRY>
+     <LENGTH>16</LENGTH>
+    </item>
+   </TPOOL>
+   <DESCRIPTIONS_SUB>
+    <SEOSUBCOTX>
+     <CMPNAME>CHK_OPEN_POA_CASE</CMPNAME>
+     <SCONAME>BP</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>MGW Framework: Select Options for Queries</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CHK_OPEN_POA_CASE</CMPNAME>
+     <SCONAME>OPEN_CASES</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Open Cases for POA</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>I_D</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Field of type DATS</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>I_T</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Field of type TIMS</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>CTT</CMPNAME>
+     <SCONAME>R_T</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>UTC Time Stamp in Short Form (YYYYMMDDhhmmss)</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_BP_LESSOR</CMPNAME>
+     <SCONAME>LESSOR</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Lessor Details</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_BP_LESSOR</CMPNAME>
+     <SCONAME>PARTNER</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Business Partner Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_DISTRICT</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Land Register District</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_PAGENO</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Year</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>EV_VOLUMENO</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Registry Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>IV_AOID</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Identification of Architectural Object</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_LR</CMPNAME>
+     <SCONAME>IV_PARCEL</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Parcel Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>PARCEL_ADDRESS</CMPNAME>
+     <SCONAME>PARCEL</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Parcel Number</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>RAK_TITLEDEED</CMPNAME>
+     <SCONAME>IO_PARENT</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>ABAP2UI5 Fragment</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>SET_CONTEXT</CMPNAME>
+     <SCONAME>CONTEXT</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>CJ Context</DESCRIPT>
+    </SEOSUBCOTX>
+   </DESCRIPTIONS_SUB>
+  </asx:values>
+ </asx:abap>
+</abapGit>

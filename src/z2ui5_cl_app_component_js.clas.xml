@@ -11,12 +11,6 @@
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
    </VSEOCLASS>
-   <DESCRIPTIONS_CLASS>
-    <SEOCLASSTX>
-     <LANGU>묩</LANGU>
-     <DESCRIPT>Z2UI5_CL_APP_COMPONENT_JS (generated)</DESCRIPT>
-    </SEOCLASSTX>
-   </DESCRIPTIONS_CLASS>
   </asx:values>
  </asx:abap>
 </abapGit>

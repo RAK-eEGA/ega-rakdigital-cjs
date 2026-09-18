@@ -19,6 +19,26 @@ INTERFACE zif_rak_journey_logic
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
     CHANGING  ct_tables TYPE /qnv/sb_tabl_def_tt.
 
+  " The last look at the attachment payload before it goes to the backend -
+  " the same hook ON_BEFORE_TABLES( ) is for the table payload, and it
+  " exists for the same reason: the files were built and handed straight to
+  " the bridge with no way for a handler to touch them.
+  "
+  " Rename a file, set IDENTIFIER1 to something the BAdI reads, drop one, or
+  " add one the citizen never uploaded. FILE_NAME is the common case and
+  " config covers the simple half of it: FNAME: on the field's DEFAULT_VAL
+  " renames to a fixed string, and this hook is for a name that has to be
+  " COMPUTED - the case number in it, the owner's Emirates ID, a sequence.
+  "
+  " Runs after the FNAME: rename, so CT_ATT-FILE_NAME already holds the
+  " configured name where there is one, and a handler that overwrites it is
+  " overriding config deliberately rather than racing it.
+  "
+  " Empty here on purpose. Everything sent is what the engine built.
+  METHODS on_before_attachments
+    IMPORTING io_ctx TYPE REF TO zif_rak_journey
+    CHANGING  ct_att TYPE /qnv/sbuild_attachments_tt.
+
   METHODS on_before_fields
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
     CHANGING  ct_fields TYPE zif_rak_journey_backend=>tt_field.
@@ -43,9 +63,41 @@ INTERFACE zif_rak_journey_logic
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
               iv_field  TYPE string
     RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
+  " R18-2. THE ENGINE ASKS FOR A WINDOW AND THE HANDLER ANSWERS WITH A
+  " WINDOW. Neither half works alone: the engine cannot make the payload
+  " small if the handler still assembles every row, and the handler cannot
+  " draw a pager the engine owns.
+  "
+  " IV_PAGE_SIZE zero means "no window - return everything", which is
+  " every table configured today and every handler written before this
+  " existed. IV_OFFSET is the zero-based first row the engine wants.
+  "
+  " IN THE SIGNATURE RATHER THAN ON IO_CTX, deliberately. A reader on the
+  " context is invisible: a handler that does not know to call it returns
+  " every row, the pager says "page 1 of 20", and all two thousand rows
+  " render underneath it - nothing errors. That is the
+  " read-as-configured, behave-as-unconfigured shape this project keeps
+  " meeting. In the signature, an author implementing GET_TABLE( ) sees
+  " the window in the method they are writing.
+  "
+  " ADDING AN OPTIONAL PARAMETER COSTS NO SOURCE CHANGE anywhere. Neither
+  " an implementation nor a redefinition restates the signature, so the 32
+  " classes that implement this and the 5 that INTERFACE it need
+  " re-activation, not editing.
+  "
+  " THE WINDOW IS A REQUEST, NOT A GUARANTEE. A handler that ignores it
+  " and returns everything still renders correctly - RENDER_BLOCK( )
+  " windows the excess itself and says so on the trace. It simply does not
+  " save the payload, which is the whole point of the exercise.
+  "
+  " RE-READING PER PAGE HAS A COST and it is the handler's to solve. A
+  " handler that queries per call runs its query again for page 3; cache
+  " it, or park the result, but know that it happens.
   METHODS get_table
     IMPORTING io_ctx         TYPE REF TO zif_rak_journey
               iv_name        TYPE string
+              iv_offset      TYPE i DEFAULT 0
+              iv_page_size   TYPE i DEFAULT 0
     RETURNING VALUE(rs_data) TYPE zif_rak_journey=>ty_table.
 
   " RESERVED - not yet called by the engine. These are the landing pads for
@@ -129,4 +181,115 @@ INTERFACE zif_rak_journey_logic
   METHODS on_submit
     IMPORTING io_ctx    TYPE REF TO zif_rak_journey
     RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_msg.
+
+  " ==========================================================================
+  " DRAFT FEATURES
+  "
+  " WHAT IS LIVE, AND WHAT IS STILL A SEAM. Keep this list honest - a hook
+  " documented as wired that is not is worse than silence, because a handler
+  " will redefine it and then wait for a call that never comes.
+  "
+  "   DRAFT_MODE       LIVE - ENGINE->RESOLVE_DRAFT_MODE( )
+  "   ATTACH_MODE      LIVE - ENGINE->RESOLVE_ATTACH_MODE( )
+  "   ON_DRAFT_SAVE    LIVE - HANDLE_SAVE( ), and it can refuse the save
+  "   RETENTION        LIVE - the ZRAK_CJ_ATT_PURGE report, io_ctx UNBOUND
+  "
+  "   GET_DRAFTS       seam - nothing calls it. There is no UI that lists
+  "                    drafts and no native store behind it.
+  "   ON_DRAFT_LOAD    seam - resume does not run it yet.
+  "   ON_DRAFT_DISCARD seam - HANDLE_DELETE( ) does not run it yet.
+  "   ON_ARCHIVE       seam - the purge report reads RETENTION( ) and reports
+  "                    an ARCHIVE policy, but cannot act on one: there is no
+  "                    draft store to archive from.
+  "
+  " The seams are declared in the same sense as GET_ATTACHMENTS( ) above, so
+  " handlers and the engine can move onto them one journey at a time rather
+  " than in one activation.
+  "
+  " The rule they encode: an unfinished application, and the files hanging
+  " off it, are persisted by EITHER the backend OR CJS, per journey, and the
+  " engine must be told which rather than inferring it from bknd_category.
+  " See ZIF_RAK_JOURNEY=>C_MODE for the four answers.
+  " ==========================================================================
+
+  " Who owns the draft for this journey. Returning '' - the default - leaves
+  " the decision to the journey configuration, which is where it belongs for
+  " anything a functional consultant can set. Redefine only when the choice
+  " is genuinely code: a journey that drafts through the BAdI on one path and
+  " stages locally on another.
+  METHODS draft_mode
+    IMPORTING io_ctx       TYPE REF TO zif_rak_journey
+    RETURNING VALUE(rv_mode) TYPE string.
+
+  " The same question for attachments, answered separately on purpose.
+  " DELEGATE means the backend stores the file and GET_ATTACHMENTS( ) /
+  " GET_ATTACH_URL( ) supply the chips and links; NATIVE means the file sits
+  " in ZRAK_CJ_ATTX under ZCL_RAK_CJ_ATT_STORE, which is what happens today.
+  METHODS attach_mode
+    IMPORTING io_ctx       TYPE REF TO zif_rak_journey
+    RETURNING VALUE(rv_mode) TYPE string.
+
+  " Every draft the current user may re-open. This is the API that does not
+  " exist anywhere today: RESUME( ) can only re-open a draft whose id was
+  " already handed to it as the draftid launch parameter, so nothing can
+  " show a citizen the list in the first place.
+  "
+  " IV_PARTNER is the BP to list for; blank means the logged-in user's own.
+  " IV_WITH_ROLES adds drafts a role-BP created on that partner's behalf -
+  " an agent's view - and must stay OFF by default, because widening it is
+  " a disclosure and narrowing it is only an inconvenience.
+  "
+  " Under DELEGATE this is the backend's list and the handler is the only
+  " thing that knows how to ask for it. Under NATIVE the framework answers
+  " it and a handler need not redefine this at all.
+  METHODS get_drafts
+    IMPORTING io_ctx        TYPE REF TO zif_rak_journey
+              iv_partner    TYPE string OPTIONAL
+              iv_with_roles TYPE abap_bool DEFAULT abap_false
+    RETURNING VALUE(rt)     TYPE zif_rak_journey=>tt_draft.
+
+  " Before the draft is written. Return one or more messages of type 'Error'
+  " to REFUSE the save and keep the citizen on the page - the same contract
+  " as ON_SUBMIT( ), and deliberately not the contract of ON_SAVE( ), whose
+  " exceptions the engine swallows whole.
+  METHODS on_draft_save
+    IMPORTING io_ctx       TYPE REF TO zif_rak_journey
+              iv_draft_id  TYPE string
+    RETURNING VALUE(rt)    TYPE zif_rak_journey=>tt_msg.
+
+  " After a draft has been restored into the model and before the step is
+  " rendered. The place to re-derive anything that was never stored -
+  " a live fee, a partner read that must not be served from a week-old copy.
+  METHODS on_draft_load
+    IMPORTING io_ctx      TYPE REF TO zif_rak_journey
+              iv_draft_id TYPE string
+    RETURNING VALUE(rt)   TYPE zif_rak_journey=>tt_msg.
+
+  " The citizen threw the draft away, or retention did. Errors refuse the
+  " discard; a handler that must clean up elsewhere does it here.
+  METHODS on_draft_discard
+    IMPORTING io_ctx      TYPE REF TO zif_rak_journey
+              iv_draft_id TYPE string
+    RETURNING VALUE(rt)   TYPE zif_rak_journey=>tt_msg.
+
+  " ------------------------------------------------------------------------
+  " RETENTION - how long an abandoned draft and its staged files survive.
+  "
+  " Both of these run from housekeeping, not from a session. IO_CTX is
+  " therefore OPTIONAL and will arrive UNBOUND: there is no live journey, no
+  " model and no user. Reading it without a check is a short dump in a batch
+  " job, which is the least visible place in the system to put one.
+  " ------------------------------------------------------------------------
+  METHODS retention
+    IMPORTING io_ctx    TYPE REF TO zif_rak_journey OPTIONAL
+    RETURNING VALUE(rs) TYPE zif_rak_journey=>ty_retention.
+
+  " Called once per expiring draft when RETENTION( ) asked for ARCHIVE.
+  " Return abap_true to say the handler has archived it and the framework
+  " may now remove its copy; abap_false leaves the draft where it is, which
+  " is the safe answer and the default. A journey with a real archive - a
+  " DMS drop, an outbound feed - is the only thing that knows where it goes.
+  METHODS on_archive
+    IMPORTING is_draft          TYPE zif_rak_journey=>ty_draft
+    RETURNING VALUE(rv_handled) TYPE abap_bool.
 ENDINTERFACE.

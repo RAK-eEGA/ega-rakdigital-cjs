@@ -174,7 +174,10 @@ CLASS zcl_rak_pay_engine DEFINITION
   PRIVATE SECTION.
 
     CONSTANTS c_autopay_tvarv TYPE string  VALUE 'ZRAK_CJ_PAY_AUTOSUCCESS'.
-    CONSTANTS c_dev_sysid     TYPE sy-sysid VALUE 'E10'.
+*   C_DEV_SYSID is gone: this class no longer decides for itself which
+*   system it is on. ZCL_RAK_JOURNEY_UTIL=>DEV_STUBS_OK( ) answers that
+*   for every caller, and a private constant left behind here would
+*   suggest otherwise to the next reader.
 
     CONSTANTS c_wait_ticks   TYPE i      VALUE 300.
     CONSTANTS c_wait_max_sec TYPE i      VALUE 60.
@@ -388,7 +391,13 @@ CLASS ZCL_RAK_PAY_ENGINE IMPLEMENTATION.
 * single most expensive thing this class can do, so the ability to produce one must
 * not be reachable from a table anybody can maintain.
 *---------------------------------------------------------------------------------------*
-    IF sy-sysid <> c_dev_sysid.
+*   Through the one place that answers "may a development stub run here",
+*   rather than a fourth private spelling of sy-sysid. Still ABAP and still
+*   not reachable from a table, which is the property this gate needs - see
+*   the note above. DEV_STUBS_OK( ) treats an unrecognised system as
+*   production, so this is if anything stricter than the comparison it
+*   replaces.
+    IF zcl_rak_journey_util=>dev_stubs_ok( ) = abap_false.
       RETURN.
     ENDIF.
 
@@ -544,6 +553,103 @@ CLASS ZCL_RAK_PAY_ENGINE IMPLEMENTATION.
     IF iv_launched = abap_true AND dev_autopay( ) = abap_true.
       rv_status = c_success.
       RETURN.
+    ENDIF.
+
+*   ---- ASK THE DPC FIRST. EVERYTHING BELOW IS THE FALLBACK ---------------
+*   This method is a port of PAYMENTSET_GET_ENTITYSET and its own header says
+*   so. The port has drifted from the original in ways that matter:
+*
+*     - the original resolves a PP payment-id short link, a CRM billing
+*       document and a BUS2000116 tenancy contract; this knows none of them
+*     - on ATB the original accepts CLOSED and CONFIRMED with ORDERSTATUS 2 as
+*       success, reads READY as open and DECLINED or EXPIRED as FAILED. This
+*       tests the literal 'Success' and calls everything else OPEN - so an ATB
+*       payment that closes as CONFIRMED polls until the citizen gives up, and
+*       a declined one never reports declined
+*
+*   PREPARE_PAYMENT( ) already stopped reimplementing the gateway prep for
+*   exactly this reason, and its note names the cost of having done so: two
+*   references drawn for one payment, and a POST to the CPG connector on a
+*   landscape that uses ATB. This is the same call one step later.
+*
+*   BLANK MEANS "COULD NOT ASK", NOT "NOT PAID". PAYMENT_STATUS( ) returns
+*   blank when the MPC row type or the DPC method could not be resolved, and
+*   the fallback below then runs exactly as it always has - so this cannot make
+*   any landscape worse than it is today.
+*
+*   AND IT IS DELIBERATELY NOT CALLED ON E10. The DPC short-circuits to SUCCESS
+*   on E10 UNCONDITIONALLY - no equivalent of IV_LAUNCHED. Delegating there
+*   would reinstate precisely the bug the guard above was written to kill: the
+*   screen saying "Payment received" for a payment nobody ever attempted. On
+*   E10 the guarded dev path above is the only short circuit, and a real E10
+*   poll falls through to the port below.
+*   CREATED AND CALLED BY NAME, NOT REFERENCED. A static NEW ZCL_RAK_FEES_API
+*   here would put ZCL_RAK_CJ_API and the generated DPC it inherits into THIS
+*   class's load graph - and this class is loaded by every payment. One
+*   inactive object anywhere in that chain and the pay engine stops loading,
+*   which turns a status poll that could have degraded into a journey that
+*   cannot pay at all. RENDER_ONE( ) calls ZCL_RAK_CJ_OPTS dynamically for
+*   exactly this reason and says so.
+*
+*   THE CONTEXT IS EMPTY ON PURPOSE. PAYMENTSET_GET_ENTITYSET reads one filter
+*   and never touches IO_TECH_REQUEST_CONTEXT, so there is no identity to
+*   supply; ZCL_RAK_CJ_API's constructor defaults the language and tolerates an
+*   unbound request object, which is the documented behaviour rather than an
+*   accident. Its type is named at runtime too, so nothing here references that
+*   class either.
+    IF zcl_rak_journey_util=>is_dev( ) = abap_false.
+      DATA lv_dpc TYPE string.
+      TRY.
+          DATA lr_ctx TYPE REF TO data.
+          CREATE DATA lr_ctx TYPE ('ZCL_RAK_CJ_API=>TY_CTX').
+
+*         PARAMETER-TABLE TAKES A VARIABLE, NEVER A CONSTRUCTOR EXPRESSION.
+*         Written inline as VALUE abap_parmbind_tab( ... ) the parser reports
+*         `"." or "EXCEPTION-TABLE ..." expected after "VALUE"` - it has
+*         finished reading the statement and does not expect an expression
+*         there at all, so the message names the keyword rather than the
+*         mistake. Same family as the TYPE HANDLE trap: declare it, then pass
+*         the name.
+          DATA lt_pnew TYPE abap_parmbind_tab.
+          lt_pnew = VALUE #( ( name  = 'IS_CTX'
+                               kind  = cl_abap_objectdescr=>exporting
+                               value = lr_ctx ) ).
+
+          DATA lo_api TYPE REF TO object.
+          CREATE OBJECT lo_api TYPE ('ZCL_RAK_FEES_API')
+            PARAMETER-TABLE lt_pnew.
+
+          DATA lr_res TYPE REF TO data.
+          CREATE DATA lr_res TYPE ('ZCL_RAK_FEES_API=>TY_PAY_RES').
+          FIELD-SYMBOLS <res> TYPE any.
+          ASSIGN lr_res->* TO <res>.
+
+          DATA lt_pcall TYPE abap_parmbind_tab.
+          lt_pcall = VALUE #( ( name  = 'IV_INTRENO'
+                                kind  = cl_abap_objectdescr=>exporting
+                                value = REF #( lv_intreno ) )
+                              ( name  = 'RS'
+                                kind  = cl_abap_objectdescr=>receiving
+                                value = lr_res ) ).
+
+          CALL METHOD lo_api->('PAYMENT_STATUS')
+            PARAMETER-TABLE lt_pcall.
+
+          ASSIGN COMPONENT 'STATUS' OF STRUCTURE <res> TO FIELD-SYMBOL(<st>).
+          IF sy-subrc = 0.
+            lv_dpc = <st>.
+          ENDIF.
+        CATCH cx_root ##NO_HANDLER.
+*         Could not ask. Not a status - the port below answers instead.
+      ENDTRY.
+
+*     ONLY THE THREE IT IS ALLOWED TO SAY. Anything else, blank included, falls
+*     through: blank means the call could not be made, and treating that as a
+*     verdict is how a poll starts reporting on a question it never asked.
+      IF lv_dpc = c_success OR lv_dpc = c_open OR lv_dpc = c_failed.
+        rv_status = lv_dpc.
+        RETURN.
+      ENDIF.
     ENDIF.
 
     IF resolve_case(

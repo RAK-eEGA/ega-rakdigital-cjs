@@ -60,9 +60,13 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
 
 
   METHOD pick.
-    " Arabic preferred when lang = 'A', falling back to English
-    rv = COND #( WHEN iv_lang = 'A' AND iv_ar IS NOT INITIAL THEN iv_ar
-                 ELSE iv_en ).
+*   Language fallback + OTR:<alias> resolution now live in
+*   ZCL_RAK_JOURNEY_UTIL=>PICK_TEXT( ), stateless and callable from anywhere -
+*   not only from a REPO instance - so ZCL_RAK_JOURNEY_GRID's column headers
+*   (ZRAK_T_JNY_COL-ZLABEL/ZLABEL_AR, read directly, never built by REPO) can
+*   resolve an OTR alias too instead of being the one bilingual pair frozen
+*   at whatever was last typed into the Studio.
+    rv = zcl_rak_journey_util=>pick_text( iv_en = iv_en iv_ar = iv_ar iv_lang = iv_lang ).
   ENDMETHOD.
 
 
@@ -79,6 +83,8 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
     rs_config-title         = pick( iv_en = ls_h-title iv_ar = ls_h-title_ar iv_lang = iv_lang ).
     rs_config-cj_type       = ls_h-cj_type.
     rs_config-handler_class = ls_h-handler_class.
+    rs_config-draft_mode    = to_upper( ls_h-draft_mode ).
+    rs_config-attach_mode   = to_upper( ls_h-attach_mode ).
 
     rs_config-theme = VALUE #(
       variant      = ls_h-theme_variant
@@ -130,7 +136,8 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
         columns     = ls_s-columns
         bknd_screen = ls_s-bknd_screen
         next_req    = to_upper( ls_s-next_requires )
-        no_forward  = ls_s-no_forward ).
+        no_forward  = ls_s-no_forward
+        no_action   = bool( ls_s-no_action ) ).
 
       LOOP AT lt_fld INTO DATA(ls_f) WHERE step_id = ls_s-step_id.
         DATA(ls_cfld) = VALUE zif_rak_journey=>ty_field(
@@ -140,7 +147,7 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           placeholder  = pick( iv_en = ls_f-placeholder iv_ar = ls_f-placeholder_ar iv_lang = iv_lang )
           default      = ls_f-default_val
           group        = ls_f-fgroup
-          section      = ls_f-zsection
+          section      = pick( iv_en = ls_f-zsection iv_ar = ls_f-zsection_ar iv_lang = iv_lang )
           has_attach   = bool( ls_f-has_attach )
           attach_label = ls_f-attach_label
           attach_types = ls_f-attach_types
@@ -153,6 +160,22 @@ CLASS ZCL_RAK_JOURNEY_REPO IMPLEMENTATION.
           state        = ls_f-fstate
           hidden       = bool( ls_f-hidden )
           readonly     = bool( ls_f-readonly )
+          closed_list  = bool( ls_f-closed_list )
+          no_browse    = bool( ls_f-no_browse )
+*         Round 13. Single-language by nature - an alignment, a unit, a row
+*         count and a flag.
+          text_align   = ls_f-text_align
+          descr        = ls_f-descr
+          ta_rows      = ls_f-ta_rows
+          grow_thresh  = ls_f-grow_thresh
+          popin        = bool( ls_f-popin )
+          flow         = bool( ls_f-flow )
+*         ZRAK_T_JNY_FLD-WIDTH, which the Studio has always stored and
+*         nothing has ever read. Named CTRL_WIDTH on TY_FIELD after the
+*         method that consumes it, and to keep it apart from the CELL
+*         width on ZRAK_CJ_LAYOUT - a different object sizing a different
+*         thing.
+          ctrl_width   = ls_f-width
           validation   = VALUE #(
             required = bool( ls_f-required )
             regex    = ls_f-regex

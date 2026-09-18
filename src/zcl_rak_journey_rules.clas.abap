@@ -13,7 +13,10 @@ CLASS zcl_rak_journey_rules DEFINITION
     METHODS is_hidden   IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
     METHODS is_required IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
     METHODS is_readonly IMPORTING is_field TYPE zif_rak_journey=>ty_field RETURNING VALUE(rv) TYPE abap_bool.
-    METHODS set_prop  IMPORTING iv_field TYPE string iv_prop TYPE string iv_on TYPE abap_bool.
+*   IV_STEP: -1 (the default) means every step, which is what every caller
+*   before this parameter existed gets. See ZIF_RAK_CJS_TYPES=>TY_OVR-STEP.
+    METHODS set_prop  IMPORTING iv_field TYPE string iv_prop TYPE string iv_on TYPE abap_bool
+                                iv_step TYPE i DEFAULT -1.
     METHODS prop_ovr  IMPORTING iv_field TYPE string iv_prop TYPE string
                       EXPORTING ev_found TYPE abap_bool ev_on TYPE abap_bool.
     METHODS validate_step IMPORTING iv_step TYPE i RETURNING VALUE(rt_msg) TYPE zif_rak_journey=>tt_msg.
@@ -172,6 +175,26 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
 
   METHOD is_readonly.
+*   THE CASE MODE OUTRANKS EVERYTHING BELOW, INCLUDING A HANDLER. Every
+*   other rule in this method is somebody's preference about how a field
+*   should behave; this one is about whether the application may be
+*   changed at all, and a handler is not entitled to reopen a paid case.
+*   It is the one override in the engine that sits above MT_OVR.
+*
+*   PAY_ONLY leaves the payment step alone, because paying is the entire
+*   reason the citizen was let back in. Everything behind it is readable
+*   and frozen.
+    DATA(lv_mode) = mo_e->case_mode( ).
+    IF lv_mode = mo_e->c_mode_view OR lv_mode = mo_e->c_mode_done.
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+    IF lv_mode = mo_e->c_mode_pay
+       AND mo_e->step_of( is_field-name ) <> mo_e->pay_step( ).
+      rv = abap_true.
+      RETURN.
+    ENDIF.
+
 *   EDITABLE wins over the configured flag, READONLY wins over everything. That
 *   ordering is what lets a field be authored locked and released by a rule, as
 *   well as the other way round. A handler outranks all three.
@@ -218,9 +241,25 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT ls_ms-fields INTO DATA(ls_mf) WHERE readonly = abap_false.
+*   READONLY is deliberately NOT filtered here. A read-only field can still
+*   be REQUIRED - the citizen does not type it, but something else must
+*   (a popup, ON_INIT seeding, a rule SET action) before submit. The
+*   WebDynpro original enforced exactly this: CHECK_MANDATORY_ATTR_ON_VIEW
+*   tests the bound context attribute, not whether the control is
+*   editable. Genuinely unenforceable field types (DISPLAY, TABLE, UPLOAD,
+*   STATUS, OBJNUM, PROGRESS, LINK) are still excluded below, by FTYPE.
+    LOOP AT ls_ms-fields INTO DATA(ls_mf).
+*     CAPTCHA is excluded because VALIDATE_STEP( ) checks it itself, and
+*     an empty box there is already "does not match". Left in, an author
+*     who ticks REQUIRED on the row - which is the natural thing to do -
+*     gets two errors for one blank field: "Verification is required" from
+*     here and the mismatch message from there. It is also the reason
+*     REQPANEL must not list it: a checklist line reading "Verification"
+*     that ticks itself the moment the citizen types five wrong digits is
+*     worse than no line at all.
       IF is_hidden( ls_mf ) = abap_true
-         OR ls_mf-type = 'PAYFEE' OR ls_mf-type = 'REQPANEL'.
+         OR ls_mf-type = 'PAYFEE' OR ls_mf-type = 'REQPANEL'
+         OR ls_mf-type = 'CAPTCHA'.
         CONTINUE.
       ENDIF.
       IF is_required( ls_mf ) = abap_false.
@@ -245,7 +284,7 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-      IF ls_mf-type = 'DISPLAY' OR ls_mf-type = 'READONLY' OR ls_mf-type = 'TABLE'
+      IF ls_mf-type = 'DISPLAY' OR ls_mf-type = 'TABLE'
          OR ls_mf-type = 'UPLOAD' OR ls_mf-type = 'STATUS' OR ls_mf-type = 'OBJNUM'
          OR ls_mf-type = 'PROGRESS' OR ls_mf-type = 'LINK'.
         CONTINUE.
@@ -264,16 +303,52 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           FIELD-SYMBOLS <model_r> TYPE any.
           ASSIGN mo_e->mr_model->* TO <model_r>.
           IF sy-subrc = 0.
-            ASSIGN COMPONENT to_upper( ls_mf-name ) OF STRUCTURE <model_r> TO FIELD-SYMBOL(<tab_r>).
+            ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_mf-name ) OF STRUCTURE <model_r> TO FIELD-SYMBOL(<tab_r>).
             IF sy-subrc = 0.
               LOOP AT lt_gcr INTO DATA(gcr) WHERE required = abap_true.
                 LOOP AT <tab_r> ASSIGNING FIELD-SYMBOL(<row_r>).
                   ASSIGN COMPONENT gcr-name OF STRUCTURE <row_r> TO FIELD-SYMBOL(<cell_r>).
                   IF sy-subrc = 0 AND <cell_r> IS INITIAL.
+*                   No ZRAK_T_JNY_COL twin to read an Arabic phrase from, so the
+*                   connective is a literal by SY-LANGU - same convention as the
+*                   other hardcoded messages in this engine (see e.g.
+*                   ZCL_RAK_BP_SEARCH). GCR-LABEL and LS_MF-LABEL are already
+*                   resolved to session language by the config loader.
                     APPEND VALUE #( name  = |{ ls_mf-name }.{ gcr-name }|
                                     label = |{ ls_mf-label } - { gcr-label }|
                                     kind  = 'VAL'
-                                    msg   = |{ gcr-label } is required on every row of { ls_mf-label }| ) TO rt.
+                                    msg   = COND string(
+                                      WHEN sy-langu = 'A'
+                                      THEN |{ gcr-label } مطلوب في كل صف من { ls_mf-label }|
+                                      ELSE |{ gcr-label } is required on every row of { ls_mf-label }| ) ) TO rt.
+                    EXIT.
+                  ENDIF.
+                ENDLOOP.
+              ENDLOOP.
+
+*             GC-MAXLEN reaches the cell as the browser control's maxlength
+*             attribute only (ZCL_RAK_JOURNEY_GRID) - nothing server-side
+*             re-tested it, unlike ZRAK_T_JNY_FLD-MAX_LEN which VALIDATE_STEP
+*             already re-checks with STRLEN( ) for a scalar field. A request
+*             that did not come from the rendered page could overflow a
+*             component such as a CHAR(2) column, truncating silently on
+*             assignment rather than failing. Same walk as REQUIRED above,
+*             gated on MAXLEN > 0 instead.
+              LOOP AT lt_gcr INTO gcr WHERE maxlen > 0.
+                LOOP AT <tab_r> ASSIGNING <row_r>.
+                  ASSIGN COMPONENT gcr-name OF STRUCTURE <row_r> TO <cell_r>.
+*                 CONV string( ) rather than STRLEN( <cell_r> ) directly - <cell_r>
+*                 is TYPE any, and a numeric column's runtime type is not
+*                 guaranteed character-like, which STRLEN( ) requires.
+                  IF sy-subrc = 0 AND strlen( CONV string( <cell_r> ) ) > gcr-maxlen.
+                    APPEND VALUE #( name  = |{ ls_mf-name }.{ gcr-name }|
+                                    label = |{ ls_mf-label } - { gcr-label }|
+                                    kind  = 'VAL'
+                                    msg   = COND string(
+                                      WHEN sy-langu = 'A'
+                                      THEN |{ gcr-label } في { ls_mf-label } لا يتجاوز { gcr-maxlen } حرف|
+                                      ELSE |{ gcr-label } in { ls_mf-label } must be at most | &&
+                                           |{ gcr-maxlen } characters| ) ) TO rt.
                     EXIT.
                   ENDIF.
                 ENDLOOP.
@@ -296,8 +371,29 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 
   METHOD prop_ovr.
     CLEAR: ev_found, ev_on.
+    DATA(lv_f) = to_upper( condense( iv_field ) ).
+
+*   THE MORE SPECIFIC ROW WINS, and it is looked for first: an override scoped
+*   to the step being rendered outranks one that named no step. Anything else
+*   would make the scoped form pointless, since the journey-wide row is exactly
+*   what it exists to narrow.
+*
+*   MV_STEP is the step being rendered or validated, which is the only step
+*   whose fields ever reach here - IS_HIDDEN( ) and its two siblings are called
+*   from the renderer and the grid, per field, for the current step.
     READ TABLE mo_e->mt_ovr INTO DATA(ls_o)
-      WITH KEY field = to_upper( condense( iv_field ) ) prop = iv_prop.
+      WITH KEY field = lv_f prop = iv_prop step = mo_e->mv_step.
+    IF sy-subrc = 0.
+      ev_found = abap_true.
+      ev_on    = ls_o-on.
+      RETURN.
+    ENDIF.
+
+*   The journey-wide row: -1, and the only kind written before TY_OVR-STEP
+*   existed. Every caller that does not pass IV_STEP lands here, so this is
+*   the path that keeps today's behaviour identical.
+    READ TABLE mo_e->mt_ovr INTO ls_o
+      WITH KEY field = lv_f prop = iv_prop step = -1.
     IF sy-subrc = 0.
       ev_found = abap_true.
       ev_on    = ls_o-on.
@@ -310,12 +406,18 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
     IF lv_f IS INITIAL.
       RETURN.
     ENDIF.
+*   STEP IS PART OF THE KEY, so a per-step override and a journey-wide one on
+*   the same field are two rows rather than one overwriting the other. A
+*   handler that scopes REGISTERED_EMIRATES_1 to step 0 must not thereby
+*   silence a journey-wide instruction about the same name, or the other way
+*   round - PROP_OVR( ) below decides which of the two wins at read time.
     READ TABLE mo_e->mt_ovr ASSIGNING FIELD-SYMBOL(<o>)
-      WITH KEY field = lv_f prop = iv_prop.
+      WITH KEY field = lv_f prop = iv_prop step = iv_step.
     IF sy-subrc = 0.
       <o>-on = iv_on.
     ELSE.
-      APPEND VALUE #( field = lv_f prop = iv_prop on = iv_on ) TO mo_e->mt_ovr.
+      APPEND VALUE #( field = lv_f prop = iv_prop on = iv_on step = iv_step )
+             TO mo_e->mt_ovr.
     ENDIF.
   ENDMETHOD.
 
@@ -338,12 +440,23 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
                            iv_result  = 'BLOCK'
                            iv_detail  = ls_miss-name ).
 
+*     PER-CHECK WORDING. MSG is one column read by this check, by the range
+*     checks, by the numeric CATCH and by REGEX, and they cannot all be worded
+*     at once - see ZCL_RAK_JOURNEY_UTIL=>MSG_FOR( ). Every read of MSG in this
+*     method now goes through it naming the check it is: a plain MSG comes back
+*     unchanged to all of them, exactly as today, and a keyed MSG answers each
+*     one separately. A blank answer means "nothing configured for this check"
+*     and falls through to the catalogue below, which is where it was already
+*     going.
+      DATA(lv_rqmsg) = zcl_rak_journey_util=>msg_for( iv_msg     = ls_miss-msg
+                                                      iv_check   = 'REQUIRED'
+                                                      iv_journey = mo_e->ms_config-journey_id ).
       DATA(lv_mtxt) = COND string(
         WHEN ls_miss-kind = 'ATT'
         THEN zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-att_required
                                 iv_default = `&1: attachment is required`
                                 iv_v1      = ls_miss-label )
-        WHEN ls_miss-msg IS NOT INITIAL  THEN ls_miss-msg
+        WHEN lv_rqmsg IS NOT INITIAL     THEN lv_rqmsg
         ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-required
                                 iv_default = `&1 is required`
                                 iv_v1      = ls_miss-label ) ).
@@ -360,7 +473,45 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+*     CAPTCHA. Checked here and nowhere else, because this is the one
+*     place that runs on Next AND on Submit and cannot be reached around:
+*     a control that validated itself while rendering would be skipped by
+*     any round trip that does not repaint it.
+*
+*     The comparison is against the engine's copy, never against anything
+*     that travelled to the browser - see ZCL_RAK_JOURNEY_ENGINE, where
+*     the code lives and why it lives there.
+      IF ls_f-type = 'CAPTCHA'.
+        IF mo_e->mv_cap_ok = abap_false.
+          DATA(lv_typed) = mo_e->captcha_digits( mo_e->val_get( ls_f-name ) ).
+          IF lv_typed IS NOT INITIAL AND lv_typed = mo_e->captcha_code( ).
+            mo_e->mv_cap_ok = abap_true.
+          ELSE.
+*           EMPTY AND WRONG GET THE SAME MESSAGE ON PURPOSE. Telling a
+*           script which of the two it managed is telling it whether the
+*           request shape was right, and a citizen who left the box blank
+*           does not need to be told they left it blank - the field is
+*           marked and sitting in front of them.
+            DATA(lv_cmsg) = zcl_rak_text=>get(
+              iv_no      = zcl_rak_text=>c_no-cap_wrong
+              iv_default = `The verification code does not match. A new code is shown - please try again.` ).
+            APPEND VALUE #( type = 'Error' text = lv_cmsg ) TO rt_msg.
+            mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_cmsg ).
+*           A NEW CHALLENGE ON EVERY FAILURE. Leaving the old one standing
+*           turns the control into a fixed target that can be guessed one
+*           round trip at a time - 100000 tries against five digits is a
+*           long afternoon for a person and no obstacle at all to a script.
+            mo_e->captcha_new( ).
+            mo_e->val_set( iv_name = ls_f-name iv_value = `` ).
+          ENDIF.
+        ENDIF.
+        CONTINUE.
+      ENDIF.
+
+*     PDF joins the display-only list: it shows a document and holds no value
+*     the citizen enters, so every check below has nothing to check.
       IF ls_f-type = 'DISPLAY' OR ls_f-type = 'READONLY' OR ls_f-type = 'TABLE'
+         OR ls_f-type = 'PDF'
          OR ls_f-type = 'UPLOAD' OR ls_f-type = 'STATUS' OR ls_f-type = 'OBJNUM'
          OR ls_f-type = 'PROGRESS' OR ls_f-type = 'LINK' OR ls_f-type = 'EDITABLE_TABLE'.
         CONTINUE.
@@ -374,19 +525,35 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         CONTINUE.
       ENDIF.
       IF lv_v-min_len > 0 AND strlen( lv_val ) < lv_v-min_len.
-        DATA(lv_nmin) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_short
-                                           iv_default = `&1 must be at least &2 characters`
-                                           iv_v1      = ls_f-label
-                                           iv_v2      = |{ lv_v-min_len }| ).
+*       IV_KEYED_ONLY. The length checks never read MSG, so a plain MSG must
+*       keep being ignored here - honouring it now would silently retitle every
+*       existing length message on every journey. An explicit 'LEN:' clause is
+*       a new instruction and is honoured.
+        DATA(lv_nmin) = zcl_rak_journey_util=>msg_for( iv_msg        = lv_v-msg
+                                                       iv_check      = 'LEN'
+                                                       iv_journey    = mo_e->ms_config-journey_id
+                                                       iv_keyed_only = abap_true ).
+        IF lv_nmin IS INITIAL.
+          lv_nmin = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_short
+                                       iv_default = `&1 must be at least &2 characters`
+                                       iv_v1      = ls_f-label
+                                       iv_v2      = |{ lv_v-min_len }| ).
+        ENDIF.
         APPEND VALUE #( type = 'Error' text = lv_nmin ) TO rt_msg.
         mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_nmin ).
         CONTINUE.
       ENDIF.
       IF lv_v-max_len > 0 AND strlen( lv_val ) > lv_v-max_len.
-        DATA(lv_nmax) = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_long
-                                           iv_default = `&1 must be at most &2 characters`
-                                           iv_v1      = ls_f-label
-                                           iv_v2      = |{ lv_v-max_len }| ).
+        DATA(lv_nmax) = zcl_rak_journey_util=>msg_for( iv_msg        = lv_v-msg
+                                                       iv_check      = 'LEN'
+                                                       iv_journey    = mo_e->ms_config-journey_id
+                                                       iv_keyed_only = abap_true ).
+        IF lv_nmax IS INITIAL.
+          lv_nmax = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-too_long
+                                       iv_default = `&1 must be at most &2 characters`
+                                       iv_v1      = ls_f-label
+                                       iv_v2      = |{ lv_v-max_len }| ).
+        ENDIF.
         APPEND VALUE #( type = 'Error' text = lv_nmax ) TO rt_msg.
         mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_nmax ).
         CONTINUE.
@@ -396,12 +563,42 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *     for SLIDER/STEPPER/RATING are enforced by their controls, so only the
 *     free-entry numeric types are checked here. DATE range is intentionally
 *     not handled yet (bind format must be confirmed first).
-      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' )
+*
+*     INPUT is included deliberately: type = 'Number' on a value that is not
+*     safely numeric renders an empty sap.m.Input (see CLAUDE.md), so a
+*     bounded numeric answer that must still render as free text has no
+*     honest way to reach NUMBER/CURRENCY. The CATCH below already turns a
+*     non-numeric INPUT value into "must be a valid number" rather than a
+*     dump, so configuring MIN_VAL/MAX_VAL on a genuinely textual INPUT field
+*     is now the failure mode - the citizen is loudly told, not silently
+*     ignored as before.
+*
+*     COUNT belongs here and was missing, which is the one omission in this
+*     method with no reason written next to it. It is a free-entry numeric
+*     type - RENDER_ONE( )'s own branch calls it "a bounded whole number" -
+*     so it is excluded by neither half of the rule above: its bounds are not
+*     enforced by its control the way SLIDER/STEPPER/RATING are.
+*
+*     MAX_LEN DOES NOT SUBSTITUTE, and on a COUNT that is worse than it
+*     sounds. The mask bounds the LENGTH, not the value: a field configured
+*     MAX_LEN 2 with MAX_VAL 30 accepts 99, and accepts it through a
+*     MaskInput that has told the citizen every keystroke was fine. A 'NUMBER:'
+*     clause in that field's MSG was unreachable for the same reason.
+*
+*     Safe by the time it gets here: NORM_MASKED( ) has already stripped the
+*     mask's placeholder characters, once per round trip and before every
+*     read below it, so the value this sees is digits or nothing - and
+*     nothing CONTINUEs at the blank test above.
+      IF ( ls_f-type = 'NUMBER' OR ls_f-type = 'CURRENCY' OR ls_f-type = 'INPUT'
+           OR ls_f-type = 'COUNT' )
          AND ( lv_v-min_val IS NOT INITIAL OR lv_v-max_val IS NOT INITIAL ).
         TRY.
             DATA(lv_num) = CONV decfloat34( lv_val ).
             IF lv_v-min_val IS NOT INITIAL AND lv_num < CONV decfloat34( lv_v-min_val ).
-              DATA(lv_vmin) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+              DATA(lv_rgmin) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                              iv_check   = 'RANGE'
+                                                              iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_vmin) = COND string( WHEN lv_rgmin IS NOT INITIAL THEN lv_rgmin
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-num_min
                                         iv_default = `&1 must be at least &2`
                                         iv_v1      = ls_f-label
@@ -411,7 +608,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
               CONTINUE.
             ENDIF.
             IF lv_v-max_val IS NOT INITIAL AND lv_num > CONV decfloat34( lv_v-max_val ).
-              DATA(lv_vmax) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+              DATA(lv_rgmax) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                              iv_check   = 'RANGE'
+                                                              iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_vmax) = COND string( WHEN lv_rgmax IS NOT INITIAL THEN lv_rgmax
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-num_max
                                         iv_default = `&1 must be at most &2`
                                         iv_v1      = ls_f-label
@@ -421,7 +621,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
               CONTINUE.
             ENDIF.
           CATCH cx_sy_conversion_no_number.
-            DATA(lv_vnan) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_nanm) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                           iv_check   = 'NUMBER'
+                                                           iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_vnan) = COND string( WHEN lv_nanm IS NOT INITIAL THEN lv_nanm
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-not_number
                                       iv_default = `&1 must be a valid number`
                                       iv_v1      = ls_f-label ) ).
@@ -435,6 +638,42 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
 *     cannot parse unambiguously, so an unexpected/month-first format is SKIPPED
 *     rather than wrongly rejected. This reads the model value only - it does not
 *     change what is posted to the backend.
+*     ---- IS IT A DATE AT ALL. Before any range, and without needing one.
+*
+*     32.13.2026 was accepted by the whole chain and reached the backend
+*     BLANK. sap.m.DatePicker does not discard input it cannot parse - it
+*     flags its own valueState and still writes the typed characters
+*     through the two-way binding - so the model held it, nothing here
+*     looked at it, and the BAdI's date branch computed 20261332, which a
+*     D field turns into 00000000. The citizen typed a date, the form
+*     accepted it, and the case was created without one.
+*
+*     THE RANGE CHECK COULD NOT HAVE CAUGHT IT, twice over. It only runs
+*     when MIN_VAL or MAX_VAL is configured, which most date fields are
+*     not; and where it does run it SKIPS a value TO_DATS( ) cannot parse,
+*     deliberately, so as not to reject a format it does not know. That
+*     skip is right for a range comparison and wrong as the only test -
+*     "I cannot read this" and "this is within range" are different
+*     answers and were being given the same one.
+*
+*     A FILLED DATE THAT DOES NOT PARSE IS AN ERROR. A blank one is not
+*     touched here: whether a date is required is the required check's
+*     question and it has already run above.
+      IF ls_f-type = 'DATE' AND lv_val IS NOT INITIAL
+         AND zcl_rak_journey_util=>to_dats( lv_val ) IS INITIAL.
+        DATA(lv_dbad) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                       iv_check   = 'FORMAT'
+                                                       iv_journey = mo_e->ms_config-journey_id ).
+        IF lv_dbad IS INITIAL.
+          lv_dbad = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_bad
+                                       iv_default = `&1 is not a valid date`
+                                       iv_v1      = ls_f-label ).
+        ENDIF.
+        APPEND VALUE #( type = 'Error' text = lv_dbad ) TO rt_msg.
+        mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_dbad ).
+        CONTINUE.
+      ENDIF.
+
       IF ls_f-type = 'DATE'
          AND ( lv_v-min_val IS NOT INITIAL OR lv_v-max_val IS NOT INITIAL ).
         DATA(lv_dv) = zcl_rak_journey_util=>to_dats( lv_val ).
@@ -442,7 +681,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
           DATA(lv_dmin) = zcl_rak_journey_util=>to_dats( lv_v-min_val ).
           DATA(lv_dmax) = zcl_rak_journey_util=>to_dats( lv_v-max_val ).
           IF lv_dmin IS NOT INITIAL AND lv_dv < lv_dmin.
-            DATA(lv_dminm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_dgmin) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                            iv_check   = 'RANGE'
+                                                            iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_dminm) = COND string( WHEN lv_dgmin IS NOT INITIAL THEN lv_dgmin
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_min
                                       iv_default = `&1 must be on or after &2`
                                       iv_v1      = ls_f-label
@@ -452,7 +694,10 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
             CONTINUE.
           ENDIF.
           IF lv_dmax IS NOT INITIAL AND lv_dv > lv_dmax.
-            DATA(lv_dmaxm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            DATA(lv_dgmax) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                            iv_check   = 'RANGE'
+                                                            iv_journey = mo_e->ms_config-journey_id ).
+            DATA(lv_dmaxm) = COND string( WHEN lv_dgmax IS NOT INITIAL THEN lv_dgmax
               ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-date_max
                                       iv_default = `&1 must be on or before &2`
                                       iv_v1      = ls_f-label
@@ -464,23 +709,80 @@ CLASS ZCL_RAK_JOURNEY_RULES IMPLEMENTATION.
         ENDIF.
       ENDIF.
       IF lv_v-regex IS NOT INITIAL.
+*       NORMALISE BEFORE MATCHING.
+*
+*       A configured pattern is written for ABAP. A pattern that arrived from a
+*       REST blueprint - the Notary business object is the case this exists for -
+*       was written for JavaScript, and commonly arrives wrapped in delimiters
+*       with trailing flags: /^[0-9]{15}$/i. Handed to CL_ABAP_MATCHER verbatim
+*       that matches nothing, because the leading slash is part of the pattern,
+*       so every value fails with "has an invalid format" and the citizen cannot
+*       get past the step by typing anything at all.
+*
+*       Stripping the delimiters is safe for an ABAP-authored pattern too: one
+*       that neither starts nor ends with '/' is left exactly as it was. Flags
+*       are dropped rather than translated - honouring them is a bigger job, and
+*       ignoring them can only make the pattern MORE permissive, never less.
+        DATA(lv_pat) = condense( lv_v-regex ).
+        IF strlen( lv_pat ) > 2 AND lv_pat(1) = '/'.
+          DATA(lv_end) = strlen( lv_pat ) - 1.
+          WHILE lv_end > 0 AND lv_pat+lv_end(1) <> '/'.
+            lv_end = lv_end - 1.
+          ENDWHILE.
+*         Only when what follows the closing slash is flags - letters, or
+*         nothing. Otherwise this is not a delimited pattern at all but one that
+*         happens to contain slashes, such as /QNV/.* , and stripping it would
+*         quietly turn it into a different pattern.
+          DATA(lv_tail) = COND string( WHEN lv_end < strlen( lv_pat ) - 1
+                                       THEN substring( val = lv_pat off = lv_end + 1 )
+                                       ELSE `` ).
+          IF lv_end > 0
+             AND ( lv_tail IS INITIAL
+                   OR lv_tail CO 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' ).
+            lv_pat = substring( val = lv_pat off = 1 len = lv_end - 1 ).
+          ENDIF.
+        ENDIF.
+
         TRY.
-            IF cl_abap_matcher=>matches( pattern = lv_v-regex text = lv_val ) = abap_false.
-              DATA(lv_rxm) = COND string( WHEN lv_v-msg IS NOT INITIAL THEN lv_v-msg
+            IF cl_abap_matcher=>matches( pattern = lv_pat text = lv_val ) = abap_false.
+              DATA(lv_fmtm) = zcl_rak_journey_util=>msg_for( iv_msg     = lv_v-msg
+                                                             iv_check   = 'FORMAT'
+                                                             iv_journey = mo_e->ms_config-journey_id ).
+              DATA(lv_rxm) = COND string( WHEN lv_fmtm IS NOT INITIAL THEN lv_fmtm
                 ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-bad_format
                                         iv_default = `&1 has an invalid format`
                                         iv_v1      = ls_f-label ) ).
               APPEND VALUE #( type = 'Error' text = lv_rxm ) TO rt_msg.
               mo_e->set_field_state( iv_name = ls_f-name iv_state = 'Error' iv_text = lv_rxm ).
+*             The citizen must not be shown a regex, but somebody debugging this
+*             has to be able to see WHICH pattern rejected WHICH value - without
+*             it "has an invalid format" is unactionable on a blueprint field
+*             whose pattern is not in any table you can open.
+              mo_e->trace( |regex reject { ls_f-name }: pattern "{ lv_pat }" value "{ lv_val }"| ).
             ENDIF.
-          CATCH cx_root.
+          CATCH cx_root INTO DATA(lx_rx).
+*           A pattern that will not compile is treated as no constraint, which is
+*           the lenient half of a decision already made here. Traced, because
+*           silently accepting everything looks identical to having no pattern.
+            mo_e->trace( |regex unusable on { ls_f-name }: "{ lv_pat }" - { lx_rx->get_text( ) }| ).
         ENDTRY.
       ENDIF.
     ENDLOOP.
 
     IF mo_e->mo_logic IS BOUND.
       TRY.
-          APPEND LINES OF mo_e->mo_logic->on_custom_validate( io_ctx = mo_e iv_step = iv_step ) TO rt_msg.
+          DATA(lt_custom) = mo_e->mo_logic->on_custom_validate( io_ctx = mo_e iv_step = iv_step ).
+          APPEND LINES OF lt_custom TO rt_msg.
+*         Every built-in check three lines above does both halves - APPEND,
+*         then SET_FIELD_STATE( ) - so its field goes red with the message
+*         as its tooltip. A handler's own message could only do the first,
+*         because ON_CUSTOM_VALIDATE hands it IO_CTX typed as ZIF_RAK_JOURNEY,
+*         which does not expose SET_FIELD_STATE( ). FIELD on TY_MSG is
+*         optional and does no harm left blank - existing handlers that never
+*         set it behave exactly as before.
+          LOOP AT lt_custom INTO DATA(ls_custom) WHERE field IS NOT INITIAL.
+            mo_e->set_field_state( iv_name = ls_custom-field iv_state = 'Error' iv_text = ls_custom-text ).
+          ENDLOOP.
         CATCH cx_root INTO DATA(lx_val).
           APPEND VALUE #( type = 'Error'
             text = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-val_error

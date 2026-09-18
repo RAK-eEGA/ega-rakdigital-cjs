@@ -50,7 +50,7 @@ private section.
   constants C_LANG_EN type STRING value 'E' ##NO_TEXT.
   constants C_PARTNER_MOBILE type STRING value 'PARTNER_MOBILE' ##NO_TEXT.
   constants C_PARTNER_EMAIL type STRING value 'PARTNER_EMAIL' ##NO_TEXT.
-    " constants C_ROLE type STRING value 'STAFF_ROLE' ##NO_TEXT.
+  " constants C_ROLE type STRING value 'STAFF_ROLE' ##NO_TEXT.
 *    CONSTANTS c_role TYPE string VALUE 'STAFF_ROLE' ##NO_TEXT.
 *    CONSTANTS c_login_bp TYPE string VALUE 'OWNER_BP' ##NO_TEXT.
 *    CONSTANTS c_partner_name TYPE string VALUE 'APP_NAME' ##NO_TEXT.
@@ -60,8 +60,10 @@ private section.
 *    CONSTANTS c_partner_mobile TYPE string VALUE 'PARTNER_MOBILE_1' ##NO_TEXT.
 *    CONSTANTS c_partner_email TYPE string VALUE 'PARTNER_EMAIL_1' ##NO_TEXT.
   constants C_LOGIN_BP type STRING value 'OWNER_BP' ##NO_TEXT.
+  constants C_APP_BP type STRING value 'LOGIN_BP' ##NO_TEXT.
   constants C_ROLE type STRING value 'APPLICANT_ROLE' ##NO_TEXT.
   constants C_PERMIT type STRING value 'PERMIT_HELD' ##NO_TEXT.
+  constants C_OWNER_BP type STRING value 'OWNER_BP' ##NO_TEXT.
 
   methods WRITE_FLAGS
     importing
@@ -257,9 +259,6 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
     DATA(lv_rolebp)  = CAST zcl_rak_journey_engine( io_ctx )->mv_rolebp.
     DATA(lv_role)    = CAST zcl_rak_journey_engine( io_ctx )->mv_role. "Owner
 
-    IF lv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
-      lv_loginbp = '3000000049'.
-    ENDIF.
 
     IF lv_loginbp IS NOT INITIAL.
       NEW zcl_ega_epda_fshry_handler_api( )->get_bp_details(
@@ -268,26 +267,35 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
         IMPORTING
           es_bp_details = DATA(ls_bp) ).
 
-      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ).
+      io_ctx->set_val( iv_name = c_login_bp iv_value = |{ lv_loginbp }| ). "In this case owner bp or Login Bp are same
+      io_ctx->set_val( iv_name = c_app_bp   iv_value = |{ lv_loginbp }| ).
 
-      IF sy-langu = c_lang_en.
-        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name ) ).
-      ELSE.
-        io_ctx->set_val( iv_name = c_partner_name iv_value = CONV #( ls_bp-bp_name_ar ) ).
-      ENDIF.
+*     WRITTEN ONCE. C_PARTNER_NAME is 'APP_NAME' and C_PARTNER_ID is
+*     'APP_ID', and both were then written a SECOND time below this IF, under
+*     a different language rule - so the two disagreed and the later one won.
+*     The pair below the IF was also outside this guard, so a launch with no
+*     login partner blanked the applicant's name and ID rather than leaving
+*     them alone.
+*
+*     The rule kept is the one that degrades: an Arabic session with no
+*     Arabic name on the partner record falls back to the English name
+*     rather than showing an empty applicant.
+      io_ctx->set_val( iv_name  = c_partner_name
+                       iv_value = COND #( WHEN sy-langu <> c_lang_en AND ls_bp-bp_name_ar IS NOT INITIAL
+                                          THEN CONV string( ls_bp-bp_name_ar )
+                                          ELSE CONV string( ls_bp-bp_name ) ) ).
 
       io_ctx->set_val( iv_name = c_partner_id iv_value = CONV #( ls_bp-emirates_id ) ).
 
       io_ctx->set_val( iv_name = c_partner_mobile iv_value = CONV #( ls_bp-mobile_number ) ).
       io_ctx->set_val( iv_name = c_partner_email iv_value = CONV #( ls_bp-email_address ) ).
-
-
       io_ctx->set_val( iv_name = c_applicanttype iv_value = |{ lv_role }| ).
 
     ENDIF.
 
-    io_ctx->set_val( iv_name = 'APP_NAME' iv_value = CONV #( 'Bolar Binay Furkan Lohar' ) ).
-    io_ctx->set_val( iv_name = 'APP_ID' iv_value = CONV #( '784-1981-1502090-5' ) ).
+    io_ctx->set_val( iv_name = 'OWNER_SEARCH_IDTYPE'    iv_value = CONV #( 'YFS002' ) ).
+    io_ctx->set_val( iv_name = 'PERMIT_HELD_IDTYPE'      iv_value = CONV #( 'Y' ) ).
+
 
 
   ENDMETHOD.
@@ -401,6 +409,28 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
 
 
   method ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE.
+*   The base method IS the PAID gate - it refuses a submit while PAYFEE is not
+*   'PAID'. A redefinition REPLACES it, so without this call the gate is simply
+*   not there for this journey, and an unpaid application submits cleanly. It must
+*   come before any CHECK below: a failing CHECK exits the method and anything
+*   after it never runs.
+*
+*   RESTORED FOR THE THIRD TIME. Deleted by the abapGit round trips 3f50a18
+*   (21 Aug 01:59) and abc15d3 (21 Aug 12:02), both of which staged the older SAP
+*   copy over newer git work, and by the same route before that - fd05dd7 restored
+*   it for D016 and E022 already.
+*
+*   It will go a fourth time unless the order changes. The CJS repository is write
+*   protected in abapGit, so Pull is blocked and Stage is the only direction that
+*   works; every stage therefore overwrites git with whatever SAP holds. Restoring
+*   it here alone cannot hold. It has to be put into SAP - in ADT, on this class -
+*   or the protection has to come off so a pull can happen before the next stage.
+*
+*   Self-guarding - PAY_FIELD_STEP returns -1 when the journey has no PAYFEE
+*   field, so this is a no-op on a journey with no payment step.
+    rt = super->zif_rak_journey_logic~on_custom_validate( io_ctx  = io_ctx
+                                                         iv_step = iv_step ).
+
 *CALL METHOD SUPER->ZIF_RAK_JOURNEY_LOGIC~ON_CUSTOM_VALIDATE
 *  EXPORTING
 *    IO_CTX  =
@@ -411,19 +441,18 @@ CLASS ZCL_EPDA_E022_DEV_PROJ_LOGIC IMPLEMENTATION.
     CASE iv_step.
 
       WHEN 0.
-        IF io_ctx->get_val( c_role ) IS NOT INITIAL
-           AND io_ctx->get_val( 'PARTNER_OWNER' ) IS INITIAL
-           AND io_ctx->get_val( 'PARTNER_REP' )   IS INITIAL.
-          APPEND VALUE #( type  = 'Error' "field = c_role
-                          text  = `Re-select Owner or Representative before continuing.` ) TO rt.
-        ENDIF.
-
-        IF io_ctx->get_val( c_permit ) IS NOT INITIAL
-           AND io_ctx->get_val( 'PERMIT_YES' ) IS INITIAL
-           AND io_ctx->get_val( 'PERMIT_NO' )  IS INITIAL.
-          APPEND VALUE #( type  = 'Error' "field = c_permit
-                          text  = `Re-select the permit answer before continuing.` ) TO rt.
-        ENDIF.
+*       RE-DERIVED, NOT REFUSED - the same change made on E016/E017/E018,
+*       which carry a copy of this method.
+*
+*       PARTNER_OWNER/PARTNER_REP and PERMIT_YES/PERMIT_NO are WRITE_FLAGS( )'s
+*       projection of APPLICANT_ROLE and PERMIT_HELD, not answers the citizen
+*       gives. WRITE_FLAGS( ) runs only from ON_CHANGE( ), so any round trip
+*       that rebuilds the model without raising a change on the role leaves the
+*       role set and the flags blank - and the step then refused with
+*       "Re-select Owner or Representative before continuing", which
+*       re-selecting could not clear because selecting the same value raises no
+*       CHANGE. Reported here as "the initial page loads with error messages".
+        write_flags( io_ctx ).
 
       WHEN 2.
 *        DATA(ls_grid) = io_ctx->get_grid_data( c_grid ).

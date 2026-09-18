@@ -60,6 +60,16 @@ CLASS zcl_rak_journey_grid DEFINITION
                                    iv_op     TYPE string
                                    iv_value  TYPE string
                          RETURNING VALUE(rv) TYPE string.
+
+*   Round-6 finding 1. A row that comes to exist OUTSIDE
+*   ENGINE~ENSURE_GRID_STATES( )'s own render-time pass - GRID_ADD( )'s
+*   fresh row, or every row GRID_FROM_JSON( ) rebuilds from a
+*   SET_GRID_DATA( ) payload that only ever carries the configured
+*   columns - has its NUMBER/INPUT _VS at the type's technical initial
+*   value, blank, same crash ENSURE_GRID_STATES( ) exists to prevent.
+*   Same rule: 'None', not blank, and only where genuinely unset.
+    METHODS seed_row_states IMPORTING it_gc  TYPE zif_rak_cjs_types=>tt_gcol
+                            CHANGING  cs_row TYPE any.
 ENDCLASS.
 
 
@@ -87,7 +97,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -104,6 +114,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         CATCH cx_uuid_error.
       ENDTRY.
     ENDIF.
+    seed_row_states( EXPORTING it_gc = grid_cols( ls_gaf ) CHANGING cs_row = <row> ).
   ENDMETHOD.
 
 
@@ -120,21 +131,18 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     DATA(ls_fld) = mo_e->safe_field( iv_field ).
     IF ls_fld-name IS INITIAL.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: no field with that name in this journey's configuration.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: no field with that name in this journey's configuration.| ).
       RETURN.
     ENDIF.
 
     IF to_upper( ls_fld-type ) <> 'EDITABLE_TABLE'.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: FTYPE is { ls_fld-type }, not EDITABLE_TABLE. Only an editable grid has rows to read or write.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: FTYPE is { ls_fld-type }, not EDITABLE_TABLE. Only an editable grid has rows to read or write.| ).
       RETURN.
     ENDIF.
 
     et_cols = grid_cols( ls_fld ).
     IF et_cols IS INITIAL.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: DEFAULT_VAL carries no column spec. Expected name:label:type, pipe separated.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: DEFAULT_VAL carries no column spec. Expected name:label:type, pipe separated.| ).
       RETURN.
     ENDIF.
 
@@ -145,23 +153,20 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: the model does not exist yet. Call this from on_init or later, not from the constructor.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: the model does not exist yet. Call this from on_init or later, not from the constructor.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: no model member. The journey was loaded before the field became an EDITABLE_TABLE - reload it.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.
     FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
     ASSIGN <tab> TO <t>.
     IF sy-subrc <> 0.
-      mo_e->mt_msg = VALUE #( BASE mo_e->mt_msg ( type = 'Warning'
-        text = |Grid { iv_field }: the model member is not a table. { ls_fld-name } is in use by another control type.| ) ).
+      mo_e->dev_msg( |Grid { iv_field }: the model member is not a table. { ls_fld-name } is in use by another control type.| ).
       CLEAR et_cols.
       RETURN.
     ENDIF.
@@ -192,11 +197,33 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF lv_cc IS INITIAL.
         CONTINUE.
       ENDIF.
-      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s).
+*     FIVE slots now, not four: name:label:type:src:label_ar
+*
+*     The fifth is the ARABIC COLUMN HEADING, and it is the answer to "how do I
+*     translate a grid column" for a grid still on this packed spec. Until it
+*     existed there was no answer: the renderer reads GC-LABEL_AR when MV_LANG is
+*     A, but only COL_ROWS_OF( ) - the ZRAK_T_JNY_COL path - ever filled it, so a
+*     DEFAULT_VAL grid showed English headings in an Arabic journey and nothing
+*     anywhere said why.
+*
+*     A SPLIT with FIVE targets, and that matters. ABAP puts the unsplit REMAINDER
+*     into the last target, so with four targets a five-part spec put "src:label_ar"
+*     into SRC and the Arabic silently became part of a data element name.
+*
+*     Existing four-part specs are unaffected - LV_A comes back blank and LABEL_AR
+*     stays initial, which is exactly the state they are in today.
+*
+*     Note this is the SECOND-best way to do it. ZRAK_T_JNY_COL has ZLABEL_AR as a
+*     real column, maintained in the Studio as "Label (AR)" on the column editor,
+*     and COL_ROWS_OF( ) reads it. That path wins whenever the grid has rows there.
+*     Use the spec slot for a grid not yet migrated; use the table for a new one.
+      SPLIT lv_cc AT ':' INTO DATA(lv_n) DATA(lv_l) DATA(lv_t) DATA(lv_s) DATA(lv_a).
+
       DATA(lv_nn) = condense( lv_n ).
       DATA(lv_ll) = condense( lv_l ).
       DATA(lv_tt) = condense( lv_t ).
       DATA(lv_ss) = condense( lv_s ).
+      DATA(lv_aa) = condense( lv_a ).
       IF lv_nn IS INITIAL.
         CONTINUE.
       ENDIF.
@@ -226,14 +253,22 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     and turning the column back on is a one-word edit.
       DATA(lv_up) = to_upper( lv_tt ).
       DATA(lv_hid) = xsdbool( lv_up = 'HIDE' OR lv_up = 'HIDDEN' ).
+*     COMP_NAME( ), matching COL_ROWS_OF( ) - see the note there. This is the
+*     older, packed DEFAULT_VAL path for a grid not yet migrated to
+*     ZRAK_T_JNY_COL, but it feeds the identical CL_ABAP_STRUCTDESCR=>CREATE( )
+*     in BUILD_MODEL( ), so a hyphen here dumps exactly the same way.
       APPEND VALUE #(
-        name  = to_upper( lv_nn )
+        name  = zcl_rak_journey_util=>comp_name( lv_nn )
         label = COND #( WHEN lv_ll IS NOT INITIAL THEN lv_ll ELSE lv_nn )
         ctype = COND #( WHEN lv_hid = abap_true    THEN 'INPUT'
                         WHEN lv_up  IS NOT INITIAL THEN lv_up
                         ELSE 'INPUT' )
         hide  = lv_hid
+*       NOT upper-cased, unlike SRC. SRC is a DDIC name; this is text a citizen
+*       reads.
+        label_ar = lv_aa
         src   = to_upper( lv_ss ) ) TO rt.
+
     ENDLOOP.
 
     apply_grid_rules( EXPORTING iv_grid = to_upper( is_field-name )
@@ -258,8 +293,19 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       ORDER BY seqnr.
 
     LOOP AT lt_col INTO DATA(ls_col).
+*     COMP_NAME( ), not a bare TO_UPPER( ). COL_NAME is free text on
+*     ZRAK_T_JNY_COL's own column editor - nothing stops a hyphen there either,
+*     and this is the actual site: BUILD_MODEL( )'s inner row/column structure
+*     (CL_ABAP_STRUCTDESCR=>CREATE( LT_ROWCOMP )) is built from exactly this
+*     NAME, so a column called REVIEW-GRID raised CX_SY_STRUCT_COMP_NAME here,
+*     not from the field name COMP_NAME( ) already protects in BUILD_MODEL( ).
+*     Confirmed live: the exception object's own COMPONENT_NAME was 'REVIEW-GRID',
+*     under CX_SY_STRUCT_CREATION - a structure TYPE creation, which only the
+*     two CL_ABAP_STRUCTDESCR=>CREATE( ) calls in BUILD_MODEL( ) can raise; the
+*     outer one was already sanitised, so this - the inner one, fed by this
+*     method - was the one still open.
       APPEND VALUE #(
-        name     = to_upper( ls_col-col_name )
+        name     = zcl_rak_journey_util=>comp_name( CONV #( ls_col-col_name ) )
         label    = COND #( WHEN ls_col-zlabel IS NOT INITIAL THEN ls_col-zlabel ELSE ls_col-col_name )
         label_ar = ls_col-zlabel_ar
         ctype    = COND #( WHEN ls_col-ctrl IS NOT INITIAL THEN to_upper( ls_col-ctrl ) ELSE 'INPUT' )
@@ -450,7 +496,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     ENDIF.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -492,7 +538,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
   METHOD grid_from_json.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -510,6 +556,12 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       CATCH cx_root.
         RETURN.
     ENDTRY.
+*   Round-6 finding 1. IV_JSON came from SET_GRID_DATA( ), built from
+*   LT_GC - the configured columns and nothing else - so /UI2/CL_JSON's
+*   DESERIALIZE just cleared and rebuilt every row without _VS/_VST ever
+*   in the payload. Same fix as _UID two lines below: reissue what the
+*   payload cannot carry, in the same loop.
+    DATA(lt_gc) = grid_cols( mo_e->safe_field( iv_field ) ).
     LOOP AT <t> ASSIGNING FIELD-SYMBOL(<row>).
       ASSIGN COMPONENT '_UID' OF STRUCTURE <row> TO FIELD-SYMBOL(<uid>).
       IF sy-subrc = 0 AND <uid> IS INITIAL.
@@ -517,6 +569,17 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
             <uid> = cl_system_uuid=>create_uuid_c32_static( ).
           CATCH cx_uuid_error.
         ENDTRY.
+      ENDIF.
+      seed_row_states( EXPORTING it_gc = lt_gc CHANGING cs_row = <row> ).
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD seed_row_states.
+    LOOP AT it_gc INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      ASSIGN COMPONENT |{ gc-name }_VS| OF STRUCTURE cs_row TO FIELD-SYMBOL(<vs>).
+      IF sy-subrc = 0 AND <vs> IS INITIAL.
+        <vs> = 'None'.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
@@ -531,7 +594,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -617,7 +680,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -667,7 +730,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     IF lv_mode = 'SINGLE'.
       FIELD-SYMBOLS <model> TYPE any.
       ASSIGN mo_e->mr_model->* TO <model>.
-      ASSIGN COMPONENT to_upper( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+      ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_f-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
       IF sy-subrc = 0.
         FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
         ASSIGN <tab> TO <t>.
@@ -706,7 +769,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -750,7 +813,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( iv_field ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -822,8 +885,25 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
     DATA(lo_box) = io_parent->vbox( class = 'rakSearch' ).
     IF lv_chrome = abap_true.
       DATA(lo_bar) = lo_box->hbox( justifycontent = 'End' alignitems = 'Center' ).
+*     Through MSG_TOKEN( ) so an @nnn or OTR: reference resolves - ATTACH_LABEL
+*     has no _AR twin, so a reference is the only way it can be bilingual. A
+*     plain literal comes back untouched.
+      DATA(lv_gadd) = zcl_rak_journey_util=>msg_token(
+                        iv_raw     = CONV string( is_field-attach_label )
+                        iv_lang    = mo_e->mv_lang
+                        iv_journey = mo_e->mv_journey ).
       lo_bar->button(
-        text  = COND #( WHEN is_field-attach_label IS NOT INITIAL THEN is_field-attach_label ELSE |Add { is_field-label }| )
+*       COND STRING AND NOT COND #. The two branches are no longer the same
+*       type - ATTACH_LABEL is a DDIC character field and GET( ) returns a
+*       STRING - and # infers from the operands, so the inference is exactly
+*       the thing that has stopped being obvious. Naming the type is one word
+*       against an activation error in the class every grid on every journey
+*       draws through.
+        text  = COND string( WHEN lv_gadd IS NOT INITIAL
+                             THEN lv_gadd
+                             ELSE zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-grid_add
+                                                     iv_v1      = CONV string( is_field-label )
+                                                     iv_default = |Add { is_field-label }| ) )
         icon  = 'sap-icon://add'
         type  = 'Emphasized'
         press = mo_e->mo_client->_event( |GRIDADD_{ is_field-name }| ) ).
@@ -831,7 +911,7 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mo_e->mr_model->* TO <model>.
-    ASSIGN COMPONENT to_upper( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -862,8 +942,98 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       lv_footer = concat_lines_of( table = lt_parts sep = `   |   ` ).
     ENDIF.
 
+*   A read-only SELECT column would otherwise show the stored KEY, not the
+*   option text - the cell template below is one Text control shared by
+*   every row, with no per-row place to resolve a key to its label. So
+*   resolve it here instead, once per column, into the <col>_TXT companion
+*   BUILD_MODEL( ) gives every SELECT column, before the table binds.
+*   Same option source (ROLLNAME, else the handler) the editable combobox
+*   uses further down. A key with no matching option falls back to itself,
+*   same as before this existed.
+*   THE SAME COMPANION, FILLED FROM THE DATA ELEMENT. A TEXT column whose
+*   SRC names an element with a conversion exit shows what the element says
+*   it reads - RECNNR's 0000002400087 as 2400087 - while the CELL keeps the
+*   padded key the backend matches on.
+*
+*   THAT SPLIT IS THE WHOLE POINT, and the reason the obvious shortcut is
+*   wrong: strip the row itself and SEL: writes a stripped key into
+*   LICENCE_NO_SEL, and the BAdI's
+*   READ TABLE gs_data-licenses WITH KEY recnnr = gs_data-licence_no stops
+*   matching. D003, D016 and D020 each carry that shortcut commented out,
+*   which is somebody meeting this and backing away from it.
+    LOOP AT lt_gc INTO DATA(ls_cvcol) WHERE ctype = 'TEXT'.
+      IF zcl_rak_journey_util=>has_conv_exit( ls_cvcol-src ) = abap_false.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_cvcomp) = |{ ls_cvcol-name }_TXT|.
+      LOOP AT <tab> ASSIGNING FIELD-SYMBOL(<crow>).
+        ASSIGN COMPONENT ls_cvcol-name OF STRUCTURE <crow> TO FIELD-SYMBOL(<craw>).
+        CHECK sy-subrc = 0.
+        ASSIGN COMPONENT lv_cvcomp OF STRUCTURE <crow> TO FIELD-SYMBOL(<ctxt>).
+        CHECK sy-subrc = 0.
+        <ctxt> = zcl_rak_journey_util=>conv_out( iv_value    = CONV string( <craw> )
+                                                 iv_rollname = ls_cvcol-src ).
+      ENDLOOP.
+    ENDLOOP.
+
+    LOOP AT lt_gc INTO DATA(ls_selcol) WHERE ctype = 'SELECT'.
+*     LV_RO is not a component of LT_GC, so it cannot sit in the LOOP...WHERE
+*     above - every comparison there needs a table component on one side,
+*     and "no component exists with the name LV_RO" is what the compiler
+*     says when one doesn't. Filtered here instead, same condition as the
+*     read-only cell binding further down.
+      IF ls_selcol-readonly = abap_false AND lv_ro = abap_false.
+        CONTINUE.
+      ENDIF.
+      DATA lt_sopt TYPE zif_rak_journey=>tt_option.
+      CLEAR lt_sopt.
+      IF ls_selcol-src IS NOT INITIAL.
+        lt_sopt = mo_e->mo_render->f4_opts( VALUE #( rollname = ls_selcol-src ) ).
+      ELSEIF mo_e->mo_logic IS BOUND.
+        TRY.
+            lt_sopt = mo_e->mo_logic->on_value_help( io_ctx = mo_e iv_field = |{ is_field-name }.{ ls_selcol-name }| ).
+          CATCH cx_root.
+            CLEAR lt_sopt.
+        ENDTRY.
+      ENDIF.
+      DATA(lv_txtcomp) = |{ ls_selcol-name }_TXT|.
+      LOOP AT <tab> ASSIGNING FIELD-SYMBOL(<srow>).
+        ASSIGN COMPONENT ls_selcol-name OF STRUCTURE <srow> TO FIELD-SYMBOL(<skey>).
+        CHECK sy-subrc = 0.
+        ASSIGN COMPONENT lv_txtcomp OF STRUCTURE <srow> TO FIELD-SYMBOL(<stxt>).
+        CHECK sy-subrc = 0.
+        READ TABLE lt_sopt INTO DATA(ls_sopt) WITH KEY key = <skey>.
+*       COND string( ), not COND #( ) - <STXT> is a field symbol from a
+*       dynamic ASSIGN COMPONENT, TYPE any at compile time, so there is no
+*       static target type for COND #( ) to derive its result type from
+*       ("No type can be derived from the context for the operator...").
+*       An explicit type gives every branch, including <SKEY> (also ANY),
+*       something concrete to convert to.
+        <stxt> = COND string( WHEN sy-subrc = 0
+                               THEN zcl_rak_journey_util=>opt_text( iv_key = ls_sopt-key iv_text = ls_sopt-text )
+                               ELSE CONV string( <skey> ) ).
+      ENDLOOP.
+    ENDLOOP.
+
+*   Sticky headers here too - see the note at the TABLE branch in
+*   ZCL_RAK_JOURNEY_RENDER. An editable grid is the case that needs it more:
+*   the citizen is typing into row twelve and the column it belongs to has
+*   scrolled off the top.
+*   R13-2 here too, and the editable grid is the case that needs it more:
+*   eight editable columns squeezed onto a phone is not a mild version of
+*   the read-only table's problem. Opt-in for the same reason - see the note
+*   at the TABLE branch in ZCL_RAK_JOURNEY_RENDER.
+*   R16-2. The same GROWING pair as the read-only TABLE branch, derived
+*   from the one column so the two cannot disagree. Zero is off, which is
+*   every grid that has never been touched.
+    DATA(lv_grow) = COND string( WHEN is_field-grow_thresh > 0
+                                 THEN |{ is_field-grow_thresh }| ELSE `` ).
     DATA(lo_tab) = lo_box->table( items              = mo_e->mo_client->_bind_edit( <tab> )
+                                  sticky             = 'ColumnHeaders'
+                                  autopopinmode      = is_field-popin
                                   alternaterowcolors = abap_true
+                                  growing            = COND abap_bool( WHEN lv_grow IS NOT INITIAL THEN abap_true )
+                                  growingthreshold   = lv_grow
                                   class              = 'sapUiSmallMarginTop'
                                   footertext         = lv_footer ).
     DATA(lo_cols) = lo_tab->columns( ).
@@ -878,8 +1048,11 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
       IF gc-hide = abap_true.
         CONTINUE.
       ENDIF.
-      DATA(lv_hdr) = COND string( WHEN mo_e->mv_lang = 'A' AND gc-label_ar IS NOT INITIAL
-                                  THEN gc-label_ar ELSE gc-label ).
+*     Through PICK_TEXT( ), not a plain language COND - ZRAK_T_JNY_COL-ZLABEL/
+*     ZLABEL_AR is read directly here, never built by ZCL_RAK_JOURNEY_REPO, so
+*     this was the one bilingual pair an OTR:<alias> couldn't reach. Same
+*     helper REPO's own PICK( ) now delegates to, so both stay in step.
+      DATA(lv_hdr) = zcl_rak_journey_util=>pick_text( iv_en = gc-label iv_ar = gc-label_ar iv_lang = mo_e->mv_lang ).
       IF gc-required = abap_true.
         lv_hdr = lv_hdr && ` *`.
       ENDIF.
@@ -902,6 +1075,16 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
         select   = mo_e->mo_client->_event( val   = |GRIDSEL_{ is_field-name }|
                                      t_arg = VALUE #( ( `${_UID}` ) ) ) ).
     ENDIF.
+*   Blank-to-'None' safety net, not the round-trip sweep's job here -
+*   a row built after CLEAR_FIELD_STATES( ) already ran this same round
+*   trip (GRIDADD_, or rows an ON_INIT/backend read populates) still has
+*   its _VS at blank, and UI5 rejects a blank VALUESTATE outright the
+*   moment the row renders. Only touches the editable case - a readonly
+*   grid draws cells as TEXT( ) below and never binds VALUESTATE at all.
+    IF lv_ro = abap_false.
+      mo_e->ensure_grid_states( is_field ).
+    ENDIF.
+
     DATA(lt_rx) = grid_react( is_field ).
     LOOP AT lt_gc INTO gc.
       IF gc-hide = abap_true.
@@ -936,12 +1119,18 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *     explicit conversion, not an implicit one, to reach it.
       DATA(lv_maxlen) = COND string( WHEN gc-maxlen > 0 THEN |{ gc-maxlen }| ELSE `` ).
       IF lv_ro = abap_true OR gc-readonly = abap_true.
-*       One Text per cell, bound to the same model path the input would have
-*       used. A SELECT column therefore shows the stored KEY, not the option
-*       text: the cell template is one control for every row, so there is no
-*       per-row place to resolve a key to its label. If the label matters, store
-*       it in the row alongside the key.
-        lo_cells->text( text = lv_path visible = lv_vis ).
+*       A SELECT column binds to its resolved <col>_TXT companion instead of
+*       the raw key path - populated once above, before the table bound.
+*       Every other read-only ctype still shows its own stored value; there
+*       is nothing to resolve for those.
+*       A CONVERTED TEXT COLUMN BINDS TO ITS COMPANION for the same reason
+*       a SELECT does: the displayed form is not the stored form.
+        DATA(lv_rop) = COND string(
+          WHEN gc-ctype = 'SELECT'
+            OR ( gc-ctype = 'TEXT'
+                 AND zcl_rak_journey_util=>has_conv_exit( gc-src ) = abap_true )
+          THEN |\{{ gc-name }_TXT\}| ELSE lv_path ).
+        lo_cells->text( text = lv_rop visible = lv_vis ).
         CONTINUE.
       ENDIF.
       CASE gc-ctype.
@@ -956,8 +1145,23 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
 *         TEXT shows a value nobody may change.
           lo_cells->text( text = lv_path visible = lv_vis ).
         WHEN 'NUMBER'.
-          lo_cells->input( value = lv_path type = 'Number' editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = lv_maxlen ).
+*         VALUESTATE/VALUESTATETEXT bound per row, same trick VALUE
+*         already uses - {gc-name} resolves against whichever row the
+*         table binding is currently drawing, so {gc-name}_VS does too,
+*         no per-row loop needed here. BUILD_MODEL( ) gives NUMBER and
+*         INPUT columns these two companions; SET_CELL_STATE( ) is what
+*         a handler's TY_MSG-FIELD = '<grid>.<col>#<row>' writes into them.
+*         TYPE = 'Number' IS NOT PASSED, for the reason ZCL_RAK_JOURNEY_RENDER
+*         records at its own NUMBER branch: an HTML <input type="number"> runs a
+*         value sanitization algorithm that replaces anything which is not a
+*         valid floating-point number with the EMPTY STRING, and a grid row
+*         component is a STRING - BUILD_MODEL( ) types every cell but CHECKBOX
+*         and *_EN as one. So the cell displays nothing the moment its value is
+*         not a bare numeral, which on an amount column means a separator or a
+*         trailing decimal empties it in front of the citizen.
+          lo_cells->input( value = lv_path editable = lv_en change = lv_chg
+                           visible = lv_vis maxlength = lv_maxlen
+                           valuestate = |\{{ gc-name }_VS\}| valuestatetext = |\{{ gc-name }_VST\}| ).
         WHEN 'DATE'.
           lo_cells->date_picker( value = lv_path editable = lv_en change = lv_chg visible = lv_vis ).
         WHEN 'CHECKBOX'.
@@ -988,8 +1192,10 @@ CLASS ZCL_RAK_JOURNEY_GRID IMPLEMENTATION.
             lo_ccb->item( key = co-key text = zcl_rak_journey_util=>opt_text( iv_key = co-key iv_text = co-text ) ).
           ENDLOOP.
         WHEN OTHERS.
+*         VALUESTATE/VALUESTATETEXT - see the NUMBER branch above.
           lo_cells->input( value = lv_path editable = lv_en change = lv_chg
-                           visible = lv_vis maxlength = lv_maxlen ).
+                           visible = lv_vis maxlength = lv_maxlen
+                           valuestate = |\{{ gc-name }_VS\}| valuestatetext = |\{{ gc-name }_VST\}| ).
       ENDCASE.
     ENDLOOP.
 *   The delete column and its button are one column apart in two loops, exactly

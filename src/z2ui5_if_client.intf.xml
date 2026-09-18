@@ -10,12 +10,6 @@
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>
    </VSEOINTERF>
-   <DESCRIPTIONS_INTERFACE>
-    <SEOCLASSTX>
-     <LANGU>묩</LANGU>
-     <DESCRIPT>abap2UI5 - client</DESCRIPT>
-    </SEOCLASSTX>
-   </DESCRIPTIONS_INTERFACE>
   </asx:values>
  </asx:abap>
 </abapGit>

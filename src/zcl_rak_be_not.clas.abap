@@ -99,6 +99,22 @@ CLASS zcl_rak_be_not DEFINITION
 *   never list CONTENT - the content is always fetched by lookup( ).
 *   rv_dependent = the list needs values this method cannot see (country,
 *   region), so it must be filled after the citizen picks its parent.
+*   The declaration the citizen chose on step 1.
+*
+*   ZCL_RAK_BE_FACTORY builds this class with iv_subservice = BKND_JOURNEY off
+*   the journey header, which is a STATIC value - fine for a backend that
+*   serves one thing, wrong here. One Notary journey serves every declaration
+*   type and the blueprint is per declaration, so the sub-service cannot be
+*   known until the citizen picks one. Left to the header alone it is blank,
+*   and BLUEPRINT( ) then GETs /subservice/ with an empty id and takes a 400
+*   on every render of step 1.
+*
+*   Static because the blueprint cache beside it already is: the engine drops
+*   its backend reference between round trips, so an instance attribute would
+*   not survive to the next one.
+    CLASS-METHODS set_subservice
+      IMPORTING iv_sub TYPE string.
+
     METHODS dyn_list_for
       IMPORTING iv_name        TYPE string
       EXPORTING ev_dependent   TYPE abap_bool
@@ -106,6 +122,14 @@ CLASS zcl_rak_be_not DEFINITION
 
 *   Party search. Returns the raw response so the handler can decide what
 *   to pre-fill; parse_party( ) below turns it into name/value pairs.
+*   Notary's own party search. NOT called any more: party identity is resolved in
+*   SAP, by ZCL_RAK_BP_SEARCH, so that MOI runs and an expired Emirates ID or
+*   trade licence is refused before the party can reach a declaration - see
+*   ZCL_RAK_NOT_APPROVAL_LOGIC->ON_SEARCH( ).
+*
+*   Kept rather than deleted for two reasons: it is the only place Notary's
+*   searchType contract is written down, and step 5a of the API flow (pre-check
+*   party existence) may still want it.
     METHODS search_party
       IMPORTING iv_search_type     TYPE string
                 it_fields          TYPE zif_rak_journey_backend=>tt_field
@@ -127,6 +151,34 @@ CLASS zcl_rak_be_not DEFINITION
       IMPORTING iv_request_id  TYPE string
       RETURNING VALUE(rv_text) TYPE string.
 
+*   The parties already on the request (GET /request/{id}/party).
+*
+*   The endpoint was documented at the top of this class from the start and
+*   never implemented, so the First Party and Second Party tables had nothing
+*   behind them and drew "No data" over a request that demonstrably had a
+*   party - the draft response names it.
+*   Wider than the three columns the list shows on purpose. The view dialog
+*   restates a party the API already holds, and a dialog that can only repeat
+*   the row above it is not worth opening - so the read takes everything the
+*   endpoint offers and the list picks three of them.
+    TYPES: BEGIN OF ty_party_row,
+             party_id     TYPE string,
+             party_name   TYPE string,
+             name_ar      TYPE string,
+             mobile       TYPE string,
+             email        TYPE string,
+             nationality  TYPE string,
+             id_number    TYPE string,
+             party_kind   TYPE string,
+             first_party  TYPE abap_bool,
+             second_party TYPE abap_bool,
+           END OF ty_party_row,
+           tt_party_row TYPE STANDARD TABLE OF ty_party_row WITH EMPTY KEY.
+
+    METHODS parties
+      IMPORTING iv_request_id TYPE string
+      RETURNING VALUE(rt)     TYPE tt_party_row.
+
 *   Who may own the billing document.
     METHODS billing_owners
       IMPORTING iv_request_id TYPE string
@@ -142,6 +194,7 @@ CLASS zcl_rak_be_not DEFINITION
     METHODS subservice_json
       RETURNING VALUE(rv_json) TYPE string.
 
+protected section.
   PRIVATE SECTION.
 
     CONSTANTS mc_api        TYPE string VALUE 'NOTARY_ES'.
@@ -157,6 +210,9 @@ CLASS zcl_rak_be_not DEFINITION
 *   ---- per-round-trip caches --------------------------------------------
     CLASS-DATA gv_token TYPE string.
     CLASS-DATA gv_bp_sub TYPE string.
+*   Set by SET_SUBSERVICE( ) from the handler. Wins over the constructor's
+*   value, which is the journey header's static one.
+    CLASS-DATA gv_sub_cur TYPE string.
     CLASS-DATA gv_bp_json TYPE string.
     CLASS-DATA: BEGIN OF gs_lk_line,
                   key  TYPE string,
@@ -238,6 +294,14 @@ CLASS zcl_rak_be_not DEFINITION
       RETURNING VALUE(rv_json) TYPE string.
     METHODS parse_blueprint.
 
+*   A blueprint key made safe to be an ABAP structure component: upper case,
+*   only letters digits and underscore, never longer than 30 characters. See the
+*   method - a 35-character jsonKey took the whole app down with
+*   CX_SY_STRUCT_COMP_NAME. The API key itself is never changed.
+    METHODS model_name
+      IMPORTING iv_key    TYPE string
+      RETURNING VALUE(rv) TYPE string.
+
     METHODS to_options
       IMPORTING iv_json       TYPE string
       RETURNING VALUE(rt_opt) TYPE zif_rak_journey_backend=>tt_dyn_opt.
@@ -289,8 +353,8 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
             username TYPE string,
             password TYPE string,
           END OF ls_cfg.
-    ls_cfg-username = 'notaryportal'.
-    ls_cfg-password = 'QxC1Bgp0ZRH2VUYembjvzn0E5BI0ErpQYcSa1SPEgx3dWEpcoWHZmK35Qiz013TczymLac+6F7a91GVlE27JytvwoC8lc+m15gOgNPDJ5JcVRZu1WTLC7WO7/kshqYXchAtjOE3ufeO0MniTgP3cyG775EZKcXqq2ktegc3mEok='.
+    ls_cfg-username = 'notaryuser1'.
+    ls_cfg-password = 'hPlfkpZOnZuY1GXA04nKdbyfBp9+nxOqX5Rjm7iUjE7UAuxURPi5fbO5kVO2XmWAiCuO8czx2z2ama7FeCuS5YwA3fO3K1XtmsmNUjLSr6wDFYFQXgMtW7z7rnYtCOj1a1GxWpI0gBOa1vWKEvjRiLHAd3GpDevVhVlg3BEs5fs='.
 
     IF iv_force = abap_true.
       CLEAR: gv_token, cs_handle-token.
@@ -302,7 +366,26 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    zcl_rak_not_trace=>add( 'AUTH calling /client/authenticate for a fresh token' ).
+*   Neither half may be blank, and the reason is SERIALIZE's COMPRESS below.
+*   COMPRESS omits INITIAL components, so an empty password does not send
+*   "password":"" - it sends no password key at all, and the body
+*   {"userCredential":{"userName":"..."}} is malformed rather than wrong. The
+*   portal answers 400 Bad Request, which reads as a broken request shape and
+*   sends you looking at the payload instead of at the credential.
+    IF ls_cfg-username IS INITIAL OR ls_cfg-password IS INITIAL.
+      zcl_rak_not_trace=>add( |AUTH not attempted - | &&
+        COND string( WHEN ls_cfg-username IS INITIAL THEN 'username is blank. ' ) &&
+        COND string( WHEN ls_cfg-password IS INITIAL THEN 'password is blank. ' ) &&
+        |Maintain both in AUTHENTICATE( ).| ).
+      RETURN.
+    ENDIF.
+
+*   Length, never the value. A credential that arrives truncated - pasted over
+*   a line break, or cut by a CHAR field on the way in - looks present and
+*   fails, and the length is the one thing that tells them apart without
+*   putting a secret in a message strip on a citizen-facing page.
+    zcl_rak_not_trace=>add( |AUTH calling /client/authenticate as '{ ls_cfg-username }' | &&
+                            |(password { strlen( ls_cfg-password ) } chars)| ).
 
     TYPES: BEGIN OF ty_auth_cred, user_name TYPE string, password TYPE string, END OF ty_auth_cred,
            BEGIN OF ty_auth_body, user_credential TYPE ty_auth_cred, END OF ty_auth_body,
@@ -398,12 +481,38 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD set_subservice.
+*   Nothing else to do: BLUEPRINT( ) keys its cache on the sub-service, so
+*   changing this value invalidates it by itself and the next call re-reads.
+    gv_sub_cur = condense( iv_sub ).
+  ENDMETHOD.
+
+
   METHOD blueprint.
 
-    IF gv_bp_sub = mv_subservice AND gv_bp_json IS NOT INITIAL.
+*   The citizen's choice first, the header's static value second.
+    DATA(lv_sub) = COND string( WHEN gv_sub_cur IS NOT INITIAL
+                                THEN gv_sub_cur
+                                ELSE mv_subservice ).
+
+*   No declaration chosen yet. Returning here is the whole point: the call
+*   would go out as GET /subservice/ with an empty id, come back 400, and do
+*   it again on every render of step 1 - which is exactly what the trace
+*   showed. There is no blueprint to fetch until there is a declaration.
+    IF lv_sub IS INITIAL.
+      zcl_rak_not_trace=>add( 'BLUEPRINT skipped - no declaration chosen yet ' &&
+                              '- BKND_JOURNEY is blank and SET_SUBSERVICE has not been called' ).
+      RETURN.
+    ENDIF.
+
+    IF gv_bp_sub = lv_sub AND gv_bp_json IS NOT INITIAL.
+      zcl_rak_not_trace=>add( |BLUEPRINT sub-service { lv_sub } served from cache| ).
       rv_json = gv_bp_json.
       RETURN.
     ENDIF.
+    zcl_rak_not_trace=>add( |BLUEPRINT sub-service { lv_sub } | &&
+      COND string( WHEN gv_sub_cur IS NOT INITIAL THEN '(chosen at runtime)' ELSE '(from BKND_JOURNEY)' ) &&
+      | - fetching| ).
 
     DATA lv_status TYPE i.
     DATA lv_reason TYPE string.
@@ -421,18 +530,23 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         iv_path        = '/subservice/{sub}'
         iv_method      = 'GET'
         it_headers     = auth_hdr( ls_h )
-        it_url_replace = VALUE #( ( name = '{sub}' value = mv_subservice ) )
+        it_url_replace = VALUE #( ( name = '{sub}' value = lv_sub ) )
       IMPORTING
         ev_status      = lv_status
         ev_reason      = lv_reason ).
-    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/subservice/{sub}' iv_status = lv_status iv_reason = lv_reason ).
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/subservice/{sub}' iv_status = lv_status iv_reason = lv_reason iv_resp = rv_json ).
 
     IF ok_of( iv_resp = rv_json iv_status = lv_status ) = abap_false.
       CLEAR rv_json.
       RETURN.
     ENDIF.
 
-    gv_bp_sub  = mv_subservice.
+*   LV_SUB, not MV_SUBSERVICE. The check at the top of this method compares
+*   GV_BP_SUB against LV_SUB, so storing the constructor's value here meant the
+*   two never matched and the blueprint was re-fetched on every single call -
+*   several times per render, since BO_JSON, DOC_TYPES, DESCRIBE_STEP and
+*   LEGAL_TEXT all go through BLUEPRINT( ).
+    gv_bp_sub  = lv_sub.
     gv_bp_json = rv_json.
     CLEAR: gt_map, gt_doc.
     parse_blueprint( ).
@@ -560,7 +674,18 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     CLEAR ev_dependent.
 
-    IF lv_n CS 'NATIONALITY'.
+*   SUBSERVICE and MAINSERVICE are tested FIRST, and the order is the whole
+*   point: 'SUBSERVICE' contains 'SERVICE', and 'MAINSERVICE' would also be
+*   caught by a plain 'SERVICE' test - but more importantly CLASSIFICATION's
+*   own test must not claim a field called SUBSERVICE_CLASSIFICATION. Both
+*   are dependent: neither list means anything until its parent is chosen.
+    IF lv_n CS 'SUBSERVICE'.
+      rv_list      = 'SUBSERVICE'.
+      ev_dependent = abap_true.
+    ELSEIF lv_n CS 'MAINSERVICE'.
+      rv_list      = 'MAINSERVICE'.
+      ev_dependent = abap_true.
+    ELSEIF lv_n CS 'NATIONALITY'.
       rv_list = 'NATIONALITY'.
     ELSEIF lv_n CS 'OCCUPATION' OR lv_n CS 'PROFESSION' OR lv_n CS 'JOB'.
       rv_list = 'OCCUPATION'.
@@ -654,6 +779,119 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD parties.
+
+    IF iv_request_id IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA ls_h TYPE zif_rak_journey_backend=>ty_handle.
+    authenticate( CHANGING cs_handle = ls_h ).
+    IF ls_h-token IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lv_status TYPE i.
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/party' ).
+    DATA(lv_resp) = zcl_rak_http=>call(
+      EXPORTING
+        iv_api         = mc_api
+        iv_path        = '/request/{reqId}/party'
+        iv_method      = 'GET'
+        it_headers     = auth_hdr( ls_h )
+        it_url_replace = VALUE #( ( name = '{reqId}' value = iv_request_id ) )
+      IMPORTING
+        ev_status      = lv_status ).
+    zcl_rak_not_trace=>http( iv_method = 'GET' iv_path = '/request/{reqId}/party' iv_status = lv_status iv_resp = lv_resp ).
+
+    IF ok_of( iv_resp = lv_resp iv_status = lv_status ) = abap_false.
+      RETURN.
+    ENDIF.
+
+*   Tolerant about the wrapper, the same way every other read in this class is.
+*   The draft response calls the party block firstPartyDetails; the list read
+*   answers with result / parties / partyDetails depending on the endpoint, and
+*   guessing one of them and being wrong is a silent empty table.
+*   The name, the id and the kind each arrive under more than one key
+*   depending on which endpoint answered, so every spelling seen so far is
+*   declared and the first filled one wins below. A key that never arrives
+*   simply stays empty - that is cheaper than a wrong guess, which shows the
+*   citizen a blank view dialog with no way to tell why.
+    TYPES: BEGIN OF ty_p,
+             party_id            TYPE string,
+             party_name          TYPE string,
+             party_name_en       TYPE string,
+             party_name_ar       TYPE string,
+             english_name        TYPE string,
+             arabic_name         TYPE string,
+             mobile_number       TYPE string,
+             mobile              TYPE string,
+             email               TYPE string,
+             email_address       TYPE string,
+             id_number           TYPE string,
+             eid                 TYPE string,
+             passport_number     TYPE string,
+             unified_number      TYPE string,
+             trade_license_number TYPE string,
+             party_kind          TYPE string,
+             party_type          TYPE string,
+             nationality_en TYPE string,
+             nationality_an TYPE string,
+             first_party    TYPE abap_bool,
+             second_party   TYPE abap_bool,
+           END OF ty_p,
+           tt_p TYPE STANDARD TABLE OF ty_p WITH EMPTY KEY,
+           BEGIN OF ty_w,
+             result         TYPE tt_p,
+             parties        TYPE tt_p,
+             party_details  TYPE tt_p,
+             party          TYPE tt_p,
+           END OF ty_w.
+
+    DATA ls_w TYPE ty_w.
+    TRY.
+        /ui2/cl_json=>deserialize( EXPORTING json        = lv_resp
+                                             pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                   CHANGING  data        = ls_w ).
+      CATCH cx_root.
+        RETURN.
+    ENDTRY.
+
+    DATA(lt_p) = COND tt_p( WHEN ls_w-result        IS NOT INITIAL THEN ls_w-result
+                            WHEN ls_w-parties       IS NOT INITIAL THEN ls_w-parties
+                            WHEN ls_w-party_details IS NOT INITIAL THEN ls_w-party_details
+                            ELSE ls_w-party ).
+
+    LOOP AT lt_p INTO DATA(ls_p).
+      APPEND VALUE #( party_id     = ls_p-party_id
+                      party_name   = COND string( WHEN ls_p-party_name    IS NOT INITIAL THEN ls_p-party_name
+                                                  WHEN ls_p-party_name_en IS NOT INITIAL THEN ls_p-party_name_en
+                                                  ELSE ls_p-english_name )
+                      name_ar      = COND string( WHEN ls_p-party_name_ar IS NOT INITIAL THEN ls_p-party_name_ar
+                                                  ELSE ls_p-arabic_name )
+                      mobile       = COND string( WHEN ls_p-mobile_number IS NOT INITIAL THEN ls_p-mobile_number
+                                                  ELSE ls_p-mobile )
+                      email        = COND string( WHEN ls_p-email IS NOT INITIAL THEN ls_p-email
+                                                  ELSE ls_p-email_address )
+                      nationality  = COND string( WHEN ls_p-nationality_en IS NOT INITIAL
+                                                  THEN ls_p-nationality_en
+                                                  ELSE ls_p-nationality_an )
+                      id_number    = COND string( WHEN ls_p-id_number            IS NOT INITIAL THEN ls_p-id_number
+                                                  WHEN ls_p-eid                  IS NOT INITIAL THEN ls_p-eid
+                                                  WHEN ls_p-passport_number      IS NOT INITIAL THEN ls_p-passport_number
+                                                  WHEN ls_p-unified_number       IS NOT INITIAL THEN ls_p-unified_number
+                                                  ELSE ls_p-trade_license_number )
+                      party_kind   = COND string( WHEN ls_p-party_kind IS NOT INITIAL THEN ls_p-party_kind
+                                                  ELSE ls_p-party_type )
+                      first_party  = ls_p-first_party
+                      second_party = ls_p-second_party ) TO rt.
+    ENDLOOP.
+
+    zcl_rak_not_trace=>add( |PARTIES { lines( rt ) } on request { iv_request_id }| ).
+
+  ENDMETHOD.
+
+
   METHOD legal_text.
 
     IF iv_request_id IS INITIAL.
@@ -708,6 +946,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     DATA(lv_key) = |{ to_upper( iv_list ) }#{ iv_arg1 }#{ iv_arg2 }|.
     READ TABLE gt_lk INTO DATA(ls_c) WITH KEY key = lv_key.
     IF sy-subrc = 0.
+*     Said out loud, because a cache hit made no HTTP call and the trace then
+*     reported "NO Notary API call was made on this interaction" directly above
+*     a dropdown that was visibly full. Both true, and together they read as a
+*     contradiction - a populated list with no call looks like the call failed
+*     and something else supplied the data.
+      zcl_rak_not_trace=>add( |LOOKUP { to_upper( iv_list ) } served from cache | &&
+                              |({ lines( ls_c-opts ) } option(s), no call needed)| ).
       rt_opt = ls_c-opts.
       RETURN.
     ENDIF.
@@ -730,6 +975,44 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         lv_path = '/static/countries'.
       WHEN 'CLASSIFICATION'.
         lv_path = '/classifications'.
+
+*     The declaration list. Without this the Sub Service dropdown on the
+*     first step renders EMPTY - and since everything downstream is derived
+*     from the declaration, the citizen cannot start at all.
+*
+*     classfication_Id is spelt exactly as the API spells it. The 'i' is
+*     missing in the collection's own URL
+*     (/subservice/?classfication_Id=27&applicant_type_id=1&mainService_Id=1)
+*     and correcting it here would simply not filter.
+*
+*     applicant_type_id is fixed at 1. The call settled this: "the individual
+*     all have the same permissions... usually, for the individual, all have
+*     the same role", and the printing-office difference is extra fields on
+*     the first-party call, not a different service list. Q3 in the
+*     clarification document asks which applicant categories are in scope; if
+*     the answer turns out to be more than one, this is where it becomes an
+*     argument.
+      WHEN 'SUBSERVICE'.
+        IF iv_arg1 IS INITIAL OR iv_arg2 IS INITIAL.
+*         No classification or main service yet, so there is nothing to
+*         filter by. Same reasoning as CITY: an unfiltered list is worse
+*         than none. Said out loud, because an empty declaration dropdown
+*         with no call behind it is otherwise indistinguishable from a
+*         wrong endpoint.
+          zcl_rak_not_trace=>add( |LOOKUP SUBSERVICE skipped - classification | &&
+            |'{ iv_arg1 }' / main service '{ iv_arg2 }', one of them is empty| ).
+          RETURN.
+        ENDIF.
+        lv_path = '/subservice/?classfication_Id={c}&applicant_type_id=1&mainService_Id={m}'.
+        lt_rep  = VALUE #( ( name = '{c}' value = iv_arg1 )
+                           ( name = '{m}' value = iv_arg2 ) ).
+
+      WHEN 'MAINSERVICE'.
+        IF iv_arg1 IS INITIAL.
+          RETURN.
+        ENDIF.
+        lv_path = '/mainservice/?classfication_Id={c}&applicant_type_id=1'.
+        lt_rep  = VALUE #( ( name = '{c}' value = iv_arg1 ) ).
       WHEN 'REGION'.
         IF iv_arg1 IS NOT INITIAL.
           lv_path = '/static/regionbycountry/{c}'.
@@ -749,6 +1032,10 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           RETURN.
         ENDIF.
       WHEN OTHERS.
+*       A list name this method has no endpoint for. DYN_LIST_FOR( ) and this
+*       CASE have to agree, and when they drift the symptom is an empty
+*       dropdown and no HTTP call - which reads as a network problem.
+        zcl_rak_not_trace=>add( |LOOKUP no endpoint for list '{ to_upper( iv_list ) }'| ).
         RETURN.
     ENDCASE.
 
@@ -836,7 +1123,102 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD model_name.
+
+*   A blueprint key, turned into something that can be an ABAP structure
+*   component. It is not cosmetic: BUILD_MODEL( ) calls
+*   CL_ABAP_STRUCTDESCR=>CREATE( ) with one component per field name, and a
+*   component name is capped at 30 characters. A blueprint carrying
+*
+*     "jsonKey":"ministryOfEconomyRegistrationNumber"      (35)
+*
+*   raised CX_SY_STRUCT_COMP_NAME - uncaught, so the whole app died with
+*   "UNCAUGHT EXCEPTION - Please Restart App" on choosing that declaration.
+*   Nothing in the journey could have prevented it: the name comes from the
+*   API, at runtime, and no configuration is involved.
+*
+*   THE API KEY IS NOT TOUCHED. Only GT_MAP-UPPER - the name the MODEL uses -
+*   is shortened; GT_MAP-JSON keeps the blueprint's own key and that is what
+*   BO_JSON( ) posts. The two were already separate fields for exactly this
+*   kind of reason.
+    DATA(lv) = to_upper( condense( iv_key ) ).
+
+*   Anything that is not a letter, a digit or an underscore cannot be in a
+*   component name either. A jsonKey is free text on the wire, so this is not
+*   hypothetical - a dot or a dash would raise the same exception with a
+*   different message.
+    DATA lv_out TYPE string.
+    DATA lv_i   TYPE i.
+    CONSTANTS lc_ok TYPE string
+      VALUE 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'.
+
+    WHILE lv_i < strlen( lv ).
+      DATA(lv_c) = lv+lv_i(1).
+      IF lc_ok CS lv_c.
+        lv_out = lv_out && lv_c.
+      ELSE.
+        lv_out = lv_out && '_'.
+      ENDIF.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+*   A component name cannot start with a digit.
+    IF lv_out IS NOT INITIAL AND lv_out(1) CO '0123456789'.
+      lv_out = |F{ lv_out }|.
+    ENDIF.
+
+*   23, NOT 30, and the difference is the whole of the second failure here.
+*   BUILD_MODEL( ) does not create ONE component per field - it creates the field
+*   and then its companions, each a suffix on the same name:
+*
+*     <NAME>_VS      value state          <NAME>_NAME    resolved partner name
+*     <NAME>_VST     value state text     <NAME>_IX      row index
+*     <NAME>_IDTYPE  ID type on a SEARCH  <NAME>_EXP     expanded flag
+*
+*   So a base name of exactly 30 is not safe, it is guaranteed to fail on the
+*   NEXT line: MINISTRYOFECONOMYREGISTRA_6666 fitted, and _VS took it to 33.
+*   _IDTYPE is the longest suffix at seven characters, so the base has to stop
+*   at 23 for every companion to fit inside 30 as well.
+    IF strlen( lv_out ) <= 23.
+      rv = lv_out.
+      RETURN.
+    ENDIF.
+
+*   Too long, so 18 characters of the name and a four-digit fingerprint of the
+*   WHOLE key - 23 in total, leaving room for _IDTYPE. The fingerprint is what
+*   stops two keys that share their first 18 characters collapsing onto one
+*   component, which would be worse than the dump: the two fields would then
+*   silently share a value.
+*
+*   Computed from the key ALONE and never from its position in the blueprint.
+*   PARSE_BLUEPRINT( ) and DESCRIBE_STEP( ) walk the field list separately and
+*   must arrive at the same name independently; anything positional would agree
+*   only for as long as both lists stayed in the same order, and would put
+*   values on the wrong field the day they did not.
+    DATA lv_h TYPE i.
+    CLEAR lv_i.
+    WHILE lv_i < strlen( lv_out ).
+      DATA(lv_p) = find( val = lc_ok sub = lv_out+lv_i(1) ).
+      IF lv_p < 0.
+        lv_p = 0.
+      ENDIF.
+      lv_h = ( lv_h * 31 + lv_p + 1 ) MOD 100000.
+      lv_i = lv_i + 1.
+    ENDWHILE.
+
+    rv = |{ lv_out(18) }_{ lv_h MOD 10000 WIDTH = 4 PAD = '0' ALIGN = RIGHT }|.
+
+  ENDMETHOD.
+
+
   METHOD parse_blueprint.
+
+*   CLEARED, not appended to. GT_MAP and GT_DOC are CLASS-DATA and this method
+*   only ever APPENDed, so choosing a second declaration in the same session
+*   left the first one's business-object fields and documents in the table.
+*   BO_JSON( ) walks GT_MAP, so the request would have carried fields the new
+*   declaration has never heard of.
+    CLEAR: gt_map, gt_doc.
 
 *   ------------------------------------------------------------------
 *   The blueprint's exact shape is Q4 in the clarification document and
@@ -855,6 +1237,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
            tt_o TYPE STANDARD TABLE OF ty_o WITH EMPTY KEY.
 
     TYPES: BEGIN OF ty_f,
+*            This parser already looked under businessFields, but could not
+*            name what it found: the blueprint gives each field its technical
+*            key as jsonKey - caseIssuancePlace, caseNumber - and none of the
+*            aliases below carry it, so every field fell out on the blank-name
+*            CHECK. JSON_KEY and REG_EX are the two the live response uses.
+             json_key       TYPE string,
+             reg_ex         TYPE string,
              name           TYPE string,
              field_name     TYPE string,
              technical_name TYPE string,
@@ -972,7 +1361,8 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     LOOP AT lt_f INTO DATA(ls_f).
 
-      DATA(lv_name) = COND string( WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
+      DATA(lv_name) = COND string( WHEN ls_f-json_key       IS NOT INITIAL THEN ls_f-json_key
+                                   WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
                                    WHEN ls_f-field_name     IS NOT INITIAL THEN ls_f-field_name
                                    WHEN ls_f-technical_name IS NOT INITIAL THEN ls_f-technical_name
                                    ELSE ls_f-code ).
@@ -1020,7 +1410,10 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-      APPEND VALUE #( upper = to_upper( lv_name ) json = lv_name num = lv_num ) TO gt_map.
+*     UPPER is what the MODEL calls the field and JSON is what the API calls
+*     it. They were always two fields; until now they always held the same text,
+*     which is why a key too long to be a component had nowhere to be shortened.
+      APPEND VALUE #( upper = model_name( lv_name ) json = lv_name num = lv_num ) TO gt_map.
 
     ENDLOOP.
 
@@ -1423,6 +1816,11 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              nationality_code TYPE string, occupation_code TYPE string,
              text             TYPE string, name TYPE string, name_en TYPE string,
              english_name     TYPE string, description TYPE string,
+*            The service lookups label their rows englishTitle / arabicTitle,
+*            which nothing here read - so a sub-service row fell through every
+*            candidate to LV_KEY and the dropdown would have offered "90",
+*            "232", "231" instead of the declaration names.
+             english_title    TYPE string, arabic_title TYPE string,
              name_ar          TYPE string, arabic_name TYPE string,
            END OF ty_row,
            tt_row TYPE STANDARD TABLE OF ty_row WITH EMPTY KEY.
@@ -1433,6 +1831,33 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              items  TYPE tt_row,
              list   TYPE tt_row,
            END OF ty_resp.
+
+*   The second shape, and the reason the service lookups returned nothing at
+*   all. TY_RESP types RESULT as a TABLE, which is right for the static
+*   endpoints - /static/nationalities answers "result":[...]. The service
+*   endpoints do not: /subservice/ answers
+*
+*     "result":{"subServices":[{"id":90,"englishTitle":"..."} ...]}
+*
+*   an OBJECT that CONTAINS the array. /ui2/cl_json cannot map an object onto
+*   a table, so RESULT came back empty, the three fallbacks were empty too,
+*   and a 200 OK with ten declarations in it produced zero options.
+*
+*   One type cannot have RESULT as both, so this is a second attempt rather
+*   than more alternatives on the first.
+    TYPES: BEGIN OF ty_lvl,
+             sub_services    TYPE tt_row,
+             main_services   TYPE tt_row,
+             classifications TYPE tt_row,
+             services        TYPE tt_row,
+             rows            TYPE tt_row,
+             items           TYPE tt_row,
+             list            TYPE tt_row,
+           END OF ty_lvl,
+           BEGIN OF ty_resp_n,
+             result TYPE ty_lvl,
+             data   TYPE ty_lvl,
+           END OF ty_resp_n.
 
     DATA ls_resp TYPE ty_resp.
     TRY.
@@ -1448,6 +1873,35 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                 WHEN ls_resp-items  IS NOT INITIAL THEN ls_resp-items
                                 ELSE ls_resp-list ).
 
+*   Nothing at the flat level, so try the nested one before giving up.
+    IF lt_row IS INITIAL.
+      DATA ls_respn TYPE ty_resp_n.
+      TRY.
+          /ui2/cl_json=>deserialize( EXPORTING json        = lv_json
+                                               pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                     CHANGING  data        = ls_respn ).
+        CATCH cx_root.
+          RETURN.
+      ENDTRY.
+
+      lt_row = COND tt_row(
+        WHEN ls_respn-result-sub_services    IS NOT INITIAL THEN ls_respn-result-sub_services
+        WHEN ls_respn-result-main_services   IS NOT INITIAL THEN ls_respn-result-main_services
+        WHEN ls_respn-result-classifications IS NOT INITIAL THEN ls_respn-result-classifications
+        WHEN ls_respn-result-services        IS NOT INITIAL THEN ls_respn-result-services
+        WHEN ls_respn-result-rows            IS NOT INITIAL THEN ls_respn-result-rows
+        WHEN ls_respn-result-items           IS NOT INITIAL THEN ls_respn-result-items
+        WHEN ls_respn-result-list            IS NOT INITIAL THEN ls_respn-result-list
+        WHEN ls_respn-data-sub_services      IS NOT INITIAL THEN ls_respn-data-sub_services
+        WHEN ls_respn-data-main_services     IS NOT INITIAL THEN ls_respn-data-main_services
+        WHEN ls_respn-data-rows              IS NOT INITIAL THEN ls_respn-data-rows
+        WHEN ls_respn-data-items             IS NOT INITIAL THEN ls_respn-data-items
+        ELSE ls_respn-data-list ).
+
+      zcl_rak_not_trace=>add( |TO_OPTIONS flat shape empty, nested shape gave | &&
+                              |{ lines( lt_row ) } row(s)| ).
+    ENDIF.
+
     LOOP AT lt_row INTO DATA(ls_row).
 
       DATA(lv_key) = COND string(
@@ -1461,14 +1915,21 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
         WHEN ls_row-id               IS NOT INITIAL THEN ls_row-id
         ELSE ls_row-value ).
 
+*     Arabic last, and only as a fallback, because TO_OPTIONS has no language
+*     to work with - it is called from LOOKUP( ), which knows a list name and
+*     nothing about the journey. An Arabic journey therefore still gets English
+*     declaration names here. Worth fixing, and it needs the language plumbed
+*     into LOOKUP( ) rather than a guess at this level.
       DATA(lv_txt) = COND string(
-        WHEN ls_row-text         IS NOT INITIAL THEN ls_row-text
-        WHEN ls_row-name_en      IS NOT INITIAL THEN ls_row-name_en
-        WHEN ls_row-english_name IS NOT INITIAL THEN ls_row-english_name
-        WHEN ls_row-name         IS NOT INITIAL THEN ls_row-name
-        WHEN ls_row-description  IS NOT INITIAL THEN ls_row-description
-        WHEN ls_row-name_ar      IS NOT INITIAL THEN ls_row-name_ar
-        WHEN ls_row-arabic_name  IS NOT INITIAL THEN ls_row-arabic_name
+        WHEN ls_row-text          IS NOT INITIAL THEN ls_row-text
+        WHEN ls_row-english_title IS NOT INITIAL THEN ls_row-english_title
+        WHEN ls_row-name_en       IS NOT INITIAL THEN ls_row-name_en
+        WHEN ls_row-english_name  IS NOT INITIAL THEN ls_row-english_name
+        WHEN ls_row-name          IS NOT INITIAL THEN ls_row-name
+        WHEN ls_row-description   IS NOT INITIAL THEN ls_row-description
+        WHEN ls_row-arabic_title  IS NOT INITIAL THEN ls_row-arabic_title
+        WHEN ls_row-name_ar       IS NOT INITIAL THEN ls_row-name_ar
+        WHEN ls_row-arabic_name   IS NOT INITIAL THEN ls_row-arabic_name
         ELSE lv_key ).
 
       IF lv_key IS INITIAL.
@@ -1567,9 +2028,17 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                    THEN |"attachmentConfId":{ lv_conf }\}|
                    ELSE |"attachmentConfId":null\}| ).
 
+*   The caller (ZCL_RAK_JOURNEY_BE) always hands in mime =
+*   'application/octet-stream', whatever the file. Notary's own collection
+*   sends a jpg as image/jpg specifically, not the browser's image/jpeg, so
+*   that override happens here rather than being trusted from upstream.
+    DATA(lv_mime) = COND string( WHEN to_lower( is_file-extension ) = 'jpg' OR to_lower( is_file-extension ) = 'jpeg'
+                                  THEN 'image/jpg'
+                                  ELSE is_file-mime ).
+
     DATA lt_files TYPE ztt_ega_my_attachment.
     APPEND VALUE #( file_data      = is_file-xdata
-                    file_mime_type = is_file-mime
+                    file_mime_type = lv_mime
                     file_name      = is_file-name
                     file_extension = is_file-extension
                     file_descr     = 'file' ) TO lt_files.
@@ -1616,6 +2085,25 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
     CHECK to_upper( iv_step ) = 'BO'.
 
+*   Recover the declaration from the model before asking for the blueprint.
+*
+*   GV_SUB_CUR is CLASS-DATA and this app is stateless - /sap/bc/rest gives
+*   every round trip a fresh roll area - so whatever ON_CHANGE stored is gone
+*   by the next request. The citizen's choice does survive, in the model, and
+*   IT_FIELDS is that model: BE_FIELDS( ) publishes each field under the
+*   journey's own name, so the declaration arrives here as SUBSERVICE.
+*
+*   Without this the trace reads 'BLUEPRINT skipped - no declaration chosen
+*   yet' on a declaration that was plainly chosen, and every dynamic step
+*   reports 0 fields.
+    IF gv_sub_cur IS INITIAL.
+      DATA(lv_pick) = field( it_fields = it_fields iv_name = 'SUBSERVICE' ).
+      IF lv_pick IS NOT INITIAL.
+        gv_sub_cur = lv_pick.
+        zcl_rak_not_trace=>add( |BLUEPRINT declaration { lv_pick } recovered from the model| ).
+      ENDIF.
+    ENDIF.
+
     DATA(lv_json) = blueprint( ).
     IF lv_json IS INITIAL.
       RETURN.
@@ -1627,6 +2115,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              key         TYPE string, value TYPE string, id TYPE string, code TYPE string,
              text        TYPE string, name  TYPE string, name_ar TYPE string,
              description TYPE string,
+*            What a LOOKUP choice actually looks like on the wire:
+*              {"id":1,"idStr":null,"code":null,
+*               "englishValue":"Inside RAK","arabicValue":"داخل رأس الخيمة"}
+*            id is the value the business object is posted with; CODE and
+*            IDSTR are usually null and are kept only as fallbacks.
+             id_str        TYPE string,
+             english_value TYPE string, arabic_value TYPE string,
            END OF ty_o,
            tt_o TYPE STANDARD TABLE OF ty_o WITH EMPTY KEY.
 
@@ -1638,7 +2133,31 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
              type           TYPE string, data_type  TYPE string, field_type TYPE string, control_type TYPE string,
              mandatory      TYPE abap_bool, required TYPE abap_bool, is_mandatory TYPE abap_bool,
              max_length     TYPE i, length TYPE i,
+*            The blueprint carries a pattern per business field. Same
+*            shape-tolerant treatment as every other attribute here - Q4 is still
+*            open, so the spelling is not assumed.
+             regex          TYPE string, regular_expression TYPE string,
+             pattern        TYPE string, validation_regex   TYPE string,
              options        TYPE tt_o, values TYPE tt_o, lookup_values TYPE tt_o, items TYPE tt_o,
+*            The names the blueprint actually uses. Confirmed from the live
+*            response, not guessed:
+*              {"businessfieldId":7,"englishFieldName":"Case Issuance place",
+*               "arabicFieldName":"...","dataType":"LOOKUP","choices":[...],
+*               "jsonKey":"caseIssuancePlace","maxLength":5,
+*               "regEx":"^\\d{10}$","required":true}
+*
+*            JSON_KEY is the important one: it is the key the business object
+*            is POSTed with - caseIssuancePlace, caseNumber, caseType - so it,
+*            not the label, is the field's technical name.
+*
+*            REG_EX is separate from REGEX on purpose. /ui2/cl_json maps
+*            camelCase to underscores, so "regEx" arrives as REG_EX and the
+*            existing REGEX component never filled.
+             json_key           TYPE string,
+             businessfield_id   TYPE string,
+             english_field_name TYPE string, arabic_field_name TYPE string,
+             reg_ex             TYPE string,
+             choices            TYPE tt_o,
            END OF ty_f,
            tt_f TYPE STANDARD TABLE OF ty_f WITH EMPTY KEY.
 
@@ -1666,6 +2185,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     ENDTRY.
 
     DATA(lt_f) = COND tt_f(
+*     businessFields is the one the live blueprint uses - result.businessFields.
+*     It was already declared on TY_ROOT and TY_LVL and simply never consulted
+*     here, so the deserialize filled it and the pick walked straight past it.
+      WHEN ls_r-result-business_fields      IS NOT INITIAL THEN ls_r-result-business_fields
+      WHEN ls_r-business_fields             IS NOT INITIAL THEN ls_r-business_fields
+      WHEN ls_r-data-business_fields        IS NOT INITIAL THEN ls_r-data-business_fields
+      WHEN ls_r-sub_service-business_fields IS NOT INITIAL THEN ls_r-sub_service-business_fields
       WHEN ls_r-business_object_fields IS NOT INITIAL THEN ls_r-business_object_fields
       WHEN ls_r-bo_fields              IS NOT INITIAL THEN ls_r-bo_fields
       WHEN ls_r-fields                 IS NOT INITIAL THEN ls_r-fields
@@ -1684,11 +2210,31 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       WHEN ls_r-service_information-fields IS NOT INITIAL THEN ls_r-service_information-fields
       ELSE VALUE #( ) ).
 
+*   Say which wrapper matched, and how many fields came out of it. The list
+*   above guesses at a dozen shapes; when the blueprint arrives 200 OK and BO
+*   still describes 0 fields, the question is only ever "which key holds the
+*   fields, and is it one we look under" - and without this line that is
+*   indistinguishable from a call that never happened.
+    IF lt_f IS INITIAL.
+      zcl_rak_not_trace=>add( |BLUEPRINT parsed 0 fields - none of the known wrappers | &&
+        |(businessObjectFields / boFields / fields / attributes / bluePrint / serviceFields, | &&
+        |bare or under result / data / subService / serviceInformation) held anything. | &&
+        |The response body is traced above - the fields are under some other key.| ).
+    ELSE.
+      zcl_rak_not_trace=>add( |BLUEPRINT parsed { lines( lt_f ) } field(s) from the blueprint| ).
+    ENDIF.
+
     LOOP AT lt_f INTO DATA(ls_f).
 
       DATA(lv_name) = COND string( WHEN ls_f-name           IS NOT INITIAL THEN ls_f-name
                                    WHEN ls_f-field_name     IS NOT INITIAL THEN ls_f-field_name
                                    WHEN ls_f-technical_name IS NOT INITIAL THEN ls_f-technical_name
+*                                  JSON_KEY is what the business object is
+*                                  POSTed with - caseIssuancePlace, caseNumber,
+*                                  caseType - so it is the field's real
+*                                  technical name. The generic aliases below
+*                                  are all empty on this blueprint.
+                                   WHEN ls_f-json_key       IS NOT INITIAL THEN ls_f-json_key
                                    ELSE ls_f-code ).
       IF lv_name IS INITIAL.
         CONTINUE.
@@ -1697,6 +2243,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
       DATA(lt_opt) = COND tt_o( WHEN ls_f-options       IS NOT INITIAL THEN ls_f-options
                                 WHEN ls_f-values        IS NOT INITIAL THEN ls_f-values
                                 WHEN ls_f-lookup_values IS NOT INITIAL THEN ls_f-lookup_values
+                                WHEN ls_f-choices       IS NOT INITIAL THEN ls_f-choices
                                 ELSE ls_f-items ).
 
 *     ---- live lists -------------------------------------------------
@@ -1742,24 +2289,60 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                                     WHEN ls_f-english_name IS NOT INITIAL THEN ls_f-english_name
                                     WHEN ls_f-title        IS NOT INITIAL THEN ls_f-title
                                     WHEN ls_f-description  IS NOT INITIAL THEN ls_f-description
+                                    WHEN ls_f-english_field_name IS NOT INITIAL THEN ls_f-english_field_name
                                     ELSE lv_name ).
 
       APPEND VALUE #(
-        name     = to_upper( lv_name )
+*       MODEL_NAME( ) and not TO_UPPER( ). This name becomes a component on the
+*       model structure, and a component name is capped at 30 characters - so a
+*       jsonKey longer than that took the app down here rather than merely
+*       rendering oddly. It has to be the SAME transformation PARSE_BLUEPRINT( )
+*       applies to GT_MAP-UPPER, or the field would render under one name and be
+*       read for the payload under another, and the value would post as blank.
+        name     = model_name( lv_name )
         label    = lv_label
-        label_ar = COND string( WHEN ls_f-label_ar IS NOT INITIAL THEN ls_f-label_ar ELSE ls_f-arabic_name )
+        label_ar = COND string( WHEN ls_f-label_ar          IS NOT INITIAL THEN ls_f-label_ar
+                                WHEN ls_f-arabic_field_name IS NOT INITIAL THEN ls_f-arabic_field_name
+                                ELSE ls_f-arabic_name )
         type     = lv_type
         required = COND abap_bool( WHEN ls_f-mandatory = abap_true OR ls_f-required = abap_true
                                      OR ls_f-is_mandatory = abap_true THEN abap_true ELSE abap_false )
         max_len  = COND i( WHEN ls_f-max_length > 0 THEN ls_f-max_length ELSE ls_f-length )
+*       THE BLUEPRINT'S PATTERN IS NOT CARRIED. Deliberately, and on evidence.
+*
+*       The sub-service 149 response settles it. "Case Issuance place" is
+*       dataType LOOKUP with exactly two choices, ids 1 and 2, and it carries
+*       maxLength 5 alongside a pattern demanding exactly ten digits. No
+*       choice can satisfy that, and neither can any value short enough to
+*       respect the field's own length limit. It is not a rule about that
+*       field - it is a default nobody filled in, and the same default sits
+*       on the fields beside it.
+*
+*       Which is why Case Number, Case Year and Amount Value were all
+*       rejected together with "The format is not valid": one unmaintained
+*       pattern applied to every field, blocking a service that had no way
+*       to satisfy it. Exempting SELECT and the date types was not enough,
+*       because the free-text fields carry the same default.
+*
+*       MAXLENGTH and REQUIRED are still taken from the blueprint - those do
+*       describe the fields they sit on. Only the pattern is dropped, and the
+*       plumbing stays: TY_DYN_FIELD-REGEX and the engine's enforcement are
+*       untouched, so restoring it is one line the day the API's patterns
+*       mean something.
+        regex    = ``
         options  = COND #( WHEN lt_live IS NOT INITIAL THEN lt_live
                            ELSE VALUE #( FOR o IN lt_opt (
+*                    ID is the key the business object is posted with. CODE and
+*                    IDSTR come back null on this blueprint and are fallbacks only.
                      key  = COND string( WHEN o-key IS NOT INITIAL THEN o-key
                                          WHEN o-id  IS NOT INITIAL THEN o-id
                                          WHEN o-code IS NOT INITIAL THEN o-code
+                                         WHEN o-id_str IS NOT INITIAL THEN o-id_str
                                          ELSE o-value )
                      text = COND string( WHEN o-text IS NOT INITIAL THEN o-text
                                          WHEN o-name IS NOT INITIAL THEN o-name
+                                         WHEN o-english_value IS NOT INITIAL THEN o-english_value
+                                         WHEN o-arabic_value  IS NOT INITIAL THEN o-arabic_value
                                          WHEN o-description IS NOT INITIAL THEN o-description
                                          ELSE o-value ) ) ) ) ) TO rt_fields.
 
@@ -1843,8 +2426,35 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
                first_party_details TYPE ty_draft_fp,
              END OF ty_draft_resp.
 
-    DATA(lv_sub) = COND string( WHEN mv_subservice IS NOT INITIAL THEN mv_subservice
+*   Same precedence BLUEPRINT( ) uses, and for the same reason: the declaration
+*   is chosen at runtime and neither BKND_JOURNEY nor IT_FIELDS can be relied on
+*   to carry it.
+*
+*   IT_FIELDS in particular cannot. BE_FIELDS( ) publishes each field under
+*   ls_f-NAME - the journey's field name, upper case - and FIELD( ) uppercases
+*   what it is given, so asking for 'subServiceId' looks for SUBSERVICEID. A
+*   field named SUBSERVICE never matches, and the draft went out as
+*   "subServiceId":"" and came back notaryCode 3005 Sub Service Id Not found.
+    DATA(lv_sub) = COND string( WHEN gv_sub_cur   IS NOT INITIAL THEN gv_sub_cur
+                                WHEN mv_subservice IS NOT INITIAL THEN mv_subservice
+                                WHEN field( it_fields = it_fields iv_name = 'SUBSERVICE' ) IS NOT INITIAL
+                                  THEN field( it_fields = it_fields iv_name = 'SUBSERVICE' )
                                 ELSE field( it_fields = it_fields iv_name = 'subServiceId' ) ).
+
+*   Re-seed the static so everything later in THIS round trip - the blueprint,
+*   the documents, the legal text - sees the declaration as well.
+    IF gv_sub_cur IS INITIAL AND lv_sub IS NOT INITIAL.
+      gv_sub_cur = lv_sub.
+    ENDIF.
+
+*   No declaration, no draft. Posting one anyway spends a call to be told 3005,
+*   and leaves the citizen with an error on a step they have not reached.
+    IF lv_sub IS INITIAL.
+      zcl_rak_not_trace=>add( 'DRAFT not attempted - no declaration chosen yet' ).
+      APPEND VALUE #( type = 'E' message = 'Choose the declaration before continuing.' ) TO et_return.
+      RETURN.
+    ENDIF.
+    zcl_rak_not_trace=>add( |DRAFT creating for sub-service { lv_sub }| ).
 
     DATA(lv_cat) = COND string( WHEN field( it_fields = it_fields iv_name = 'applicantCategoryId' ) IS NOT INITIAL
                                 THEN field( it_fields = it_fields iv_name = 'applicantCategoryId' )
@@ -1855,7 +2465,20 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
     DATA(lv_abp) = COND string( WHEN field( it_fields = it_fields iv_name = 'applicantBusinessPartnerId' ) IS NOT INITIAL
                                 THEN field( it_fields = it_fields iv_name = 'applicantBusinessPartnerId' )
                                 WHEN mv_loginbp IS NOT INITIAL THEN mv_loginbp
-                                ELSE mc_dev_bp ).
+                                WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true THEN mc_dev_bp
+                                ELSE space ).
+
+*   MC_DEV_BP IS A DEVELOPMENT STUB AND HAD NO GATE AT ALL. This class
+*   contained no sy-sysid check anywhere: when no applicant resolved -
+*   neither from the blueprint field nor from the session - it sent a
+*   hardcoded business partner to the live Notary REST backend, on every
+*   system including production. A real request filed against a partner
+*   nobody chose, and nothing on screen to say so.
+*
+*   Blank outside development rather than a stand-in. That is deliberately
+*   the LOUDER failure: the backend refuses a request with no applicant
+*   and the citizen is told, where the stub produced a request that looked
+*   successful and belonged to someone else. See DEV_STUBS_OK( ).
 
 *   requestDate / requestStartDate are dates in the collection, not
 *   timestamps. A timestamp where a date is expected is the kind of thing
@@ -2231,7 +2854,13 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 
 *       Nothing typed, nothing to post. A second party is optional on most
 *       declarations and an empty POST creates an empty party.
-        IF field( it_fields = it_fields iv_name = 'party_idNumber' )        IS INITIAL
+*       bpId counts as identification. The CJS form identifies a party through
+*       ZCL_RAK_BP_SEARCH and ends up holding a partner number rather than the
+*       Emirates ID that was typed to find it, and the POST for a known partner
+*       goes to /party/{bpId} - which needs no id in the body at all. Without
+*       this the whole search path fell through the guard and posted nothing.
+        IF field( it_fields = it_fields iv_name = 'bpId' )                   IS INITIAL
+           AND field( it_fields = it_fields iv_name = 'party_idNumber' )        IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_passportNumber' ) IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_unifiedNumber' )  IS INITIAL
            AND field( it_fields = it_fields iv_name = 'party_tradeLicenseNumber' ) IS INITIAL.
@@ -2296,7 +2925,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           EXPORTING
             iv_api         = mc_api
             iv_path        = lv_bopath
-            iv_method      = COND #( WHEN cs_handle-bo_id IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
+            iv_method      = COND string( WHEN cs_handle-bo_id IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
             iv_payload     = lv_bo_body
             it_headers     = auth_hdr( cs_handle )
             it_url_replace = lt_rep
@@ -2336,7 +2965,7 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
           EXPORTING
             iv_api         = mc_api
             iv_path        = lv_tpath
-            iv_method      = COND #( WHEN lv_vid IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
+            iv_method      = COND string( WHEN lv_vid IS NOT INITIAL THEN 'PUT' ELSE 'POST' )
             iv_payload     = transfer_json( it_fields )
             it_headers     = auth_hdr( cs_handle )
             it_url_replace = lt_rep
@@ -2382,9 +3011,15 @@ CLASS ZCL_RAK_BE_NOT IMPLEMENTATION.
 *         Default the payer to the applicant rather than posting a blank
 *         owner: the billing document has to belong to somebody before
 *         the payment can be calculated.
+*         AND THE STUB IS DEVELOPMENT-ONLY. This is the billing partner:
+*         outside development, a hardcoded MC_DEV_BP here does not just
+*         mislabel a request, it addresses an invoice to a partner who
+*         never applied for anything. Blank makes the billing call fail,
+*         which is the answer that can be seen and fixed.
           lv_owner = COND string( WHEN cs_handle-applicant IS NOT INITIAL THEN cs_handle-applicant
                                   WHEN mv_loginbp IS NOT INITIAL THEN mv_loginbp
-                                  ELSE mc_dev_bp ).
+                                  WHEN zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true THEN mc_dev_bp
+                                  ELSE space ).
         ENDIF.
 
         TYPES: BEGIN OF ty_bill, business_partner_id TYPE string, END OF ty_bill.

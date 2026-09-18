@@ -492,11 +492,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-ZLABEL</NAME>
-       <TEXT>+_______________________________________</TEXT>
+       <TEXT>Label_______________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>003</COLUMN>
-       <LENGTH>040</LENGTH>
-       <VISLENGTH>150</VISLENGTH>
+       <LENGTH>044</LENGTH>
+       <VISLENGTH>044</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>
@@ -552,11 +552,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-FGROUP</NAME>
-       <TEXT>Group</TEXT>
+       <TEXT>FGroup</TEXT>
        <LINE>001</LINE>
        <COLUMN>007</COLUMN>
-       <LENGTH>005</LENGTH>
-       <VISLENGTH>005</VISLENGTH>
+       <LENGTH>006</LENGTH>
+       <VISLENGTH>006</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>
@@ -777,11 +777,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-ROLLNAME</NAME>
-       <TEXT>+_______________________________________</TEXT>
+       <TEXT>Rollname_______________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>022</COLUMN>
-       <LENGTH>040</LENGTH>
-       <VISLENGTH>030</VISLENGTH>
+       <LENGTH>047</LENGTH>
+       <VISLENGTH>047</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>
@@ -912,15 +912,119 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEXT</TYPE>
        <NAME>*ZMV_JNY_FIELD-DOMNAME</NAME>
-       <TEXT>Domain_(fixed_values)</TEXT>
        <LINE>001</LINE>
        <COLUMN>031</COLUMN>
-       <LENGTH>021</LENGTH>
-       <VISLENGTH>021</VISLENGTH>
+       <LENGTH>040</LENGTH>
+       <VISLENGTH>030</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
-       <MODIFIC>F</MODIFIC>
+       <MODIFIC>V</MODIFIC>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-ZSECTION_AR</NAME>
+       <TEXT>Section_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>032</COLUMN>
+       <LENGTH>046</LENGTH>
+       <VISLENGTH>046</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-CLOSED_LIST</NAME>
+       <TEXT>Close_List_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>033</COLUMN>
+       <LENGTH>049</LENGTH>
+       <VISLENGTH>049</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-NO_BROWSE</NAME>
+       <TEXT>No_browse_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>034</COLUMN>
+       <LENGTH>048</LENGTH>
+       <VISLENGTH>048</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-TEXT_ALIGN</NAME>
+       <TEXT>Text_Align_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>035</COLUMN>
+       <LENGTH>049</LENGTH>
+       <VISLENGTH>049</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-DESCR</NAME>
+       <TEXT>Description_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>036</COLUMN>
+       <LENGTH>050</LENGTH>
+       <VISLENGTH>050</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-TA_ROWS</NAME>
+       <TEXT>Table_Rows_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>037</COLUMN>
+       <LENGTH>049</LENGTH>
+       <VISLENGTH>049</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <REQU_ENTRY>N</REQU_ENTRY>
+       <TC_HEADING>X</TC_HEADING>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEXT</TYPE>
+       <NAME>*ZMV_JNY_FIELD-POPIN</NAME>
+       <TEXT>Popin_______________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>038</COLUMN>
+       <LENGTH>044</LENGTH>
+       <VISLENGTH>044</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
        <REQU_ENTRY>N</REQU_ENTRY>
        <TC_HEADING>X</TC_HEADING>
       </RPY_DYFATC>
@@ -1029,11 +1133,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZMV_JNY_FIELD-DEFAULT_VAL</NAME>
-       <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
+       <TEXT>________________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>006</COLUMN>
-       <LENGTH>150</LENGTH>
-       <VISLENGTH>150</VISLENGTH>
+       <LENGTH>040</LENGTH>
+       <VISLENGTH>255</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -1386,11 +1490,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZMV_JNY_FIELD-ZLABEL_AR</NAME>
-       <TEXT>________________________________________________________________________________</TEXT>
+       <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>027</COLUMN>
-       <LENGTH>080</LENGTH>
-       <VISLENGTH>080</VISLENGTH>
+       <LENGTH>150</LENGTH>
+       <VISLENGTH>150</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -1403,11 +1507,11 @@
        <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
        <TYPE>TEMPLATE</TYPE>
        <NAME>ZMV_JNY_FIELD-PLACEHOLDER_AR</NAME>
-       <TEXT>________________________________________________________________________________________________________________________</TEXT>
+       <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>028</COLUMN>
-       <LENGTH>120</LENGTH>
-       <VISLENGTH>120</VISLENGTH>
+       <LENGTH>150</LENGTH>
+       <VISLENGTH>150</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -1423,8 +1527,8 @@
        <TEXT>____________________________________________________________________________________________________________________________________</TEXT>
        <LINE>001</LINE>
        <COLUMN>029</COLUMN>
-       <LENGTH>200</LENGTH>
-       <VISLENGTH>200</VISLENGTH>
+       <LENGTH>255</LENGTH>
+       <VISLENGTH>255</VISLENGTH>
        <HEIGHT>001</HEIGHT>
        <FORMAT>CHAR</FORMAT>
        <FROM_DICT>X</FROM_DICT>
@@ -1466,7 +1570,314 @@
        <INPUT_FLD>X</INPUT_FLD>
        <OUTPUT_FLD>X</OUTPUT_FLD>
       </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-ZSECTION_AR</NAME>
+       <TEXT>____________________________________________________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>032</COLUMN>
+       <LENGTH>060</LENGTH>
+       <VISLENGTH>060</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-CLOSED_LIST</NAME>
+       <TEXT>_</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>033</COLUMN>
+       <LENGTH>001</LENGTH>
+       <VISLENGTH>001</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-NO_BROWSE</NAME>
+       <TEXT>_</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>034</COLUMN>
+       <LENGTH>001</LENGTH>
+       <VISLENGTH>001</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-TEXT_ALIGN</NAME>
+       <TEXT>_______</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>035</COLUMN>
+       <LENGTH>007</LENGTH>
+       <VISLENGTH>007</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-DESCR</NAME>
+       <TEXT>____________________</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>036</COLUMN>
+       <LENGTH>020</LENGTH>
+       <VISLENGTH>020</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-TA_ROWS</NAME>
+       <TEXT>______</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>037</COLUMN>
+       <LENGTH>006</LENGTH>
+       <VISLENGTH>006</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>INT2</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
+      <RPY_DYFATC>
+       <CONT_TYPE>TABLE_CTRL</CONT_TYPE>
+       <CONT_NAME>TCTRL_ZMV_JNY_FIELD</CONT_NAME>
+       <TYPE>TEMPLATE</TYPE>
+       <NAME>ZMV_JNY_FIELD-POPIN</NAME>
+       <TEXT>_</TEXT>
+       <LINE>001</LINE>
+       <COLUMN>038</COLUMN>
+       <LENGTH>001</LENGTH>
+       <VISLENGTH>001</VISLENGTH>
+       <HEIGHT>001</HEIGHT>
+       <FORMAT>CHAR</FORMAT>
+       <FROM_DICT>X</FROM_DICT>
+       <MODIFIC>X</MODIFIC>
+       <INPUT_FLD>X</INPUT_FLD>
+       <OUTPUT_FLD>X</OUTPUT_FLD>
+      </RPY_DYFATC>
      </FIELDS>
+     <FLOW_LOGIC>
+      <RPY_DYFLOW>
+       <LINE>PROCESS BEFORE OUTPUT.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE liste_initialisieren.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE sort_table.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  LOOP AT extract WITH CONTROL</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>   tctrl_zmv_jny_field CURSOR nextline.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    MODULE liste_show_liste.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  ENDLOOP.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE fill_substflds.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>*</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>PROCESS AFTER INPUT.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE liste_exit_command AT EXIT-COMMAND.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE liste_before_loop.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  LOOP AT extract.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    MODULE liste_init_workarea.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    CHAIN.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-field_name .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-seqnr .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-zlabel .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-ftype .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-placeholder .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-default_val .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-fgroup .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-zsection .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-fstate .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-width .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-hidden .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-readonly .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-required .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-regex .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-min_len .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-max_len .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-min_val .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-max_val .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-msg .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-has_attach .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-attach_label .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-rollname .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-shlp .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-attach_types .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-attach_maxmb .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-attach_multi .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-zlabel_ar .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-placeholder_ar .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-msg_ar .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-tech_name .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-domname .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-zsection_ar .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-closed_list .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-no_browse .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-text_align .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-descr .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-ta_rows .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-popin .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      MODULE set_update_flag ON CHAIN-REQUEST.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    ENDCHAIN.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    FIELD vim_marked MODULE liste_mark_checkbox.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    CHAIN.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      FIELD zmv_jny_field-field_name .</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>      MODULE liste_update_liste.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>    ENDCHAIN.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  ENDLOOP.</LINE>
+      </RPY_DYFLOW>
+      <RPY_DYFLOW>
+       <LINE>  MODULE liste_after_loop.</LINE>
+      </RPY_DYFLOW>
+     </FLOW_LOGIC>
     </item>
    </DYNPROS>
   </asx:values>

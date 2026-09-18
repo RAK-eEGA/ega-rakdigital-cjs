@@ -24,6 +24,22 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mt_ovr TYPE tt_ovr .
     DATA mv_ref_ovr TYPE string .
     DATA mv_trace TYPE abap_bool .
+
+*   WHAT THE SLG1 LOG DID ON THE PREVIOUS ROUND TRIP, carried on the engine
+*   because ZCL_RAK_CJ_LOG cannot carry it itself.
+*
+*   Its state is CLASS-DATA, and class data does not survive an HTTP request
+*   - so a flush that failed at the end of one request was already forgotten
+*   by the time the next one drew its trace. Worse, the flush happens at the
+*   very end of MAIN( ), after the view has been rendered, so a trace written
+*   there reaches nobody either.
+*
+*   The result was a class that reported "ready" on every single round trip
+*   while writing nothing on any of them - which is the exact failure STATUS( )
+*   was added to prevent, moved one step further out of sight. The engine
+*   instance IS serialized between round trips, so parking the answer here is
+*   what makes it visible on the next one.
+    DATA mv_log_last TYPE string .
     DATA mv_sess  TYPE string .
     DATA mt_evt_seen TYPE string_table .
 
@@ -48,6 +64,24 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mt_param     TYPE zif_rak_journey=>tt_kv.
     DATA mv_journey   TYPE string.
     DATA mv_lang      TYPE sy-langu.
+*   FLICKER CONTROL. Every round trip used to end in VIEW_DISPLAY( ), which
+*   hands the client a whole new XML view - so UI5 tore the page down and
+*   rebuilt it each time a citizen picked from a dropdown, and the repaint is
+*   what reads as flickering. MV_VIEW_SIG is the hash of the view last sent;
+*   SEND_VIEW( ) in ZCL_RAK_JOURNEY_RENDER compares against it and, when the
+*   markup has not moved, calls VIEW_MODEL_UPDATE( ) instead - the values still
+*   travel, nothing is rebuilt. It rides the serialized instance, so a fresh
+*   session starts blank and gets a full view, which is correct.
+    DATA mv_view_sig  TYPE string.
+*   The popup's own signature. MV_VIEW_SIG guards the page and a dialog is a
+*   SEPARATE view slot with its own markup, its own render and its own
+*   update call - so one hash could never have covered both. See SEND_POPUP( ).
+    DATA mv_popup_sig TYPE string.
+*   Set only for a CHANGE_ round trip. The signature test alone would be
+*   enough - identical markup repaints to an identical DOM - but keeping the
+*   quiet path off navigation, submit and popup events bounds what this can
+*   affect to the case it was written for.
+    DATA mv_quiet_evt TYPE abap_bool.
     DATA mv_userdata  TYPE string.
     DATA mv_loginbp   TYPE string.
     DATA mv_rolebp    TYPE string.
@@ -55,8 +89,50 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_step      TYPE i.
     DATA mv_submitted TYPE abap_bool.
     DATA mv_fb_done    TYPE abap_bool.
+*   The citizen declined to rate. Feedback is OFFERED on the closing page,
+*   never required - see the FBSKIP branch.
+    DATA mv_fb_skip    TYPE abap_bool.
     DATA mv_fb_rating  TYPE string.
-    DATA mv_case_guid TYPE string.
+
+*   Write the happiness rating to the department's own feedback table.
+*   Called by the engine on FBSEND, never by a handler - see there.
+    METHODS save_feedback.
+
+*   Drop the BAdI's cached copy of this journey key from INDX(CJ) before
+*   the entry read, so a launch by case id reads the application as it is
+*   now rather than as it was when somebody last looked at it. Called on a
+*   KEYED LAUNCH ONLY - see the implementation for what it deliberately
+*   does not do.
+    METHODS clear_read_buffer.
+
+*   ZDT_HM_FEEDBACK-DEPARTMENTID for this journey, blank when the journey
+*   is not on the portal's department map. The domain ZDO_DEPARTMENTID
+*   fixes the codes: 1 EPDA, 2 Municipality, 3 Courts, 4 Public
+*   Prosecution (incl. the lawyer committee), 5 Department of Knowledge.
+    METHODS fb_department RETURNING VALUE(rv) TYPE zdt_hm_feedback-departmentid.
+*   THE JOURNEY KEY, AND IT IS NEVER A GUID. This was called MV_CASE_GUID
+*   and the name was wrong twice over.
+*
+*   Not a case: the case number the backend returns is MV_CASE_NUMBER, kept
+*   apart on purpose by TAKE_CASE( ), because the BAdI used to write the
+*   case id over the INTRENO_JOURNEY item and that made the key move
+*   mid-journey.
+*
+*   Not a guid: ZCL_RAK_QNV_BRIDGE sends this as PARAM1, and the read FM
+*   treats PARAM1 as one of three things - a real estate INTRENO, a draft
+*   id, or a case id. A GUID_22 is none of those three; it exists only as
+*   the INDX(CJ) buffer id before the first key and is abandoned the moment
+*   one appears.
+*
+*   INTRENO is the name that covers all three real shapes, which is why the
+*   bridge already calls the item it travels in INTRENO_JOURNEY. Whichever
+*   parameter the portal spells it with - caseid, draftid - it lands here
+*   and goes out as the INTRENO, so the parameter name never mattered and
+*   reading a third one was solving nothing.
+*
+*   GET_CASE( ) on ZIF_RAK_JOURNEY keeps its name: 71 handlers in git call
+*   it and others exist only in SAP.
+    DATA mv_intreno TYPE string.
     DATA mv_case_number TYPE string.
     DATA ms_handle    TYPE zif_rak_journey_backend=>ty_handle.
     DATA mt_msg       TYPE zif_rak_journey=>tt_msg.
@@ -78,6 +154,109 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_closed      TYPE abap_bool.
     DATA mt_bp_hits     TYPE tt_bp_hit.
     DATA mt_attach      TYPE tt_att.
+*   ---- parcel selector state. EIGHT SCALARS, and deliberately not the
+*   rows: a citizen can hold hundreds of parcels and the list is re-read
+*   per round trip rather than carried in the serialized app state. See
+*   ZCL_RAK_CJ_PARCEL's header for why that is the cheaper half.
+    DATA mv_pcl_field TYPE string.
+    DATA mv_pcl_mode  TYPE string.
+    DATA mv_pcl_owner TYPE string.
+    DATA mv_pcl_fav   TYPE abap_bool.
+    DATA mv_pcl_term  TYPE string.
+    DATA mv_pcl_page  TYPE i.
+
+*   ---- ONE TICK STATE PER VISIBLE CARD, AND WHY SIX ------------------
+*   THE FLICKER IS A REPAINT, and the repaint is caused by the checkbox
+*   writing its state into the MARKUP. ZCL_RAK_CJ_PARCEL drew
+*   `selected = xsdbool( lv_sel )`, so ticking a box changed the XML;
+*   SEND_VIEW( ) takes the quiet path only when the stringified view is
+*   byte-identical, so every tick fell through to VIEW_DISPLAY( ), which
+*   tears the control tree down and rebuilds it - taking the scroll
+*   position and the focus with it. That is the "selection vanishes"
+*   half of the report as well as the flicker: the page jumps to the top.
+*
+*   BOUND INSTEAD, so the markup holds still. A binding expression is the
+*   same string whatever the value is, so the view hashes identically
+*   across a tick and VIEW_MODEL_UPDATE( ) can push the new state without
+*   touching a control.
+*
+*   SIX BECAUSE C_PAGE_SIZE IS SIX. A binding needs a real attribute to
+*   point at - Z2UI5_CL_XML_VIEW->_BIND_EDIT( ) resolves the reference,
+*   it cannot be given a computed name - and only the cards on the
+*   current page are ever drawn. Paging or searching changes the markup
+*   anyway (different parcel numbers), so those round trips repaint, and
+*   the slots simply get reloaded for the new page. If C_PAGE_SIZE ever
+*   grows, this list has to grow with it: a card past the sixth would
+*   silently get no binding and stop reflecting its own state.
+*
+*   THESE ARE AN OUTPUT CHANNEL, NOT THE TRUTH. The selection itself
+*   lives where it always did - the journey field, hyphen-joined, read
+*   through SEL_LIST( ) - and TICKS( ) reloads these from IS_SEL( ) on
+*   every render. UI5's two-way write on a tick is therefore harmless:
+*   the event carries the parcel key, TOGGLE( ) recomputes from the
+*   field, and the next render overwrites whatever the browser put here.
+    DATA mv_pcl_t1 TYPE abap_bool.
+    DATA mv_pcl_t2 TYPE abap_bool.
+    DATA mv_pcl_t3 TYPE abap_bool.
+    DATA mv_pcl_t4 TYPE abap_bool.
+    DATA mv_pcl_t5 TYPE abap_bool.
+    DATA mv_pcl_t6 TYPE abap_bool.
+    DATA mv_pcl_det   TYPE string.
+    DATA mv_pcl_pid   TYPE string.
+    DATA mv_pcl_tab   TYPE string.
+*   LIST or MAP. The ninth scalar, and the same reasoning as the other
+*   eight: which view the citizen chose is state, the features behind it
+*   are not.
+    DATA mv_pcl_view  TYPE string.
+
+*   The control that draws it. An INTERFACE reference on purpose - the
+*   implementing class reaches the generated legacy DPC through
+*   ZCL_RAK_PROPERTY_API, and naming it here would put that whole chain in
+*   the engine's load graph. It is created dynamically in ENSURE_PARTS( )
+*   and stays UNBOUND when the chain is not active, which is a journey
+*   that renders its parcel field as a plain dropdown - not one that dies.
+    DATA mo_pcl    TYPE REF TO zif_rak_cj_control.
+
+*   THE PROJECT SELECTOR'S BROWSE STATE, kept apart from the parcel one.
+*   Two card lists can legitimately be on one journey - M028 picks a
+*   project, M029 a parcel - and sharing MV_PCL_PAGE between them would
+*   make paging one of them page the other.
+    DATA mv_prj_field TYPE string.
+    DATA mv_prj_term  TYPE string.
+    DATA mv_prj_page  TYPE i.
+
+*   THE PROJECT LIST, CACHED ACROSS ROUND TRIPS, AND THE REASON IS PAGING.
+*   A composite control is rebuilt by ENSURE_PARTS( ) on every request, so
+*   a cache inside it spans one render - which means every page press,
+*   every search keystroke and every unrelated round trip on the step
+*   re-read 207 projects through the DPC. The parcel control carries the
+*   same cost and says so in ROWS( ); this is that note acted on.
+*
+*   A STRING TABLE, NOT THE ROW TYPE. Two reasons, both deliberate. The
+*   row type is LINE OF a generated MPC table, so naming it here would put
+*   the whole legacy DPC chain in the engine's load graph - the single
+*   thing every dynamic call in this area exists to avoid. And the full
+*   row carries navigation properties and metadata the cards never draw;
+*   five packed display values are about 60 bytes a project against
+*   several hundred, which matters because this rides the SERIALIZED app
+*   instance and is written and read on every single round trip.
+*
+*   MV_PRJ_SIG is what makes it safe to keep: the cache is used only while
+*   the signature - partner and journey - still matches, so a relaunch as
+*   somebody else cannot be shown the previous citizen's portfolio.
+    DATA mt_prj_rows TYPE string_table.
+    DATA mv_prj_sig  TYPE string.
+
+*   EVERY COMPOSITE CONTROL, ASKED IN TURN. This was a single MO_PCL, and
+*   the interface always anticipated more than one - "ABAP_FALSE means not
+*   mine" is in its header. A table is what makes that contract real: the
+*   renderer offers a field to each in order and takes the first that
+*   answers true, so adding the next control is one line in ENSURE_PARTS( )
+*   rather than a fourth copy of the dispatch.
+*
+*   MO_PCL STAYS, and is simply the first entry. Three places outside this
+*   class still name it and there is no behaviour to gain from renaming.
+    DATA mt_ctrl   TYPE STANDARD TABLE OF REF TO zif_rak_cj_control WITH EMPTY KEY.
     DATA mo_css    TYPE REF TO zcl_rak_journey_css.
     DATA mo_grid   TYPE REF TO zcl_rak_journey_grid.
     DATA mo_render TYPE REF TO zcl_rak_journey_render.
@@ -97,11 +276,21 @@ CLASS zcl_rak_journey_engine DEFINITION
     METHODS bp_of IMPORTING iv_in TYPE string RETURNING VALUE(rv) TYPE string.
 
     METHODS ensure_parts.
+
+*   Offers one event to every composite control in turn and stops at the
+*   first that claims it. Each is wrapped, because a control that dumps in
+*   ON_EVENT( ) must not take the round trip with it - the citizen pressed
+*   a card, not a diagnostic.
+    METHODS ctrl_event
+      IMPORTING iv_event          TYPE string
+      RETURNING VALUE(rv_handled) TYPE abap_bool.
     METHODS init.
     METHODS ensure_config.
     METHODS check_types.
     METHODS change_evt  IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS opt_evt     IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
+    METHODS opt_evt     IMPORTING iv_name  TYPE string
+                                  iv_typed TYPE abap_bool DEFAULT abap_false
+                        RETURNING VALUE(rv) TYPE string.
     METHODS btn_evt     IMPORTING iv_id   TYPE string RETURNING VALUE(rv) TYPE string.
     METHODS att_max_mb IMPORTING iv_field_mb TYPE i RETURNING VALUE(rv) TYPE i.
     CONSTANTS c_att_fallback_mb TYPE i VALUE 2.
@@ -110,13 +299,49 @@ CLASS zcl_rak_journey_engine DEFINITION
     DATA mv_att_sys_mb TYPE i.
     METHODS radio_key_back IMPORTING iv_field TYPE string.
     METHODS trace IMPORTING iv_text TYPE string.
+
+*   A MESSAGE ONLY A DEVELOPER SHOULD EVER SEE, and the one place that decides
+*   who that is. "Grid APPLICANT_1: no field with that name in this journey's
+*   configuration" is a defect report about ZRAK_T_JNY_FLD - addressed to
+*   whoever configured the journey, and it was being shown to the citizen on
+*   the confirmation screen, beside their own reference number.
+*
+*   IS_DEV( ) AND NOT TRACE_OK( ). These are not traces: they appear with no
+*   &trace=x and they are meant to, because an author needs to see a
+*   misconfiguration without knowing to ask for it. E10 is where journeys are
+*   configured, so E10 is where they belong - quality and production get
+*   nothing, whoever is looking and whatever they append to the URL.
+*
+*   ONE READER, because the alternative is a gate at forty-two call sites and
+*   the forty-third written without one.
+    METHODS dev_msg IMPORTING iv_text TYPE string
+                              iv_type TYPE string DEFAULT 'Warning'.
     METHODS read_params.
     METHODS build_model.
     METHODS merge_dynamic_steps.
     DATA mt_dyn_required TYPE string_table.
     DATA mv_dyn_note TYPE string.
-    METHODS val_get IMPORTING iv_name TYPE string RETURNING VALUE(rv) TYPE string.
-    METHODS val_set IMPORTING iv_name TYPE string iv_value TYPE string.
+*   PREFERRED PARAMETER IV_NAME on VAL_GET( ) - not on VAL_SET( ), which never
+*   had a single-value call site to protect. Every existing VAL_GET( name )
+*   call across the engine, the render class and every grid/rule method is a
+*   functional call with exactly one unnamed actual parameter; ABAP only
+*   allows that shorthand when the method has one IMPORTING parameter or a
+*   declared PREFERRED PARAMETER. Adding IV_SUFFIX as a second IMPORTING
+*   parameter without this addition would have turned every one of those call
+*   sites into "parameter assignment must be named" - a syntax error taking
+*   the whole class down at load, exactly what COMP_NAME( )'s own history
+*   warns about.
+    METHODS val_get IMPORTING iv_name     TYPE string
+                               iv_suffix   TYPE string OPTIONAL
+                       PREFERRED PARAMETER iv_name
+                     RETURNING VALUE(rv)   TYPE string.
+    METHODS val_set IMPORTING iv_name   TYPE string
+                               iv_suffix TYPE string OPTIONAL
+                               iv_value  TYPE string.
+
+*   Strip a mask's placeholder characters out of every COUNT value, once per
+*   round trip, before anything reads them. See the method body.
+    METHODS norm_masked.
 
     METHODS take_case IMPORTING iv_case TYPE string.
 
@@ -128,12 +353,73 @@ CLASS zcl_rak_journey_engine DEFINITION
                                       iv_text  TYPE string.
     METHODS clear_field_states.
 
+*   Called from ZCL_RAK_JOURNEY_GRID~RENDER_GRID( ), not only from
+*   CLEAR_FIELD_STATES( )'s round-trip sweep - a row created AFTER that
+*   sweep already ran this same round trip (GRIDADD_, or an ON_INIT/
+*   backend read that populates rows after MAIN( )'s top-of-method
+*   clear) still has its _VS at the type's technical initial value,
+*   blank string, and UI5 rejects a blank VALUESTATE outright. Touches
+*   ONLY a component that is genuinely blank - an 'Error' a handler or
+*   VALIDATE_STEP already set this same round trip is left exactly as
+*   it is, never reset by this pass.
+    METHODS ensure_grid_states IMPORTING is_field TYPE zif_rak_journey=>ty_field.
+
     METHODS handle_next.
     METHODS handle_submit.
+*   WHO OWNS THE DRAFT, AND WHO OWNS THE FILES.
+*
+*   Both resolve the same way: what the handler says, else what the journey
+*   is configured to say, else what the backend makes true. Handler first
+*   because only code can decide a mode that changes mid-journey; config
+*   next because a switch a consultant can throw beats one that needs a
+*   transport; derivation last, so a journey that says nothing still gets a
+*   sane answer rather than the accident of which backend it sits on.
+*
+*   See ZIF_RAK_JOURNEY=>C_MODE.
+    METHODS resolve_draft_mode  RETURNING VALUE(rv_mode) TYPE string.
+    METHODS resolve_attach_mode RETURNING VALUE(rv_mode) TYPE string.
     METHODS handle_save.
     METHODS handle_delete.
     METHODS bp_search.
     METHODS drop_attachments.
+
+*   Is the journey past the point of going back? True once the fee is PAID, or
+*   once the journey has been submitted or closed.
+*
+*   THE ONE DEFINITION, and it is deliberately at engine level rather than in
+*   the renderer. Nothing after payment is meant to be edited: the payment post
+*   is FINAL - COMMIT_STEP( ) sends the attachments with it and DROP_ATTACHMENTS( )
+*   clears the staging behind it, which is correct, because the documents are on
+*   the case from that moment and CJS is no longer holding them. A citizen who
+*   can still navigate back after paying lands on a step the framework has
+*   legitimately emptied and reads it as lost data. That is the D001 report
+*   "after pressing back button attachments gone - even after payment": the
+*   attachments were fine, the way back was the defect.
+*
+*   Every route back consults this, because a hidden button is not an
+*   unreachable event and there are FOUR routes, not one:
+*
+*     BACK      the footer button        - RENDER_FOOTER( ) stops drawing it
+*     GOTO_n    the wizard stepper dots  - RENDER_GOTO( ) stops drawing them and
+*                                          BUILD_STEPPER( ) stops marking a dot
+*                                          clickable
+*     TAB n     the TABS layout strip    - RENDER_TABS( ) disables them
+*     the event handler itself, which refuses all three regardless of what was
+*     drawn.
+*
+*   PAID is read from the PAYFEE-typed field on ANY step, not the current one -
+*   the same walk RENDER_FOOTER( ) already does to relabel Next as Done - so
+*   the lock and that relabelling agree by construction. Journeys with no fee
+*   are untouched: no PAYFEE field means no lock until submit.
+*   The Save as Draft confirmation, with a reference only when there is
+*   one worth printing. Both draft paths go through it so they cannot
+*   drift - they had already drifted to an em dash and a hyphen.
+    METHODS draft_msg RETURNING VALUE(rv) TYPE string.
+
+    METHODS nav_locked RETURNING VALUE(rv) TYPE abap_bool.
+*   Says why the press did nothing. A refusal with no message is the same
+*   screen twice and reads as the page being stuck.
+    METHODS nav_locked_msg.
     METHODS safe_field
       IMPORTING iv_name         TYPE string
       RETURNING VALUE(rs_field) TYPE zif_rak_journey=>ty_field.
@@ -141,7 +427,247 @@ CLASS zcl_rak_journey_engine DEFINITION
       IMPORTING iv_name   TYPE string
       RETURNING VALUE(rv) TYPE abap_bool.
 
+
+*   ---- CAPTCHA ---------------------------------------------------------
+*   THE ANSWER NEVER LEAVES THE SERVER, and that is the whole reason this
+*   is an engine attribute and not a model component. Z2UI5 persists the
+*   serialized app instance in Z2UI5_T_01 and hands the browser only its
+*   id (Z2UI5_CL_CORE_SRV_DRAFT->CREATE), so MV_CAP_CODE round trips
+*   through the database, not through the page. The model is the opposite:
+*   BUILD_MODEL( ) binds every component into the view, where it is
+*   readable from the browser's own model inspector. Put the expected
+*   answer there and the control is theatre - it renders a challenge a
+*   script reads straight back out.
+*
+*   MV_CAP_SEED, not the drawn markup, is what makes a repaint stable. The
+*   jitter is regenerated from the seed on every render, so the same
+*   challenge redraws identically without parking an SVG on the instance.
+    DATA mv_cap_code  TYPE string.
+    DATA mv_cap_seed  TYPE i.
+*   Answered correctly already. Cleared by CAPTCHA_NEW( ), never by a
+*   repaint - without it a citizen who passes the challenge and then
+*   causes any other round trip on the same step is challenged again,
+*   which reads as the control rejecting a correct answer.
+    DATA mv_cap_ok    TYPE abap_bool.
+
+*   ---- CASE EDIT MODE --------------------------------------------------
+*   WAS THE CITIZEN LET BACK IN, AND TO DO WHAT. Navigation and editing are
+*   two questions and the old NAV_LOCKED( ) answered only one of them: it
+*   refused Back, the stepper and GOTO the moment PAYFEE read PAID.
+*
+*   That guarded nothing. A case that exists can be reopened from the
+*   landing page, and the load path runs BACKEND_READ( 0 ) and rehydrates
+*   it completely - values, grids, and attachments into MT_BE_ATTACH. So
+*   "go back into an existing case" was always reachable by leaving and
+*   returning; the lock stopped the button, not the behaviour.
+*
+*   What actually needs protecting is not looking, it is CHANGING - a paid
+*   application must not be amended quietly, and on a journey whose fee is
+*   computed from the data (school fees by stage, by distance) an amendment
+*   after payment means the amount paid no longer matches the amount due.
+*
+*   So the mode says what may be edited and navigation is left alone:
+*
+*     EDIT      everything, as today
+*     PAY_ONLY  the citizen came back to an unpaid case: they may pay and
+*               read, and nothing else. This is the open-item case - the
+*               application was filed, the fee was raised, and the return
+*               trip exists to settle it.
+*     VIEW      paid. Read the whole thing, change none of it.
+*     DONE      submitted or closed. Navigation stops too - there is no
+*               earlier step to go back to in a finished case.
+*
+*   A journey with no PAYFEE control is always EDIT, so nothing without a
+*   payment step behaves differently from the day before this existed.
+    CONSTANTS c_mode_edit TYPE string VALUE 'EDIT'.
+    CONSTANTS c_mode_pay  TYPE string VALUE 'PAY_ONLY'.
+    CONSTANTS c_mode_view TYPE string VALUE 'VIEW'.
+    CONSTANTS c_mode_done TYPE string VALUE 'DONE'.
+
+*   Launched on an existing case rather than started fresh - &caseid= or
+*   &draftid= on the URL. Kept on the instance because MAIN( ) only works
+*   it out on the first round trip.
+    DATA mv_resumed TYPE abap_bool.
+
+*   THE FLOOR BACK CANNOT GO BELOW - the step an explicit &step= landed on,
+*   and zero on every ordinary launch.
+*
+*   Back exists to undo a move the citizen made. On a launch that lands at
+*   step 2 from a portal action they made no move: steps 0 and 1 were never
+*   drawn, never filled and never posted, so Back offered a screen they had
+*   not been on. On D004 that screen is the licence picker with nothing
+*   picked - the exact page the deep link exists to skip, and one that reads
+*   as "choose a licence" on a case that already has one.
+*
+*   ONLY FOR AN EXPLICIT &step=. The PAY_ONLY landing also moves the entry
+*   step, and it deliberately does NOT raise this floor: there the citizen is
+*   coming back to their own application and may legitimately want to read
+*   what they filled in earlier. That path keeps today's behaviour exactly.
+*
+*   PUBLIC because RENDER_FOOTER( ) decides whether to draw the button and
+*   the BACK event decides whether to honour it - and both have to read the
+*   same number. A hidden button is not an unreachable event.
+    DATA mv_entry_step TYPE i.
+
+*   R18-2. WHERE EACH PAGED TABLE'S WINDOW STARTS, keyed on the field.
+*
+*   Per field rather than one number, because a step can carry two long
+*   tables and paging one must not move the other. Public because
+*   RENDER_BLOCK( ) reads it to build the window and to draw the pager,
+*   and it rides the serialized instance so a page survives a round trip
+*   the way MV_STEP does.
+*
+*   An absent entry is offset zero, which is every table that has never
+*   been paged - so nothing here changes a table whose GROW_THRESH is
+*   blank, and there is no state to initialise.
+    DATA mt_page TYPE zif_rak_journey=>tt_kv.
+
+*   THE SAFETY NET. A table that comes back with more rows than this and
+*   has NO GROW_THRESH is paged anyway, at this size.
+*
+*   Because a four-thousand-row table is not a slow page, it is an
+*   unusable one - the browser builds four thousand rows of controls and
+*   the citizen gets a frozen tab. An author who has not thought about
+*   paging should not be able to produce that by accident, and "nobody
+*   configured it" is not a reason to render it.
+*
+*   IT ONLY FIXES WHAT IS DRAWN, NOT WHAT IS CARRIED, and the difference
+*   matters when reading the trace. By the time the engine sees the rows
+*   the handler has already fetched and built all of them; slicing here
+*   saves the rendering and none of the payload. Only a handler that
+*   honours IV_PAGE_SIZE saves the payload, which is why GROW_THRESH plus
+*   a cooperating handler stays the real answer and this is the floor
+*   under it.
+*
+*   200 IS DELIBERATELY HIGH. It is a crash guard, not a page size - low
+*   enough that no browser struggles, high enough that it does not quietly
+*   start paging tables that are working today. A journey that wants
+*   twenty-five per page says so in GROW_THRESH.
+    CONSTANTS c_page_max TYPE i VALUE 200.
+
+*   Move one page of IV_FIELD. IV_DIR is +1 or -1. Clamped at zero and at
+*   the last page the total allows; with no total it simply refuses to go
+*   below zero, which is all the information available.
+    METHODS page_move IMPORTING iv_field TYPE string
+                                iv_dir   TYPE i.
+
+*   The window offset for a field, zero when it has never been paged.
+    METHODS page_offset IMPORTING iv_field  TYPE string
+                        RETURNING VALUE(rv) TYPE i.
+
+*   R18-3. WHICH COLUMN OF WHICH TABLE THE CITIZEN SORTED BY, keyed on the
+*   field for the same reason MT_PAGE is - a step can carry two tables and
+*   sorting one must not reorder the other. The value is '<column>:<order>'
+*   with the order already in sap.ui.core.SortOrder spelling, so the renderer
+*   hands it straight to SORTINDICATOR and nothing has to translate twice.
+*
+*   It rides the serialized instance, so a sort survives a round trip the way
+*   a page does. An absent entry is no sort at all, which is every table that
+*   has never been sorted - so there is nothing to initialise and no table
+*   configured today behaves differently.
+    DATA mt_sort TYPE zif_rak_journey=>tt_kv.
+
+*   The sort a field is under. EV_COL is the one-based column index as the
+*   handler returned it (before hidden columns are dropped); EV_ORDER is
+*   'Ascending' or 'Descending'. Both blank/zero when the field is unsorted.
+    METHODS sort_state IMPORTING iv_field TYPE string
+                       EXPORTING ev_col   TYPE i
+                                 ev_order TYPE string.
+
+*   Record a sort. IV_ORDER is 'ASC' or 'DESC' as it travels in the event;
+*   it is normalised here so only one spelling ever reaches MT_SORT.
+    METHODS sort_set IMPORTING iv_field TYPE string
+                               iv_col   TYPE i
+                               iv_order TYPE string.
+
+    METHODS case_mode RETURNING VALUE(rv) TYPE string.
+*   Index of the step carrying the PAYFEE control, -1 when the journey has
+*   none. Matched on FTYPE, not on the field being called PAYFEE.
+    METHODS pay_step  RETURNING VALUE(rv) TYPE i.
+*   Index of the step carrying IV_FIELD, -1 when nothing does.
+    METHODS step_of   IMPORTING iv_field  TYPE string
+                      RETURNING VALUE(rv) TYPE i.
+
+*   THE ENTRY STEP THE URL ASKED FOR, or -1 when it asked for none.
+*
+*   &step= takes EITHER a STEP_ID - &step=OWNER - or a zero-based index.
+*   It exists so a portal action - "upload the missing document", "read
+*   the decision" - can open an existing case straight on the screen it is
+*   about, instead of on step 0 with the citizen walking forward through
+*   screens that are already filled and re-posting each one on the way.
+*
+*   PREFER THE STEP_ID in any link written by hand or built by the portal.
+*   Both are resolved against the step list only AFTER
+*   MERGE_DYNAMIC_STEPS( ) has run - which is why this is a method rather
+*   than a CONV at the point of use - but the merge DELETES a step whose
+*   backend describes no fields, so an index addresses whatever happens to
+*   be in that position on the day. A name addresses the step somebody
+*   meant, and when it is renamed or dropped it stops matching anything,
+*   visibly, instead of silently addressing its neighbour.
+*
+*   Neither form is clamped. A value that resolves to nothing is REFUSED -
+*   landing somewhere the link did not ask for is worse than not moving,
+*   because nothing on screen tells the citizen it happened.
+*
+*   -1 rather than 0 for "not asked". The caller has to tell an absent
+*   parameter from an explicit &step=0, because only the absent one leaves
+*   the PAY landing free to have its say.
+    METHODS param_step RETURNING VALUE(rv) TYPE i.
+
+*   Read the screen of the step being LANDED on, when that is not step 0.
+*   A no-op on a step-0 landing, so the caller does not have to test, and
+*   a no-op with no bridge - the external-backend path resumes the whole
+*   case in one call and has no per-screen read to make.
+    METHODS entry_read.
+
+*   A fresh challenge. First render, the refresh button, and after every
+*   WRONG answer - a challenge that survives a failed attempt can be
+*   brute-forced one guess per round trip against a target that never moves.
+    METHODS captcha_new.
+*   The current code, generated on demand so the renderer never has to
+*   care whether this is the first pass.
+    METHODS captcha_code RETURNING VALUE(rv) TYPE string.
+*   ASCII digits only, with Arabic-Indic U+0660..U+0669 folded in. An
+*   Arabic run draws its numerals in Arabic-Indic and a citizen typing on
+*   an Arabic keyboard sends those code points back; comparing them raw
+*   fails every time, on the language half these citizens use.
+    METHODS captcha_digits IMPORTING iv TYPE string RETURNING VALUE(rv) TYPE string.
+
   PRIVATE SECTION.
+
+*   ---- E10 CLIENT 200 ONLY: a borrowed portal session -----------------
+*   A journey opened from the Studio or straight from the URL carries no
+*   &userdata= and no &loginbp=, so RESOLVE_IDENTITY( ) resolves nobody -
+*   and then EVERY backend call goes out anonymous. The legacy CREATE
+*   answers cleanly with no draft reference, which surfaces as "The
+*   backend did not return a draft reference", and every wrapper API read
+*   filters on a blank partner and returns nothing. Neither says why.
+*
+*   SIM_USERDATA( ) borrows the active ZEGA_T_CJ_US_LOG row for C_SIM_USER
+*   - read only, never written; the rule is to mimic a portal login, not
+*   to create one. Both SY-SYSID and SY-MANDT are checked, so a transport
+*   anywhere else resolves nobody exactly as before.
+    CONSTANTS c_sim_sysid TYPE sy-sysid VALUE 'E10'.
+    CONSTANTS c_sim_mandt TYPE sy-mandt VALUE '200'.
+    CONSTANTS c_sim_user  TYPE zega_t_cj_us_log-id VALUE 'HISHAM.M'.
+
+*   EV_PARTNER as well as the envelope. The envelope is what the LEGACY
+*   side parses; the partner is what THIS side needs, and tying the second
+*   to the first parsing correctly is how the parcel list went blank.
+    METHODS sim_userdata
+      EXPORTING ev_userdata TYPE string
+                ev_partner  TYPE string.
+*   IV_NAME shape '<GRID_FIELD>.<COL>#<ROW>' - the same compound name
+*   ON_CHANGE already receives for a grid cell (see the GRIDCHG_ branch
+*   in Z2UI5_IF_APP~MAIN). SET_FIELD_STATE( ) dispatches here whenever
+*   IV_NAME contains '#'; a scalar field name never does.
+    METHODS set_cell_state IMPORTING iv_name  TYPE string
+                                     iv_state TYPE string
+                                     iv_text  TYPE string.
+
+*   CLEAR_FIELD_STATES( )'s EDITABLE_TABLE branch - blanks every NUMBER/
+*   INPUT column's _VS/_VST on every existing row, via SET_CELL_STATE( ).
+    METHODS clear_grid_states IMPORTING is_field TYPE zif_rak_journey=>ty_field.
 ENDCLASS.
 
 
@@ -156,6 +682,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     CLEAR mt_msg.
     CLEAR mt_gate.
+*   The highlight is MT_MSG's companion, not a separate fact - it lives in the
+*   model (_VS/_VST) rather than in MT_MSG itself, so clearing one without the
+*   other leaves a field red with no message explaining why. Only NEXT/SUBMIT
+*   re-validate and can re-redden a field that is genuinely still wrong; every
+*   other round trip (a blur CHANGE_ event, most commonly) now starts clean
+*   like MT_MSG already did, instead of carrying the previous validation's red
+*   forward with no text to point at it.
+    clear_field_states( ).
 
     TRY.
         CALL METHOD ('ZCL_RAK_NOT_TRACE')=>('RESET').
@@ -189,6 +723,20 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
       merge_dynamic_steps( ).
 
+*     Rebuild the model after the merge, not only at launch.
+*
+*     MERGE_DYNAMIC_STEPS( ) can add fields on any round trip - the Notary
+*     business-object step is described only once the citizen has chosen a
+*     declaration, long after INIT( ) ran - and the model built at launch has
+*     no component for them. VAL_GET( ) then falls through to MT_SCRATCH, which
+*     no binding reads, so a value picked in a dynamic field had nowhere to live
+*     and vanished on the next render. On a mandatory field that also made the
+*     step impossible to leave.
+*
+*     BUILD_MODEL( ) carries existing values across, so calling it again is safe
+*     and idempotent; when the merge added nothing it rebuilds the same shape.
+      build_model( ).
+
       LOOP AT mt_dyn_required INTO DATA(lv_dreq2).
         zif_rak_journey~set_required( iv_field = lv_dreq2 iv_on = abap_true ).
       ENDLOOP.
@@ -209,30 +757,106 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                            iv_channel = zif_rak_journey~get_param( 'channel' )
                            iv_device  = zif_rak_journey~get_param( 'device' ) ).
 
+*   THE SLG1 LOG, alongside the telemetry event above and not instead of it.
+*   ZCL_RAK_CJ_EVT counts journeys and measures durations; this is what
+*   support opens when one citizen rings up about one request. OPEN( ) is a
+*   no-op after the first call, so it can sit on every round trip.
+*
+*   Keyed on the journey key once there is one, because the external number
+*   is what makes a log findable in SLG1's own selection screen.
+    zcl_rak_cj_log=>open( iv_journey = mv_journey
+                          iv_extno   = mv_intreno ).
+
+*   AND SAY WHETHER IT WORKED. The log fails silently by design - it must
+*   never be the reason a journey stops - but that makes "broken" and
+*   "nothing to log" identical from outside, which already cost a round:
+*   SLG1 showed four entries, every one of them the BAdI's, and nothing
+*   said whether CJS had even tried. STATUS( ) names the call and the
+*   exception, so one launch settles it instead of a guess at a parameter.
+*   THE PREVIOUS ROUND TRIP'S OUTCOME WHERE THERE IS ONE, because this round
+*   trip's has not happened yet - the flush is the last thing MAIN( ) does.
+*   Reporting the fresh state here is what made the log look healthy while it
+*   wrote nothing: STATUS( ) can only ever say "ready" at this point, on every
+*   request, for ever.
+    trace( |LOG     { COND string( WHEN mv_log_last IS NOT INITIAL
+                                   THEN mv_log_last && ` (last round trip)`
+                                   ELSE zcl_rak_cj_log=>status( ) ) }| ).
+
     IF lv_first = abap_true.
       DATA(lv_resumed) = xsdbool(
         zif_rak_journey~get_param( 'caseid' )  IS NOT INITIAL OR
         zif_rak_journey~get_param( 'draftid' ) IS NOT INITIAL ).
+*     Kept, because CASE_MODE( ) needs it on every later round trip and
+*     this block runs once.
+      mv_resumed = lv_resumed.
+
+*     THE LAUNCH LINE, and only here - this block runs once per session.
+*     ZCL_RAK_CJ_LOG buffers it and writes nothing until SAVE( ) finds a
+*     non-empty buffer, so this is what makes a launch produce one SLG1
+*     entry rather than one per round trip.
+      zcl_rak_cj_log=>add(
+        iv_type = 'I'
+        iv_text = |{ COND string( WHEN lv_resumed = abap_true THEN 'RESUME' ELSE 'LAUNCH' ) }| &&
+                  | { mv_journey } · bp { mv_loginbp } · key | &&
+                  |{ COND string( WHEN mv_intreno IS NOT INITIAL THEN mv_intreno ELSE '(new)' ) }| ).
 
       zcl_rak_cj_evt=>add(
         iv_type   = COND #( WHEN lv_resumed = abap_true
                             THEN zcl_rak_cj_evt=>c_type-resume
                             ELSE zcl_rak_cj_evt=>c_type-launch )
-        iv_case   = mv_case_guid
+        iv_case   = mv_intreno
         iv_bp     = mv_loginbp
         iv_detail = |{ ms_config-backend-category }| ).
     ENDIF.
 
     DATA(ls_get)   = mo_client->get( ).
     DATA(lv_event) = ls_get-event.
+    CLEAR mv_quiet_evt.
+
+*   Refresh the rule state against THIS round trip's field values before
+*   dispatching the event. An INPUT-triggered rule's field arrives already
+*   updated in the model (the blur that types the value and the button
+*   press that submits it land in the same round trip), but MT_RULEREQ /
+*   MT_RULERO / MT_RULEEDIT otherwise still hold what EVAL_RULES( ) computed
+*   last round trip. VALIDATE_STEP( ) / VALIDATE_ALL( ) - reached from NEXT
+*   and SUBMIT below - would then check requiredness against stale rule
+*   state while the render at the bottom of this method draws the fresh
+*   one, so a field could be validated and rendered as disagreeing answers
+*   to the same round trip.
+*
+*   NORM_MASKED( ) runs FIRST, and before every read below it too. A COUNT
+*   field drawn as a sap.m.MaskInput hands back the mask's PLACEHOLDER
+*   CHARACTERS for the positions the citizen did not fill, so a one-digit
+*   answer in a two-digit mask arrives as "5_" rather than "5". Left alone
+*   that fails a REGEX of '^[0-9]+$' - the field's own configured check - and
+*   produces a field nobody can get past no matter what they type, which is
+*   the worst shape a validation bug takes.
+    norm_masked( ).
+
+    mo_rules->eval_rules( ).
 
     IF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'SEARCH_'.
+*     QUIET, LIKE CHANGE_ AND THE ATTACHMENT EVENTS. A partner search writes
+*     what it found into the model - birth date, nationality, mobile, email,
+*     the name beside the id - and every one of those is a bound VALUE. The
+*     markup does not move, so there is nothing to gain by rebuilding the
+*     page or the dialog around it, and a dialog rebuilt mid-search is the
+*     same flash the uploader used to have.
+*
+*     THE FLAG ONLY PERMITS IT. SEND_VIEW( ) and SEND_POPUP( ) still compare
+*     the markup, so a search that genuinely changes the shape - reveals a
+*     field, fills a results table, fails and writes a message strip - does
+*     not match and repaints exactly as it does today. That is why this is
+*     safe to set for every handler's ON_SEARCH( ) without knowing what any
+*     of them do: the test is the markup, never a promise made here.
+      mv_quiet_evt = abap_true.
       IF mo_logic IS BOUND.
         mo_logic->on_search( io_ctx = me iv_field = substring( val = lv_event off = 7 ) ).
       ENDIF.
 
     ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'CHANGE_'.
       DATA(lv_chg_fld) = substring( val = lv_event off = 7 ).
+      mv_quiet_evt = abap_true.
       radio_key_back( lv_chg_fld ).
       IF mo_logic IS BOUND.
         TRY.
@@ -259,17 +883,75 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         CLEAR mt_msg.
         mv_closed    = abap_true.
         mv_submitted = abap_true.
-        DATA(lv_fbw) = abap_false.
-        IF mo_logic IS BOUND.
-          lv_fbw = abap_true.
-          TRY.
-              lv_fbw = mo_logic->wants_feedback( me ).
-            CATCH cx_root.
-          ENDTRY.
-        ENDIF.
-        IF mv_fb_done = abap_true OR lv_fbw = abap_false.
+*       ---- THE DECIDING HALF OF THE HAPPINESS METER -------------------
+*       LV_FBW STARTS TRUE NOW, AND IT STARTED FALSE. With no handler
+*       bound the old code left it FALSE, which set MV_CLOSE_PAGE and
+*       took the citizen straight to the closing page - so a journey with
+*       no HANDLER_CLASS was never OFFERED feedback at all. The renderer
+*       had a matching guard and that was only the second lock on the
+*       same door; this is the one that decides.
+*
+*       Every other default here already said the opposite:
+*       WANTS_FEEDBACK( ) on the base returns ABAP_TRUE, and the CATCH
+*       deliberately leaves LV_FBW alone so a handler that DUMPS still
+*       gets the meter. An absent handler is a weaker statement than a
+*       broken one, and it was the only one of the three read as "no".
+*
+*       Handler-free journeys are normal here rather than exceptional -
+*       the base class is concrete and CREATE PUBLIC so a journey can be
+*       configured without one, and twelve M journeys point straight at
+*       it.
+*
+*       The unbound call raises CX_SY_REF_IS_INITIAL and the CATCH takes
+*       it, leaving the ABAP_TRUE above standing, so the IS BOUND test is
+*       not needed to keep this safe - only to keep it quiet, which is
+*       what it was doing wrong.
+        DATA(lv_fbw) = abap_true.
+        TRY.
+            lv_fbw = mo_logic->wants_feedback( me ).
+          CATCH cx_root.
+            lv_fbw = abap_true.
+        ENDTRY.
+        IF mv_fb_done = abap_true OR mv_fb_skip = abap_true OR lv_fbw = abap_false.
           mv_close_page = abap_true.
         ENDIF.
+      ENDIF.
+
+*   R18-2. THE PAGER. Two events, one per direction, carrying the field
+*   they belong to - the same shape as ROWPICK_ below and for the same
+*   reason: a step can hold two paged tables and the event has to say
+*   which one moved.
+*
+*   CP rather than an offset, per the standing rule about IV_EVENT: it is
+*   a STRING and a short event name makes an offset throw
+*   CX_SY_RANGE_OUT_OF_BOUNDS. A pattern match cannot run off the end.
+    ELSEIF lv_event CP 'PAGEPREV_*'.
+      page_move( iv_field = substring( val = lv_event off = 9 ) iv_dir = -1 ).
+
+    ELSEIF lv_event CP 'PAGENEXT_*'.
+      page_move( iv_field = substring( val = lv_event off = 9 ) iv_dir = 1 ).
+
+*   R18-3. A COLUMN HEADER MENU'S SORT. 'TSORT_<field>~<column>~<ASC|DESC>',
+*   the same shape as ROWPICK_ and for the same reason - the event has to say
+*   which table and which column, because a step can hold more than one.
+*
+*   THE ORDER TRAVELS IN THE EVENT NAME rather than being read back off the
+*   control. sap.m.table.columnmenu.QuickSort reports its choice in the event
+*   payload, and there is no reading of a z2ui5 event payload that does not
+*   depend on the frontend's own parameter names; a menu of plain ActionItems,
+*   one per direction, each carrying its answer in its own event, cannot be
+*   read wrong. It is also why the renderer draws two entries rather than a
+*   toggle - a toggle would need to know what it is toggling from.
+    ELSEIF lv_event CP 'TSORT_*'.
+      DATA lv_tsf  TYPE string.
+      DATA lv_tsc  TYPE string.
+      DATA lv_tso  TYPE string.
+      SPLIT substring( val = lv_event off = 6 ) AT '~' INTO lv_tsf lv_tsc lv_tso.
+      IF lv_tsf IS NOT INITIAL AND lv_tsc CO '0123456789'
+         AND lv_tsc IS NOT INITIAL AND strlen( lv_tsc ) <= 4.
+        sort_set( iv_field = lv_tsf
+                  iv_col   = CONV i( lv_tsc )
+                  iv_order = lv_tso ).
       ENDIF.
 
     ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ROWPICK_'.
@@ -278,10 +960,45 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         READ TABLE ls_rps-fields INTO DATA(ls_rpf) WITH KEY name = lv_rpf.
         IF sy-subrc = 0.
           DATA lv_rptgt TYPE string.
-          lv_rptgt = COND #( WHEN ls_rpf-default IS NOT INITIAL THEN ls_rpf-default
-                             WHEN to_upper( ls_rpf-type ) = 'RECORDCARD' THEN ls_rpf-name
-                             ELSE '' ).
+*         The caption parts are the renderer's business, not the engine's -
+*         two separate sinks because one variable bound to both would be the
+*         same memory written twice by one SPLIT.
+          DATA lv_rpc1  TYPE string.
+          DATA lv_rpc2  TYPE string.
+
+*         THE TARGET IS THE PART BEFORE THE FIRST '|', and it is read through
+*         the same PICK_SPEC( ) the renderer captions the button with. This
+*         line used to take DEFAULT_VAL whole, which was right until the
+*         caption was added to the tail of it and made the two readings
+*         disagree: the button drew as "View" and the press wrote the row key
+*         into a field called 'SEL_GUID|View|<ar>'. VAL_SET( ) to a name the
+*         model does not have says nothing, no handler CASE matched, and the
+*         journey sat exactly where it was. One column, two readers, one
+*         split - never two.
+          zcl_rak_journey_util=>pick_spec( EXPORTING iv_default = ls_rpf-default
+                                           IMPORTING ev_target  = lv_rptgt
+                                                     ev_text_en = lv_rpc1
+                                                     ev_text_ar = lv_rpc2 ).
+          IF lv_rptgt IS INITIAL AND to_upper( ls_rpf-type ) = 'RECORDCARD'.
+            lv_rptgt = ls_rpf-name.
+          ENDIF.
           IF lv_rptgt IS NOT INITIAL.
+
+*           AND SAY SO WHEN IT NAMES NOTHING. A pick target that is not a
+*           field on this journey is the quietest failure the engine has:
+*           VAL_SET( ) is a no-op on an unknown name, ON_CHANGE( ) is dispatched
+*           for a field nobody handles, and the citizen presses a button that
+*           does nothing with no message, no navigation and no trace. It cost
+*           a test round to find once. It also catches the older shape of the
+*           same thing - a DEFAULT_VAL still naming a field that was renamed.
+            DATA(ls_rptf) = safe_field( lv_rptgt ).
+            IF ls_rptf-name IS INITIAL.
+              trace_gate( |Table { ls_rpf-name }: the row-pick target { lv_rptgt } | &&
+                          |is not a field on this journey, so the press writes | &&
+                          |nowhere and nothing moves. Check DEFAULT_VAL on that | &&
+                          |field - the target is the part before the first pipe.| ).
+            ENDIF.
+
             val_set( iv_name = lv_rptgt iv_value = lv_rpk ).
             IF mo_logic IS BOUND.
               mo_logic->on_change( io_ctx = me iv_field = lv_rptgt ).
@@ -329,12 +1046,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_goto) = substring( val = lv_event off = 5 ).
       IF lv_goto IS NOT INITIAL AND lv_goto CO '0123456789'.
         DATA(lv_gt) = CONV i( lv_goto ).
-        IF lv_gt >= 0 AND lv_gt < lines( ms_config-steps ).
+        IF nav_locked( ) = abap_true.
+          nav_locked_msg( ).
+        ELSEIF lv_gt >= 0 AND lv_gt < lines( ms_config-steps ).
           mv_step = lv_gt.
         ENDIF.
       ENDIF.
 
     ELSEIF lv_event = 'FBSEND'.
+*     SAVED BY THE ENGINE, BEFORE THE HOOK, AND NOT BY THE HOOK.
+*
+*     The base ON_FEEDBACK( ) is empty, so until now every journey whose
+*     handler did not redefine it collected a rating from the citizen and
+*     threw it away - the meter drew, the citizen pressed Send, and
+*     nothing anywhere was written.
+*
+*     PUTTING THE WRITE IN THE BASE HOOK WOULD HAVE BEEN WORSE. A handler
+*     redefining ON_FEEDBACK( ) replaces the base body, so it would become
+*     a fifth hook whose empty redefinition silently removes something -
+*     the trap that lost E128 its PAID gate and D020 its fee card. In the
+*     engine it cannot be redefined away, and a handler that wants to do
+*     something else with the rating still can.
+      save_feedback( ).
+
       IF mo_logic IS BOUND.
         TRY.
             mo_logic->on_feedback( io_ctx = me iv_rating = mv_fb_rating iv_comment = mv_fb_comment ).
@@ -346,6 +1080,33 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mv_close_page = abap_true.
       ENDIF.
 
+*   FEEDBACK IS OFFERED, NEVER REQUIRED.
+*
+*   Pressing Close set MV_CLOSED and MV_SUBMITTED but left MV_CLOSE_PAGE
+*   false while feedback was wanted and not yet given, and the Send button
+*   is disabled until a face is picked. So a citizen who did not want to
+*   rate the service had no way out of the closing page at all - the only
+*   control that ended the journey was one they had to answer first.
+*   Reported on four journeys as "feedback is mandatory".
+*
+*   This does not mark MV_FB_DONE: nothing was submitted, so ON_FEEDBACK( )
+*   must not run and the thank-you card must not claim a rating that was
+*   never given.
+    ELSEIF lv_event = 'FBSKIP'.
+      mv_fb_skip = abap_true.
+      IF mv_closed = abap_true.
+        mv_close_page = abap_true.
+      ENDIF.
+
+    ELSEIF mt_ctrl IS NOT INITIAL AND strlen( lv_event ) > 3
+           AND ( substring( val = lv_event len = 3 ) = 'PCL'
+              OR substring( val = lv_event len = 3 ) = 'PRJ' )
+           AND ctrl_event( lv_event ) = abap_true.
+*     Handled by the parcel control. The prefix is tested HERE as well as
+*     inside the control so an unbound control costs one comparison, and
+*     ON_EVENT( ) still answers false for a PCL event it does not know -
+*     in which case this branch is not taken and the chain continues.
+
     ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'BPOPEN_'.
       mv_pop_field = substring( val = lv_event off = 7 ).
       mv_popup = 'BP'.
@@ -356,7 +1117,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       val_set( iv_name = mv_pop_field iv_value = lv_bp ).
       READ TABLE mt_bp_hits INTO DATA(ls_hit) WITH KEY partner = lv_bp.
       IF sy-subrc = 0.
-        val_set( iv_name = |{ mv_pop_field }_NAME| iv_value = ls_hit-name ).
+        val_set( iv_name = mv_pop_field iv_suffix = '_NAME' iv_value = ls_hit-name ).
       ENDIF.
       IF mo_logic IS BOUND.
         mo_logic->on_change( io_ctx = me iv_field = mv_pop_field ).
@@ -364,7 +1125,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       set_field_state( iv_name = mv_pop_field iv_state = 'None' iv_text = '' ).
       CLEAR: mv_popup, mt_bp_hits.
 
-    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTSAVE_'.
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTSAVE_'
+           AND case_mode( ) = c_mode_edit.
+*     QUIET, LIKE A CHANGE_ ROUND TRIP. An uploader's two states are drawn
+*     together and switched by bound values (RENDER_ATT_PAIR( )), so staging
+*     a file no longer alters the markup and SEND_VIEW( ) can refresh the
+*     model instead of rebuilding the page. This flag only PERMITS that: the
+*     markup signature still has to match, so anything an upload genuinely
+*     changes - a rule flipping a field visible, a message strip - takes the
+*     full repaint as before.
+      mv_quiet_evt = abap_true.
       DATA(lv_att_raw) = substring( val = lv_event off = 8 ).
       DATA lv_att_field TYPE string.
       DATA lv_att_key   TYPE string.
@@ -380,30 +1150,98 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                  |{ lv_att_mb } MB, so it has not been attached.| ) ).
       ELSEIF mv_att_b64 IS NOT INITIAL.
         DATA lv_att_msg TYPE string.
-        DATA(lv_att_guid) = zcl_rak_cj_att_store=>put( EXPORTING iv_name = mv_att_name
-                                                                 iv_b64  = mv_att_b64
-                                                       IMPORTING ev_msg  = lv_att_msg ).
+*       THE JOURNEY GOES WITH THE FILE. ZRAK_CJ_ATTX had no journey column, so
+*       a staged file could not be traced back to what staged it and the
+*       per-journey RETENTION( ) policy had nothing to key on - which is why
+*       ZRAK_CJ_ATT_PURGE could only ever sweep on one age for everything.
+        DATA(lv_att_guid) = zcl_rak_cj_att_store=>put( EXPORTING iv_name    = mv_att_name
+                                                                 iv_b64     = mv_att_b64
+                                                                 iv_journey = mv_journey
+                                                       IMPORTING ev_msg     = lv_att_msg ).
         IF lv_att_guid IS NOT INITIAL.
           DATA lv_att_tech TYPE string.
-          CLEAR lv_att_tech.
+          DATA lv_att_dtyp TYPE string.
+          DATA lv_att_hit  TYPE abap_bool.
+          CLEAR: lv_att_tech, lv_att_dtyp, lv_att_hit.
           LOOP AT ms_config-steps INTO DATA(ls_att_s).
             LOOP AT ls_att_s-fields INTO DATA(ls_att_f) WHERE name IS NOT INITIAL.
               IF to_upper( ls_att_f-name ) = lv_att_field.
                 lv_att_tech = ls_att_f-tech_name.
+*               THE DOCUMENT TYPE, from DEFAULT_VAL behind a DTYPE: prefix.
+*               See TY_ATT-DTYPE for why it is there and not in a column of
+*               its own. Read here rather than at post time because this is
+*               where the field is already in hand.
+*               Through DIRECTIVE( ) now, because DEFAULT_VAL carries more
+*               than one of these - FNAME: sits beside DTYPE: and the two
+*               must be read the same way. DTYPE:1 on its own parses to
+*               exactly what the old substring( ) returned.
+                IF ls_att_f-default CP 'DTYPE:*' OR ls_att_f-default CS ';DTYPE:'.
+                  lv_att_dtyp = zcl_rak_journey_util=>directive( iv_spec = ls_att_f-default
+                                                                 iv_key  = 'DTYPE' ).
+                ENDIF.
+*               NOT "tech_name is filled". A field can legitimately have no
+*               TECH_NAME and still declare a document type, and stopping on
+*               the first non-blank TECH_NAME meant the loop below exited
+*               before reaching a field that had one.
+                lv_att_hit = abap_true.
                 EXIT.
               ENDIF.
             ENDLOOP.
-            IF lv_att_tech IS NOT INITIAL.
+            IF lv_att_hit = abap_true.
               EXIT.
             ENDIF.
           ENDLOOP.
+*         ONE FILE PER UPLOADER, ENFORCED HERE AND NOT ONLY DRAWN.
+*
+*         RENDER_ATTACH( ) stops drawing the picker once a chip exists, but
+*         a hidden control is not an unreachable event: a stale tab, a
+*         second window on the same journey, or a handler-drawn uploader in
+*         a popup can all still post a file. Without this the count the
+*         renderer trusts and the table it counts disagree.
+*
+*         REPLACE RATHER THAN REFUSE. The citizen picked a file for a field
+*         that already has one, and the only thing they can mean by that is
+*         "use this one instead" - refusing with a message would leave the
+*         old document in place while telling them the new one failed. The
+*         old file is dropped from the store as well, so nothing is left
+*         orphaned in ZRAK_CJ_ATTX.
+*
+*         KEYED ON FIELD AND OCCURRENCE. OKEY is what separates one owner's
+*         Emirates ID copy from another's on a repeating uploader, so
+*         replacing on FIELD alone would let a second owner's upload delete
+*         the first owner's document.
+          LOOP AT mt_attach INTO DATA(ls_att_old)
+               WHERE field = lv_att_field AND okey = lv_att_key.
+            zcl_rak_cj_att_store=>delete( ls_att_old-guid ).
+            trace( |ATTACH  { lv_att_field } replaced { ls_att_old-name } with { mv_att_name } | &&
+                   |- one file per uploader| ).
+          ENDLOOP.
+          DELETE mt_attach WHERE field = lv_att_field AND okey = lv_att_key.
+
           APPEND VALUE #( field = lv_att_field
                           tech  = lv_att_tech
                           name  = mv_att_name
                           guid  = lv_att_guid
+                          dtype = lv_att_dtyp
                           okey  = lv_att_key ) TO mt_attach.
           set_field_state( iv_name = lv_att_field iv_state = 'None' iv_text = '' ).
-          mt_msg = VALUE #( ( type = 'Success' text = |{ mv_att_name } attached| ) ).
+*         ---- NO "x attached" STRIP, AND NO FOCUS MARKER ----------------
+*         Both existed to tell the citizen the upload worked and then to put
+*         the page back where the telling had moved it.
+*
+*         THE STRIP WAS PART OF THE PROBLEM IT ANNOUNCED. It draws at the TOP
+*         of the page (RENDER( )), so it pushed everything below it down on
+*         the very render that also swapped the picker for the filed row -
+*         which is why no pixel-based scroll restore could ever be right.
+*
+*         AND IT SAID WHAT THE SCREEN ALREADY SHOWS. The file's name appears
+*         in the control the citizen just used, with a delete button beside
+*         it. That is a better confirmation than a line of text at the top of
+*         a form they may have scrolled well past.
+*
+*         ERRORS AND WARNINGS STILL USE MT_MSG - a refusal has nowhere else
+*         to appear, and the whole point of the strip is that it is hard to
+*         miss. Only the Success line is gone.
           IF mo_logic IS BOUND.
             TRY.
                 mo_logic->on_attach( io_ctx = me iv_field = lv_att_field ).
@@ -434,7 +1272,53 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-    ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'ATTDEL_'.
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTDELP_'
+           AND case_mode( ) = c_mode_edit.
+*     THE DIALOG'S DELETE, keyed by occurrence. Same reasoning as ATTDELF_
+*     below - a stable event name keeps the fragment's markup stable - but it
+*     carries the occurrence after a tilde, exactly as ATTSAVE_ does, so one
+*     owner's document is never removed by another owner's press.
+      DATA lv_delp_f TYPE string.
+      DATA lv_delp_k TYPE string.
+*     Into a variable first, the way ATTSAVE_ above does it - a functional
+*     call as a SPLIT source is one more shape nothing here compiles to check.
+      DATA(lv_delp_raw) = substring( val = lv_event off = 8 ).
+      SPLIT lv_delp_raw AT '~' INTO lv_delp_f lv_delp_k.
+      lv_delp_f = to_upper( lv_delp_f ).
+      LOOP AT mt_attach INTO DATA(ls_delp) WHERE field = lv_delp_f AND okey = lv_delp_k.
+        zcl_rak_cj_att_store=>delete( ls_delp-guid ).
+      ENDLOOP.
+      DELETE mt_attach WHERE field = lv_delp_f AND okey = lv_delp_k.
+      mv_quiet_evt = abap_true.
+
+    ELSEIF strlen( lv_event ) > 8 AND substring( val = lv_event len = 8 ) = 'ATTDELF_'
+           AND case_mode( ) = c_mode_edit.
+*     ---- DELETE BY FIELD, NOT BY POSITION --------------------------------
+*     ATTDEL_<n> is an index into MT_ATTACH, so the number in the markup
+*     changes as files come and go - and a changing event name is a changing
+*     view, which is the repaint RENDER_ATT_PAIR( ) exists to avoid. The
+*     field name does not change for the life of the journey.
+*
+*     KEYLESS ONLY. An occurrence-keyed file belongs to one row of a
+*     repeating uploader and is still drawn, and deleted, by index - there
+*     is no per-occurrence model component for it to bind to. Deleting on
+*     FIELD alone here would take a second owner's document with it.
+      DATA(lv_delf) = to_upper( substring( val = lv_event off = 8 ) ).
+      LOOP AT mt_attach INTO DATA(ls_delf) WHERE field = lv_delf AND okey IS INITIAL.
+        zcl_rak_cj_att_store=>delete( ls_delf-guid ).
+      ENDLOOP.
+      DELETE mt_attach WHERE field = lv_delf AND okey IS INITIAL.
+*     Same quiet permission as ATTSAVE_ above, and for the same reason: the
+*     markup is the same whether the file is there or not.
+      mv_quiet_evt = abap_true.
+
+    ELSEIF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'ATTDEL_'
+           AND case_mode( ) = c_mode_edit.
+*     A HIDDEN BUTTON IS NOT AN UNREACHABLE EVENT, which this codebase has
+*     already paid to learn once - it is why HANDLE_SAVE( ) refuses an OFF
+*     draft mode rather than trusting the renderer to hide the button. The
+*     uploader and the delete chips are not drawn on a frozen case, and the
+*     events they would have raised are refused here as well.
       DATA(lv_del) = substring( val = lv_event off = 7 ).
       IF lv_del CO '0123456789'.
         DATA(lv_del_ix) = CONV i( lv_del ).
@@ -472,7 +1356,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       DATA(lv_rest) = substring( val = lv_event off = 3 ).
       IF lv_rest IS NOT INITIAL AND lv_rest CO '0123456789'.
         DATA(lv_tb) = CONV i( lv_rest ).
-        IF lv_tb >= 0 AND lv_tb < lines( ms_config-steps ).
+        IF nav_locked( ) = abap_true AND lv_tb <> mv_step.
+          nav_locked_msg( ).
+        ELSEIF lv_tb >= 0 AND lv_tb < lines( ms_config-steps ).
           mv_step = lv_tb.
         ENDIF.
       ENDIF.
@@ -484,34 +1370,96 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           handle_next( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-next
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid
+                               iv_case    = mv_intreno
                                iv_result  = COND string( WHEN mv_step > lv_from THEN 'OK' ELSE 'BLOCK' )
                                iv_detail  = |{ lv_from }>{ mv_step }| ).
+*         ONE CHALLENGE, ONE LOOKUP. A captcha that is answered once and
+*         then stands for the rest of the session stops a bot for exactly
+*         one request, which on a tracking service - the whole point of
+*         putting it there - is the request that costs nothing. Burning
+*         the challenge on every successful advance means each new search
+*         is a new puzzle.
+*
+*         Unconditional on purpose. MV_CAP_CODE is read by nothing but the
+*         CAPTCHA control, so regenerating it on a journey that has no such
+*         field costs one short string and cannot be observed.
+          IF mv_step > lv_from.
+            captcha_new( ).
+          ENDIF.
         WHEN 'BACK'.
-          IF mv_step > 0.
+          IF nav_locked( ) = abap_true.
+            nav_locked_msg( ).
+*         MV_ENTRY_STEP, NOT ZERO. On a launch that landed past step 0 the
+*         floor is where it landed - the earlier steps were never drawn,
+*         never filled and never posted, so going "back" to one shows the
+*         citizen a page they have not been on. Zero on every ordinary
+*         launch, so this reads as it always did there.
+*
+*         Checked here as well as in RENDER_FOOTER( ), which stops drawing
+*         the button at the same floor: a hidden button is not an
+*         unreachable event, and a stale tab can still post BACK.
+          ELSEIF mv_step > mv_entry_step.
             mv_step = mv_step - 1.
+*           RE-READ, the way ADVANCE_STEP( ) does. Going back used to move
+*           the index and nothing else, so the citizen saw the last state
+*           the MODEL held rather than what the backend now holds - and a
+*           post can transform values, apply defaults and change field
+*           control on the way through. Forward refreshed, back did not,
+*           and the two disagreeing was invisible because paid journeys
+*           could not go back at all.
+*
+*           An editable grid that already holds rows is not re-seeded by
+*           this - BACKEND_READ( ) is careful about that - so a citizen's
+*           own rows survive the trip.
+            IF mo_bridge IS BOUND.
+              mo_be->backend_read( iv_step = mv_step ).
+              IF mo_logic IS BOUND.
+                TRY.
+                    mo_logic->on_after_read( me ).
+                  CATCH cx_root.
+                ENDTRY.
+              ENDIF.
+            ENDIF.
             zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-back
                                  iv_step_no = mv_step
-                                 iv_case    = mv_case_guid ).
+                                 iv_case    = mv_intreno ).
           ENDIF.
         WHEN 'SUBMIT'.
           handle_submit( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-submit
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid
+                               iv_case    = mv_intreno
                                iv_bp      = mv_loginbp ).
         WHEN 'SAVE'.
           handle_save( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-save
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid ).
+                               iv_case    = mv_intreno ).
+*       The refresh arrow under the challenge. A citizen who cannot read
+*       this one gets another; the button is the accessibility floor of an
+*       image control, not a convenience.
+        WHEN 'CAPTCHA_NEW'.
+          captcha_new( ).
+*         AND EMPTY THE BOX. A new picture with the old answer still
+*         sitting under it is a trap: the citizen pressed refresh
+*         because they could not read the last one, so whatever is in
+*         there is an answer to a challenge that no longer exists, and
+*         leaving it means their next press of Next fails for a reason
+*         the screen does not explain.
+          READ TABLE ms_config-steps INTO DATA(ls_cst) INDEX mv_step + 1.
+          IF sy-subrc = 0.
+            LOOP AT ls_cst-fields INTO DATA(ls_cf) WHERE type = 'CAPTCHA'.
+              val_set( iv_name = ls_cf-name iv_value = `` ).
+              set_field_state( iv_name = ls_cf-name iv_state = 'None' iv_text = '' ).
+            ENDLOOP.
+          ENDIF.
         WHEN 'ASKDEL'. mv_popup = 'DELCONF'.
         WHEN 'DELETE'.
           handle_delete( ).
           zcl_rak_cj_evt=>add( iv_type    = zcl_rak_cj_evt=>c_type-delete
                                iv_step_no = mv_step
-                               iv_case    = mv_case_guid ).
-        WHEN 'POPCLOSE'. CLEAR: mv_popup, mt_bp_hits.
+                               iv_case    = mv_intreno ).
+        WHEN 'POPCLOSE'. CLEAR: mv_popup, mt_bp_hits, mv_pcl_det.
         WHEN 'BPGO'.     bp_search( ).
       ENDCASE.
     ENDIF.
@@ -534,17 +1482,43 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     zcl_rak_cj_evt=>add_view( iv_step_id = ``
                               iv_step_no = mv_step ).
 
-    IF mv_case_guid IS NOT INITIAL.
+    IF mv_intreno IS NOT INITIAL.
       zcl_rak_cj_evt=>add_once( iv_type    = zcl_rak_cj_evt=>c_type-case_new
-                                iv_key     = mv_case_guid
-                                iv_case    = mv_case_guid
+                                iv_key     = mv_intreno
+                                iv_case    = mv_intreno
                                 iv_step_no = mv_step ).
     ENDIF.
 
     zcl_rak_cj_evt=>flush( ).
 
+*   EVERY ERROR AND WARNING THE CITIZEN WAS SHOWN, INTO SLG1 - written here,
+*   at the one point every round trip passes through, rather than at each
+*   of the several dozen places that append to MT_MSG. Support's first
+*   question is "what did they actually see", and this answers it without
+*   the citizen having to remember.
+*
+*   Errors and warnings only. An informational strip is usually the journey
+*   working, and logging those would bury the lines that matter.
+    LOOP AT mt_msg INTO DATA(ls_lmsg) WHERE type = 'Error' OR type = 'Warning'.
+      zcl_rak_cj_log=>add(
+        iv_type = COND symsgty( WHEN ls_lmsg-type = 'Error' THEN 'E' ELSE 'W' )
+        iv_text = |step { mv_step } · { ls_lmsg-text }| ).
+    ENDLOOP.
+
+*   FLUSH. Nothing reaches SLG1 until this runs, and the next interaction
+*   opens its own log - so one SLG1 entry is one journey interaction rather
+*   than whatever a work process happened to serve.
+    zcl_rak_cj_log=>save( ).
+
+*   AND KEEP WHAT IT DID. Read AFTER the flush, so this is the outcome and
+*   not a prediction, and parked on the engine so the next round trip's trace
+*   can report it - see MV_LOG_LAST. Nothing here renders: the view has
+*   already gone out by this point, which is half the reason the failure was
+*   invisible.
+    mv_log_last = zcl_rak_cj_log=>status( ).
+
     CLEAR ms_config.
-    CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules.
+    CLEAR: mo_css, mo_grid, mo_render, mo_be, mo_rules, mo_pcl.
     CLEAR ms_handle-token.
   ENDMETHOD.
 
@@ -575,6 +1549,31 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     mv_userdata = zif_rak_journey~get_param( 'userdata' ).
 
+*   TRACE ON BEFORE IDENTITY, and this was a real blind spot rather than
+*   a tidy-up. MV_TRACE was resolved twenty lines below, AFTER
+*   RESOLVE_IDENTITY( ) had already run - and TRACE( ) drops everything
+*   while it is blank. So every IDENT line the identity resolution emits
+*   was discarded, on the one screen where the question is "who does CJS
+*   think this citizen is".
+*
+*   The symptom: a &trace=x launch that ends in "The backend did not
+*   return a draft reference" prints the journey, the path, the handler
+*   and the CREATE - and not one word about the partner, which is the
+*   thing that was wrong. The blocker had to reconstruct it from what was
+*   sent rather than reading what was resolved.
+*   AND THE TRACE IS DEVELOPMENT AND QUALITY ONLY. It prints partner
+*   numbers, case ids, what went to the backend and the BAdI's own
+*   messages - on production that is a citizen's screen, reachable by
+*   anyone who appends &trace=x to their own address bar.
+*
+*   The refusal is SILENT on purpose. A "tracing is not available on this
+*   system" strip would confirm the parameter exists to somebody who was
+*   guessing; MV_TRACE simply stays false and TRACE( ) drops everything,
+*   which is what it already does when nobody asked.
+    DATA(lv_tp0) = to_upper( zif_rak_journey~get_param( 'trace' ) ).
+    mv_trace = xsdbool( ( lv_tp0 = 'X' OR lv_tp0 = '1' OR lv_tp0 = 'TRUE' )
+                        AND zcl_rak_journey_util=>trace_ok( ) = abap_true ).
+
     resolve_identity( ).
 
     ensure_config( ).
@@ -587,16 +1586,15 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     DATA lv_launch_case TYPE string.
 
-    IF mv_case_guid IS INITIAL.
-      mv_case_guid = zif_rak_journey~get_param( 'caseid' ).
-      IF mv_case_guid IS NOT INITIAL.
-        lv_launch_case = mv_case_guid.
+    IF mv_intreno IS INITIAL.
+      mv_intreno = zif_rak_journey~get_param( 'caseid' ).
+      IF mv_intreno IS NOT INITIAL.
+        lv_launch_case = mv_intreno.
       ELSE.
-        mv_case_guid = zif_rak_journey~get_param( 'draftid' ).
+        mv_intreno = zif_rak_journey~get_param( 'draftid' ).
       ENDIF.
     ENDIF.
-    DATA(lv_tp) = to_upper( zif_rak_journey~get_param( 'trace' ) ).
-    mv_trace = xsdbool( lv_tp = 'X' OR lv_tp = '1' OR lv_tp = 'TRUE' ).
+*   Already resolved above, before RESOLVE_IDENTITY( ) - see there.
 
     mo_backend = zcl_rak_be_factory=>get( ms_config ).
     IF mo_backend IS INITIAL AND ms_config-backend-active = abap_true.
@@ -614,7 +1612,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ELSE.
         trace( 'path = NONE. No backend call will be made on any event. BKND_ACTIVE is blank.' ).
       ENDIF.
-      trace( |case/draft on entry = { COND string( WHEN mv_case_guid IS NOT INITIAL THEN mv_case_guid ELSE '(new application)' ) }| ).
+      trace( |case/draft on entry = { COND string( WHEN mv_intreno IS NOT INITIAL THEN mv_intreno ELSE '(new application)' ) }| ).
     ENDIF.
 
 
@@ -634,7 +1632,23 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_field).
+*       A TEXT: default is the field's wording, never its value.
+*
+*       This guard is the whole reason TEXT: is safe on a CHECKBOX. Seed a
+*       consent paragraph as the checkbox's value and the box renders ticked
+*       and satisfies its own required check - the citizen consents to the
+*       declaration by loading the page, and nothing anywhere says so.
+*       An API: directive is the field's SOURCE, never its value - exactly
+*       as TEXT: is its wording. Seeded, a migrated parcel selector opened
+*       showing "API:PROPERTY:PropertiesSet::Type=Parcel" as the citizen's
+*       current selection, and would have posted that string as the chosen
+*       parcel. Same guard, same reason, one line apart.
         IF ls_field-default IS NOT INITIAL
+           AND ls_field-default NP 'TEXT:*'
+           AND ls_field-default NP 'API:*'
+*          DTYPE: is the uploader's DOCUMENT TYPE, not its value - third
+*          directive to need this guard, same reason as the two above.
+           AND ls_field-default NP 'DTYPE:*'
            AND ls_field-type <> 'LINK'
            AND ls_field-type <> 'EDITABLE_TABLE'
            AND ls_field-type <> 'RO_PANEL'
@@ -642,8 +1656,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
           val_set( iv_name = ls_field-name iv_value = ls_field-default ).
         ENDIF.
         IF ls_field-type = 'RO_PANEL'.
-          val_set( iv_name  = |{ ls_field-name }_EXP|
-                   iv_value = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
+          val_set( iv_name   = ls_field-name
+                   iv_suffix = '_EXP'
+                   iv_value  = COND string( WHEN to_upper( ls_field-default ) = 'CLOSED'
                                            THEN '' ELSE 'X' ) ).
         ENDIF.
       ENDLOOP.
@@ -663,6 +1678,18 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     check_types( ).
 
+*   AFTER the CREATE OBJECT above, which is the whole point. Reported from the
+*   journey banner higher up in this method it read NOT BOUND on every first
+*   load - the banner is written before the handler is built - and that false
+*   negative is worse than no line at all: it sends you looking for a broken
+*   class when the class is fine.
+    IF mv_trace = abap_true.
+      trace( |handler { COND string( WHEN ms_config-handler_class IS NOT INITIAL
+                                     THEN ms_config-handler_class
+                                     ELSE '(none configured)' ) }| &&
+             | · { COND string( WHEN mo_logic IS BOUND THEN 'bound' ELSE 'NOT BOUND' ) }| ).
+    ENDIF.
+
     IF mo_logic IS BOUND.
       TRY.
           mo_logic->on_init( me ).
@@ -670,8 +1697,40 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    IF mv_case_guid IS NOT INITIAL AND mo_bridge IS BOUND.
-      mo_be->backend_read( 0 ).
+*   ---- THE ENTRY STEP IS DECIDED BEFORE THE READ, NOT AFTER IT ----------
+*   BACKEND_READ( ) IS PER SCREEN. It sends the BKND_SCREEN of the step
+*   index it is given, so a launch that renders step 2 while only step 0
+*   was read shows the citizen a screen nobody asked the backend about.
+*   MV_STEP used to be resolved forty lines BELOW the two reads, which is
+*   why &step= drew an empty second screen and filled it only once the
+*   citizen navigated away and back - and an empty screen on a resumed
+*   case looks exactly like a case with nothing in it.
+*
+*   So the order is now: resolve where we are landing, then read. Step 0 is
+*   STILL read unconditionally, and that is deliberate rather than left
+*   over - a value the backend returns for screen 0 lands in the model by
+*   NAME, so anything drawn outside the current step (the applicant banner
+*   is the one that matters) would go blank if the entry read replaced it
+*   instead of following it. One extra call, and only on a launch that
+*   names a step, which is a launch that does not exist today.
+*
+*   PARAM_STEP( ) has to run after MERGE_DYNAMIC_STEPS( ) and BUILD_MODEL( )
+*   above, because the step list it validates against is only final there.
+    DATA(lv_entry) = param_step( ).
+    IF lv_entry >= 0.
+      mv_step = lv_entry.
+*     AND THE FLOOR WITH IT. See MV_ENTRY_STEP: the citizen made no move to
+*     get here, so there is nothing behind them to go back to.
+      mv_entry_step = lv_entry.
+      trace( |entry step { mv_step } from &step= · screen | &&
+             |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
+    ENDIF.
+
+    IF mv_intreno IS NOT INITIAL AND mo_bridge IS BOUND.
+*     THE BUFFER GOES BEFORE THE READ, NOT AFTER IT. See CLEAR_READ_BUFFER( ).
+      clear_read_buffer( ).
+      mo_be->backend_read( iv_step = 0 ).
+      entry_read( ).
       IF mo_logic IS BOUND.
         TRY.
             mo_logic->on_after_read( me ).
@@ -679,10 +1738,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
 
-    ELSEIF mv_case_guid IS INITIAL AND mo_bridge IS BOUND.
+    ELSEIF mv_intreno IS INITIAL AND mo_bridge IS BOUND.
       mo_be->backend_create( ).
-      IF mv_case_guid IS NOT INITIAL.
-        mo_be->backend_read( 0 ).
+      IF mv_intreno IS NOT INITIAL.
+        mo_be->backend_read( iv_step = 0 ).
+        entry_read( ).
         IF mo_logic IS BOUND.
           TRY.
               mo_logic->on_after_read( me ).
@@ -691,12 +1751,12 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-    ELSEIF mv_case_guid IS NOT INITIAL AND mo_backend IS BOUND.
+    ELSEIF mv_intreno IS NOT INITIAL AND mo_backend IS BOUND.
       DATA(ls_rh) = ms_handle.
       DATA lt_rr TYPE bapiret2_t.
       mo_backend->resume(
         EXPORTING
-          iv_request_id = mv_case_guid
+          iv_request_id = mv_intreno
         IMPORTING
           et_return     = lt_rr
         CHANGING
@@ -712,11 +1772,35 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         ENDTRY.
       ENDIF.
     ENDIF.
-    DATA(lv_sp) = zif_rak_journey~get_param( 'step' ).
-    IF lv_sp IS NOT INITIAL AND lv_sp CO '0123456789'.
-      DATA(lv_si) = CONV i( lv_sp ).
-      IF lv_si > 0 AND lv_si < lines( ms_config-steps ).
-        mv_step = lv_si.
+*   LAND WHERE THERE IS SOMETHING TO DO. Reopening an unpaid case put the
+*   citizen back on step 0, walking forward through steps that are already
+*   filled and re-posting each one on the way to the fee they came to pay.
+*   An explicit &step= still wins - it is a deliberate instruction from
+*   whoever built the link - and it has already been applied above, before
+*   the read, which is why the test here is LV_ENTRY and not the parameter.
+*
+*   Still decided HERE rather than up there, deliberately: CASE_MODE( )
+*   reads the PAYFEE field's value, and on this path that value is whatever
+*   the read just returned. Moving the test above the read would judge the
+*   payment state of a case nobody had read yet.
+    IF lv_entry < 0 AND case_mode( ) = c_mode_pay.
+      DATA(lv_pst) = pay_step( ).
+      IF lv_pst > 0.
+        mv_step = lv_pst.
+
+*       AND READ THE SCREEN WE JUST MOVED TO. Same defect as the &step=
+*       one above and it was here first: this landing moved the index and
+*       nothing else, so the fee step drew from a model holding only what
+*       screen 0's read had returned. It survived because the fee card
+*       resolves its amount through ZCL_RAK_PAY_ENGINE rather than through
+*       the step read - every other field on that screen was blank.
+        entry_read( ).
+        IF mo_logic IS BOUND.
+          TRY.
+              mo_logic->on_after_read( me ).
+            CATCH cx_root.
+          ENDTRY.
+        ENDIF.
       ENDIF.
     ENDIF.
   ENDMETHOD.
@@ -734,11 +1818,80 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_field).
+*       COMP_NAME( ), not a bare TO_UPPER( ). A field name is free text on
+*       ZRAK_T_JNY_FLD - nothing stops a hyphen, a space or anything else CREATE( )
+*       below cannot use as a component name, and TO_UPPER( ) does not remove one.
+*       CX_SY_STRUCT_COMP_NAME from CL_ABAP_STRUCTDESCR=>CREATE( ) is uncaught here,
+*       so one badly named field anywhere in the config took the whole app down
+*       with "UNCAUGHT EXCEPTION - Please Restart App" for every journey, not only
+*       the one the field belonged to.
+        DATA(lv_name) = zcl_rak_journey_util=>comp_name( ls_field-name ).
+
+*       ---- THE FOUR ATTACHMENT COMPANIONS, AND WHY THEY EXIST --------
+*       An uploader has two states and they used to be two different pieces
+*       of MARKUP - a picker before a file is staged, a filed row after. So
+*       the round trip that stages a file produced a different view, and
+*       SEND_VIEW( ) had no choice but to call VIEW_DISPLAY( ): the whole
+*       control tree torn down and rebuilt, which is the flash on screen.
+*
+*       Bound to these instead, BOTH states are in the markup all the time
+*       and only their VALUES change - so the stringified view is identical
+*       across an upload, SEND_VIEW( )'s signature matches, and the round
+*       trip goes out as VIEW_MODEL_UPDATE( ): bindings refreshed, nothing
+*       re-rendered, no flash. That is the whole reason they are here, and
+*       it is why nothing about an uploader's main-page markup may depend
+*       on whether a file is staged.
+*
+*       SIX CHARACTERS EACH, deliberately. COMP_NAME( ) caps a base name at
+*       23 because the longest companion before these was _IDTYPE at seven,
+*       and 23 + 7 is the DDIC component ceiling of 30. Six keeps that
+*       budget intact; a longer one would need the cap lowered for every
+*       field on every journey.
+*
+*       AN UPLOAD BLOCK GETS THEM TOO, which is why this sits ABOVE the
+*       UPLOAD skip below rather than beside the other companions. It has
+*       no value component of its own - there is nothing for a citizen to
+*       type into an upload block - and it has exactly the same two states.
+        IF ls_field-has_attach = abap_true OR ls_field-type = 'UPLOAD'.
+*         _ATTFN the staged file's name, _ATTUR the link it opens at.
+*         BOTH SCOPES, AND THEY MUST NOT SHARE. A field drawn on the page and
+*         again inside a dialog is rendered TWICE in one round trip - the main
+*         view is rebuilt whether or not a popup is open - so one set of
+*         components would have the two writers overwriting each other and the
+*         dialog showing the page's filename or the reverse. _ATTP* is the
+*         popup's set; only one dialog is ever open, so one set covers every
+*         occurrence a repeating uploader has.
+*
+*         _ATTPFN IS SEVEN CHARACTERS, which lands exactly on the DDIC ceiling
+*         of 30 against COMP_NAME( )'s 23-character base - the same budget
+*         _IDTYPE already spends. There is no room for an eighth.
+          LOOP AT VALUE string_table( ( `_ATTFN` ) ( `_ATTUR` )
+                                      ( `_ATTPFN` ) ( `_ATTPUR` ) ) INTO DATA(lv_atts).
+            DATA(lv_attsn) = |{ lv_name }{ lv_atts }|.
+            READ TABLE lt_comp WITH KEY name = lv_attsn TRANSPORTING NO FIELDS.
+            IF sy-subrc <> 0.
+              APPEND VALUE #( name = lv_attsn type = lo_str ) TO lt_comp.
+            ENDIF.
+          ENDLOOP.
+*         _ATTON shows the filed row, _ATTOF shows the picker. Two flags and
+*         not one negated: a z2ui5 binding is a plain model path, so the
+*         inverse has to exist as its own value rather than as an expression
+*         the renderer would have to write by hand into the markup.
+          LOOP AT VALUE string_table( ( `_ATTON` ) ( `_ATTOF` )
+                                      ( `_ATTPON` ) ( `_ATTPOF` ) ) INTO DATA(lv_attb).
+            DATA(lv_attbn) = |{ lv_name }{ lv_attb }|.
+            READ TABLE lt_comp WITH KEY name = lv_attbn TRANSPORTING NO FIELDS.
+            IF sy-subrc <> 0.
+              APPEND VALUE #( name = lv_attbn type = lo_bool ) TO lt_comp.
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
+
+*       An UPLOAD block has no value of its own, so it stops here - after
+*       the companions above, which it does need.
         IF ls_field-type = 'UPLOAD'.
           CONTINUE.
         ENDIF.
-
-        DATA(lv_name) = to_upper( ls_field-name ).
 
         IF ls_field-type = 'EDITABLE_TABLE'.
           READ TABLE lt_comp WITH KEY name = lv_name TRANSPORTING NO FIELDS.
@@ -761,6 +1914,54 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
                 APPEND VALUE #( name = gc-name
                                 type = COND #( WHEN gc-name CP '*_EN' OR gc-ctype = 'CHECKBOX'
                                               THEN lo_bool ELSE lo_str ) ) TO lt_rowcomp.
+              ENDIF.
+*             A read-only SELECT column shows the resolved option label, not
+*             the stored key (ZCL_RAK_JOURNEY_GRID->RENDER_GRID resolves it
+*             into this companion, once per column, before the table
+*             binds - the cell template is one control shared by every row,
+*             so there is no per-row place to do the lookup at render time).
+*             4 characters, well inside the 23-character base COMP_NAME( )
+*             already leaves for the longest existing companion.
+*             A TEXT COLUMN WHOSE DATA ELEMENT CONVERTS GETS ONE TOO.
+*             A grid cell cannot be converted where it is drawn: the row
+*             is a shared template bound to {COL}, so there is no per-row
+*             literal to put a converted value in. SELECT already solved
+*             that with a _TXT companion; a padded key is the same problem
+*             and takes the same answer.
+*
+*             GATED ON THE ELEMENT ACTUALLY DECLARING AN EXIT, not merely
+*             on SRC being filled. SRC is also the SELECT column's value
+*             help, so half the grids in the estate carry one - creating a
+*             companion for every such column would add a model field per
+*             column per row to every round trip for nothing.
+              IF gc-ctype = 'SELECT'
+                 OR ( gc-ctype = 'TEXT'
+                      AND zcl_rak_journey_util=>has_conv_exit( gc-src ) = abap_true ).
+                DATA(lv_txtname) = |{ gc-name }_TXT|.
+                READ TABLE lt_rowcomp WITH KEY name = lv_txtname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_txtname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
+              ENDIF.
+*             A per-row highlight, same idea as _TXT above - NUMBER and
+*             INPUT are the two free-text cell types a value can actually
+*             be wrong in (SELECT and CHECKBOX are constrained choices,
+*             nothing to flag red). ZCL_RAK_JOURNEY_GRID binds these on
+*             the cell control; ZCL_RAK_JOURNEY_ENGINE~SET_CELL_STATE( )
+*             writes them from a handler's TY_MSG-FIELD. 3 and 4
+*             characters, same budget the _TXT note above already
+*             reasons about.
+              IF gc-ctype = 'NUMBER' OR gc-ctype = 'INPUT'.
+                DATA(lv_vsname)  = |{ gc-name }_VS|.
+                DATA(lv_vstname) = |{ gc-name }_VST|.
+                READ TABLE lt_rowcomp WITH KEY name = lv_vsname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_vsname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
+                READ TABLE lt_rowcomp WITH KEY name = lv_vstname TRANSPORTING NO FIELDS.
+                IF sy-subrc <> 0.
+                  APPEND VALUE #( name = lv_vstname type = lo_str ) TO lt_rowcomp.
+                ENDIF.
               ENDIF.
             ENDLOOP.
             DATA(lo_row)  = cl_abap_structdescr=>create( lt_rowcomp ).
@@ -849,12 +2050,101 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA(lo_struct) = cl_abap_structdescr=>create( lt_comp ).
+
+*   Carry the existing values across instead of throwing them away.
+*
+*   This used to CREATE DATA a fresh structure and drop the old one, which was
+*   harmless while BUILD_MODEL( ) only ran once at launch. It is not harmless
+*   now: dynamic fields arrive AFTER launch - the Notary declaration is picked
+*   on step 1 and only then does MS_CONFIG gain the business-object fields - so
+*   the model must be rebuilt to grow components for them, and rebuilding must
+*   not cost the citizen everything already entered.
+*
+*   MOVE-CORRESPONDING copies component by name, so fields that survive the
+*   rebuild keep their values and genuinely new ones start empty.
+    DATA(lr_old) = mr_model.
+
     CREATE DATA mr_model TYPE HANDLE lo_struct.
+
+    IF lr_old IS BOUND.
+      FIELD-SYMBOLS <old_model> TYPE any.
+      FIELD-SYMBOLS <new_model> TYPE any.
+      ASSIGN lr_old->*   TO <old_model>.
+      ASSIGN mr_model->* TO <new_model>.
+      IF <old_model> IS ASSIGNED AND <new_model> IS ASSIGNED.
+*       Guarded: a grid whose columns changed between rebuilds has a different
+*       row type under the same component name, and copying one to the other
+*       raises rather than simply skipping. Losing the carried-over values is
+*       bad; taking the whole journey down with a dump is worse.
+        TRY.
+            MOVE-CORRESPONDING <old_model> TO <new_model>.
+          CATCH cx_root INTO DATA(lx_carry).
+            trace( |model rebuild could not carry values across: { lx_carry->get_text( ) }| ).
+        ENDTRY.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD norm_masked.
+*   THE MASK'S PLACEHOLDER IS NOT PART OF THE ANSWER.
+*
+*   RENDER_ONE( )'s COUNT branch draws an editable bounded count as a
+*   sap.m.MaskInput, which is what stops a letter being typed at all instead
+*   of reporting it on Next. The cost is that the control returns its mask,
+*   not only what was entered: positions still empty come back as the
+*   placeholder symbol.
+*
+*   That symbol is '_', UI5's default, and it is the default because a space -
+*   which is what this would rather show - cannot be passed. A space is blank,
+*   and XML_GET_PARTS( ) drops every blank property from the markup, so
+*   PLACEHOLDERSYMBOL would read as set in the ABAP and never reach the
+*   control. The renderer says so at the call site.
+*
+*   Both are removed rather than only '_', because which one arrives depends
+*   on a property that may or may not have been emitted, and a COUNT is digits
+*   only - there is no legitimate space or underscore in one to preserve. A
+*   value that is already clean is left exactly as it is, so a COUNT drawn
+*   through the INPUT( ) fallback - read-only, or no MAX_LEN - is untouched.
+*
+*   Every step, not only the current one: VALIDATE_ALL( ) on submit reads
+*   fields from steps the citizen left long ago, and a value clean enough to
+*   pass its own step has to still be clean at the end.
+    LOOP AT ms_config-steps INTO DATA(ls_ns).
+      LOOP AT ls_ns-fields INTO DATA(ls_nf) WHERE type = 'COUNT'.
+        DATA(lv_raw) = val_get( ls_nf-name ).
+        IF lv_raw IS INITIAL.
+          CONTINUE.
+        ENDIF.
+        DATA(lv_cln) = lv_raw.
+        REPLACE ALL OCCURRENCES OF '_' IN lv_cln WITH ''.
+        CONDENSE lv_cln NO-GAPS.
+        IF lv_cln <> lv_raw.
+          val_set( iv_name = ls_nf-name iv_value = lv_cln ).
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
   ENDMETHOD.
 
 
   METHOD val_get.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   COMP_NAME( ), not a bare TO_UPPER( ). See the note on BUILD_MODEL( ): a field
+*   name is free text on ZRAK_T_JNY_FLD, and the model component it built for
+*   this same name went through COMP_NAME( ) - VAL_SET( ) has to arrive at the
+*   identical key or a field with a sanitised name would read back empty.
+*
+*   IV_SUFFIX, appended AFTER COMP_NAME( ), never before. A companion component
+*   ( _VS, _VST, _IDTYPE, _NAME, _IX, _EXP ) is built by BUILD_MODEL( ) as
+*   COMP_NAME( base-name ) && suffix - the hash, when the base name needs one,
+*   is over the base name alone. Running COMP_NAME( ) over the base name and
+*   suffix already concatenated hashes a DIFFERENT string once base name plus
+*   suffix together exceed 23 characters, so callers used to write
+*   VAL_GET( |{ name }_VS| ) and silently read back empty once the base name
+*   got long enough - the exact silent failure BUILD_MODEL( )'s own comment
+*   warns COMP_NAME( ) exists to avoid, reintroduced one level up. Do not
+*   re-concatenate the suffix into IV_NAME at the call site; pass it here
+*   instead.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     FIELD-SYMBOLS <model> TYPE any.
     ASSIGN mr_model->* TO <model>.
     ASSIGN COMPONENT lv_key OF STRUCTURE <model> TO FIELD-SYMBOL(<f>).
@@ -897,7 +2187,9 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD val_set.
-    DATA(lv_key) = to_upper( condense( iv_name ) ).
+*   Same key VAL_GET( ) computes - see the note there. IV_SUFFIX appended
+*   AFTER COMP_NAME( ), never concatenated into IV_NAME before the call.
+    DATA(lv_key) = zcl_rak_journey_util=>comp_name( iv_name ) && iv_suffix.
     IF lv_key IS INITIAL.
       RETURN.
     ENDIF.
@@ -1008,6 +2300,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey~msgs.
+    rt_msg = mt_msg.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey~get_step.
     rv_step = mv_step.
   ENDMETHOD.
@@ -1076,7 +2373,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF line_exists( lt_sub[ type = 'E' ] ).
         RETURN.
       ENDIF.
-      mv_case_guid = ms_handle-request_id.
+      mv_intreno = ms_handle-request_id.
       mv_submitted = abap_true.
       drop_attachments( ).
     ELSEIF mo_bridge IS BOUND.
@@ -1085,15 +2382,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         EXPORTING
           iv_screen      = ls_step-bknd_screen
           iv_status      = 'SUBMIT'
-          iv_guid        = mv_case_guid
+          iv_guid        = mv_intreno
           it_items       = mo_be->post_items( )
           it_tables      = mo_be->tables_for_backend( )
           it_attachments = mo_be->attachments_for_backend( )
         IMPORTING
-          ev_guid        = mv_case_guid
+          ev_guid        = mv_intreno
           ev_case        = DATA(lv_case_sub)
           et_msg         = DATA(lt_ret) ).
       take_case( lv_case_sub ).
+
+*     THE SUBMIT, LOGGED WITH BOTH KEYS. The journey key and the case are
+*     different values on Municipality, and support needs the pair: the
+*     citizen quotes one, the backend was searched on the other. This is
+*     the single most useful line in the whole log.
+      zcl_rak_cj_log=>add(
+        iv_type = COND symsgty( WHEN line_exists( lt_ret[ type = 'Error' ] ) THEN 'E' ELSE 'S' )
+        iv_text = |SUBMIT { mv_journey } · key { mv_intreno } · case | &&
+                  |{ COND string( WHEN lv_case_sub IS NOT INITIAL THEN lv_case_sub ELSE '(none returned)' ) }| ).
+
       READ TABLE lt_ret WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
       IF sy-subrc = 0.
         mt_msg = lt_ret.
@@ -1109,8 +2416,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
       drop_attachments( ).
     ELSE.
-      IF mv_case_guid IS INITIAL.
-        mv_case_guid = COND #( WHEN ms_config-cj_type IS NOT INITIAL
+      IF mv_intreno IS INITIAL.
+        mv_intreno = COND #( WHEN ms_config-cj_type IS NOT INITIAL
                                THEN |{ ms_config-cj_type }-{ sy-datum }{ sy-uzeit }|
                                ELSE |{ sy-datum }{ sy-uzeit }| ).
       ENDIF.
@@ -1119,17 +2426,144 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     IF mv_ref_ovr IS NOT INITIAL.
-      mv_case_guid = mv_ref_ovr.
+      mv_intreno = mv_ref_ovr.
     ENDIF.
   ENDMETHOD.
 
 
+  METHOD resolve_draft_mode.
+*   1. The handler, if it has an opinion.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->draft_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+*   2. The journey configuration.
+    rv_mode = ms_config-draft_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   3. Derived - and this is the rule worth reading.
+*
+*   A backend that creates and re-opens the case IS the draft. Keeping a
+*   second copy on the CJS side would mean two records of the same
+*   unfinished application, diverging from the moment the citizen resumes
+*   one of them, with nothing to say which is authoritative. So whenever
+*   something downstream will hold it, CJS delegates and holds nothing.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-resumable = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+    IF mo_bridge IS BOUND.
+*     The /QNV/ route: SAVE_DRAFT goes out as its own post and comes back
+*     through the draftid launch parameter. Delegation, and it predates all
+*     of this.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   And the honest answer when nothing downstream will hold it: OFF, not
+*   NATIVE. There is no CJS-side draft store - ZRAK_T_BE_LOC belongs to the
+*   LOCAL backend, not to the engine - so NATIVE has nowhere to write.
+*   HANDLE_SAVE( ) has been answering this case with "No backend is
+*   configured for this journey - nothing was saved" for as long as it has
+*   existed; OFF is the same fact, told before the citizen presses the
+*   button rather than after.
+    rv_mode = zif_rak_journey=>c_mode-off.
+  ENDMETHOD.
+
+
+  METHOD resolve_attach_mode.
+    IF mo_logic IS BOUND.
+      TRY.
+          rv_mode = to_upper( mo_logic->attach_mode( me ) ).
+        CATCH cx_root.
+          CLEAR rv_mode.
+      ENDTRY.
+      IF rv_mode IS NOT INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    rv_mode = ms_config-attach_mode.
+    IF rv_mode IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+*   Derived, and deliberately NOT the same test as the draft.
+*
+*   A backend that owns the case does not necessarily accept files - which
+*   is exactly why TY_CAP carries ATTACHMENTS separately from RESUMABLE.
+*   Asking "has a case been created?" would delegate uploads to a backend
+*   with nowhere to put them, and the file would vanish between the chip
+*   disappearing and the case having no document.
+    IF mo_backend IS BOUND AND mo_backend->capabilities( )-attachments = abap_true.
+      rv_mode = zif_rak_journey=>c_mode-delegate.
+      RETURN.
+    ENDIF.
+
+*   Everything else stages in ZRAK_CJ_ATTX and is handed over at submit,
+*   which is what every journey does today. Unlike the draft, this native
+*   store is real, so NATIVE is a working answer rather than an aspiration.
+    rv_mode = zif_rak_journey=>c_mode-native.
+  ENDMETHOD.
+
+
   METHOD handle_save.
+*   OFF is refused here rather than only in the renderer. Hiding the button
+*   does not make BTN_EVT( 'SAVE' ) unreachable - the event still arrives
+*   from a stale page, a resubmitted round trip, or anything that posts the
+*   id - and a journey configured not to keep drafts must not keep one
+*   because of where the check was put.
+    DATA(lv_mode) = resolve_draft_mode( ).
+    IF lv_mode = zif_rak_journey=>c_mode-off.
+      APPEND VALUE #( type = 'Warning'
+        text = 'This service does not keep drafts. Complete the application to submit it.' )
+        TO mt_msg.
+      RETURN.
+    ENDIF.
+
     IF mo_logic IS BOUND.
       TRY.
           mo_logic->on_save( me ).
         CATCH cx_root.
       ENDTRY.
+
+*     ON_DRAFT_SAVE( ) can refuse, which ON_SAVE( ) cannot: its exceptions
+*     are swallowed above, deliberately, and it has no return value. An
+*     Error here stops the write and leaves the citizen on the page.
+      TRY.
+          DATA(lt_dmsg) = mo_logic->on_draft_save( io_ctx      = me
+                                                   iv_draft_id = mv_intreno ).
+        CATCH cx_root INTO DATA(lx_ds).
+          lt_dmsg = VALUE #( ( type = 'Error'
+            text = |Draft refused: { lx_ds->get_text( ) }| ) ).
+      ENDTRY.
+      IF lt_dmsg IS NOT INITIAL.
+        mt_msg = VALUE #( BASE mt_msg ( LINES OF lt_dmsg ) ).
+        READ TABLE lt_dmsg WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
+        IF sy-subrc = 0.
+          RETURN.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+*   NATIVE has no store to write to. Say so, rather than reporting a
+*   success for a draft that exists nowhere - the engine has no CJS-side
+*   draft table, and ZRAK_T_BE_LOC belongs to the LOCAL backend.
+    IF lv_mode = zif_rak_journey=>c_mode-native
+       AND mo_backend IS NOT BOUND AND mo_bridge IS NOT BOUND.
+      APPEND VALUE #( type = 'Error'
+        text = 'DRAFT_MODE is NATIVE but CJS has no draft store yet - nothing was saved.' )
+        TO mt_msg.
+      RETURN.
     ENDIF.
 
     IF mo_backend IS BOUND.
@@ -1137,10 +2571,17 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         RETURN.
       ENDIF.
       IF ms_handle-request_id IS NOT INITIAL.
-        mv_case_guid = ms_handle-request_id.
+        mv_intreno = ms_handle-request_id.
       ENDIF.
-      APPEND VALUE #( type = 'Success'
-        text = |Saved as draft — { mv_case_guid }| ) TO mt_msg.
+*   THE REFERENCE IS THE CASE NUMBER, OR THERE IS NO REFERENCE.
+*   This printed MV_INTRENO, and before a case exists that is a GUID_22 -
+*   so the citizen pressing Save as Draft was handed twenty-two characters
+*   of technical key and told it was their draft number. MV_CASE_NUMBER is
+*   the one value here a citizen could ever quote back, and TAKE_CASE( )
+*   fills it only when the backend actually returned a case. When it has
+*   not, saying "Saved as draft" and nothing more is the honest answer: a
+*   draft is resumed from the portal's own list, not by typing a number.
+      APPEND VALUE #( type = 'Success' text = draft_msg( ) ) TO mt_msg.
       RETURN.
     ENDIF.
 
@@ -1150,11 +2591,11 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         EXPORTING
           iv_screen = ls_step-bknd_screen
           iv_status = 'SAVE_DRAFT'
-          iv_guid   = mv_case_guid
+          iv_guid   = mv_intreno
           it_items  = mo_be->post_items( )
           it_tables = mo_be->tables_for_backend( )
         IMPORTING
-          ev_guid   = mv_case_guid
+          ev_guid   = mv_intreno
           ev_case   = DATA(lv_case_drf)
           et_msg    = DATA(lt_ret) ).
       take_case( lv_case_drf ).
@@ -1163,7 +2604,8 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
         mt_msg = lt_ret.
         RETURN.
       ENDIF.
-      mt_msg = VALUE #( ( type = 'Success' text = |Saved as draft - { mv_case_guid }| ) ).
+*     Same message, same reasoning - see the backend path above.
+      mt_msg = VALUE #( ( type = 'Success' text = draft_msg( ) ) ).
     ELSE.
       mt_msg = VALUE #( ( type = 'Warning'
         text = 'No backend is configured for this journey — nothing was saved.' ) ).
@@ -1174,16 +2616,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   METHOD handle_delete.
     CLEAR mv_popup.
 
-    IF mo_bridge IS BOUND AND mv_case_guid IS NOT INITIAL.
+    IF mo_bridge IS BOUND AND mv_intreno IS NOT INITIAL.
       READ TABLE ms_config-steps INTO DATA(ls_dstep) INDEX mv_step + 1.
       mo_bridge->post(
         EXPORTING
           iv_screen = ls_dstep-bknd_screen
           iv_status = 'DELETE'
-          iv_guid   = mv_case_guid
+          iv_guid   = mv_intreno
           it_items  = mo_be->post_items( )
         IMPORTING
-          ev_guid   = mv_case_guid
+          ev_guid   = mv_intreno
           ev_case   = DATA(lv_case_del)
           et_msg    = DATA(lt_dm) ).
       take_case( lv_case_del ).
@@ -1232,7 +2674,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
            AND lv_cancelled = abap_false
       THEN ms_handle-request_id ELSE `` ).
 
-    CLEAR mv_case_guid.
+    CLEAR mv_intreno.
     CLEAR ms_handle.
     mv_step = 0.
     IF lv_orphan IS NOT INITIAL.
@@ -1251,7 +2693,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lv_idtype) = val_get( |{ mv_pop_field }_IDTYPE| ).
+    DATA(lv_idtype) = val_get( iv_name = mv_pop_field iv_suffix = '_IDTYPE' ).
     IF lv_idtype IS INITIAL.
       lv_idtype = 'YFS002'.
     ENDIF.
@@ -1264,9 +2706,29 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       END OF ty_sel.
     DATA lt TYPE STANDARD TABLE OF ty_sel WITH EMPTY KEY.
 
-    DATA(lv_like) = '%' && to_upper( lv_term ) && '%'.
+*   AN ID SEARCH IS DECIDED ON THE DIGITS, NOT ON THE PUNCTUATION.
+*
+*   The test used to be LV_TERM CO '0123456789' against the raw term, so an
+*   Emirates ID entered the way it is printed on the card - 784-1987-8624392-7 -
+*   failed it on the hyphens and fell through to the ELSE branch, which searches
+*   ZZFULL_NAME_ENG. The citizen got no results for a partner that exists, and
+*   nothing on the screen suggested their ID had been searched for as a name.
+*
+*   Digits, hyphens and spaces now all count as an ID. NORM_EID( ) then strips the
+*   separators for the LIKE, because BUT0ID-IDNUMBER stores the digits - so
+*   784-1987-8624392-7 and 784198786243927 find the same row.
+*
+*   The NAME branch keeps the term exactly as typed. A name is not digits and
+*   must not have its punctuation removed.
+    DATA(lv_digits) = zcl_rak_bp_search=>norm_eid( lv_term ).
+    DATA(lv_isid)   = xsdbool( lv_digits IS NOT INITIAL AND lv_term CO '0123456789- ' ).
 
-    IF lv_term CO '0123456789'.
+    DATA(lv_like) = COND string( WHEN lv_isid = abap_true
+                                 THEN '%' && lv_digits && '%'
+                                 ELSE '%' && to_upper( lv_term ) && '%' ).
+
+    IF lv_isid = abap_true.
+
       SELECT a~partner, a~zzfull_name_eng AS name, b~idnumber
         FROM but000 AS a
         LEFT JOIN but0id AS b
@@ -1296,9 +2758,893 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   METHOD clear_field_states.
     LOOP AT ms_config-steps INTO DATA(ls_step).
       LOOP AT ls_step-fields INTO DATA(ls_f).
-        set_field_state( iv_name = ls_f-name iv_state = 'None' iv_text = '' ).
+*       A grid field's own name never has a '#', so routing it through
+*       SET_FIELD_STATE( ) like every other field would only clear a
+*       component that does not exist - the row companions SET_CELL_STATE( )
+*       writes live one level down, inside each row. Round-3's fix could
+*       turn a cell red; without this branch nothing ever turned it back,
+*       reintroducing round-2 finding 1 for cells specifically.
+        IF ls_f-type = 'EDITABLE_TABLE'.
+          clear_grid_states( ls_f ).
+        ELSE.
+          set_field_state( iv_name = ls_f-name iv_state = 'None' iv_text = '' ).
+        ENDIF.
       ENDLOOP.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD captcha_new.
+*   FIVE DIGITS, NOT LETTERS. Digits carry no case to confuse, no I/l/1 or
+*   O/0 lookalike pair, and no alphabet: an Arabic reader and an English
+*   reader see the same five characters. The alternative usually reached
+*   for - an arithmetic question - asks the citizen to do sums to report a
+*   pothole, which is a literacy test the service never meant to set.
+*
+*   EVERY CHARACTER OF THE INPUT REACHES EVERY DIGIT, and that is the
+*   whole lesson of this method. The first version took the first five
+*   usable hex characters of a UUID, which is the obvious way to write it
+*   and is wrong: a SAP GUID is not five random characters followed by
+*   twenty-seven more, and whatever those leading characters encode on
+*   this system, they did not move. The control drew 00224 on every
+*   render, on every refresh, and on a fresh session with nothing behind
+*   it - eight generations, a different seed each time, identical digits.
+*
+*   Folding fixes it by construction rather than by picking a better
+*   place to slice. Each source character is added into one of five
+*   accumulators by position, so a change ANYWHERE in the input moves a
+*   digit. There is no longer a part of the UUID that does not matter.
+*
+*   The timestamp is mixed in as well, for a reason worth stating: it is
+*   the one input observed to change on this system. It is also
+*   predictable, which is why it is mixed WITH the UUID and not used
+*   instead of it - the UUID supplies the unpredictability, the clock
+*   supplies the guaranteed movement, and folding means an attacker who
+*   knows the second still cannot derive the digits.
+    DATA lt_acc TYPE STANDARD TABLE OF i WITH EMPTY KEY.
+    DATA lv_v   TYPE i.
+    DATA lv_ix  TYPE i.
+    DATA lv_o   TYPE i.
+    DATA lv_h   TYPE string.
+
+    CLEAR: mv_cap_code, mv_cap_ok.
+
+    GET TIME STAMP FIELD DATA(lv_ts).
+    mv_cap_seed = CONV i( lv_ts MOD 2147483647 ).
+
+    lv_h = to_lower( |{ cl_system_uuid=>create_uuid_c32_static( ) }{ mv_cap_seed }| ).
+
+    DO 5 TIMES.
+      APPEND 0 TO lt_acc.
+    ENDDO.
+
+    lv_o = 0.
+    WHILE lv_o < strlen( lv_h ).
+      DATA(lv_c) = substring( val = lv_h off = lv_o len = 1 ).
+*     Hex digit to its value. Anything else is skipped rather than
+*     assumed - the input is a UUID today and this does not depend on
+*     that staying true.
+      IF lv_c CA '0123456789'.
+        lv_v = CONV i( lv_c ).
+      ELSEIF lv_c CA 'abcdef'.
+        lv_v = 10 + find( val = 'abcdef' sub = lv_c ).
+      ELSE.
+        lv_o = lv_o + 1.
+        CONTINUE.
+      ENDIF.
+      lv_ix = ( lv_o MOD 5 ) + 1.
+      READ TABLE lt_acc ASSIGNING FIELD-SYMBOL(<a>) INDEX lv_ix.
+      IF sy-subrc = 0.
+        <a> = <a> + lv_v.
+      ENDIF.
+      lv_o = lv_o + 1.
+    ENDWHILE.
+
+    LOOP AT lt_acc INTO DATA(lv_a).
+      mv_cap_code = |{ mv_cap_code }{ lv_a MOD 10 }|.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD captcha_code.
+    IF mv_cap_code IS INITIAL.
+      captcha_new( ).
+    ENDIF.
+    rv = mv_cap_code.
+  ENDMETHOD.
+
+
+  METHOD captcha_digits.
+*   Everything that is not a digit goes, so a citizen who typed spaces or
+*   a dash between groups is not failed for punctuation they were never
+*   told to leave out. Arabic-Indic numerals fold onto their ASCII twin
+*   first - see the declaration for why that is not optional here.
+    DATA lv_c TYPE string.
+    DATA lv_o TYPE i.
+
+    CLEAR rv.
+    DATA(lv_len) = strlen( iv ).
+    lv_o = 0.
+    WHILE lv_o < lv_len.
+      lv_c = substring( val = iv off = lv_o len = 1 ).
+      CASE lv_c.
+        WHEN `٠`. rv = |{ rv }0|.
+        WHEN `١`. rv = |{ rv }1|.
+        WHEN `٢`. rv = |{ rv }2|.
+        WHEN `٣`. rv = |{ rv }3|.
+        WHEN `٤`. rv = |{ rv }4|.
+        WHEN `٥`. rv = |{ rv }5|.
+        WHEN `٦`. rv = |{ rv }6|.
+        WHEN `٧`. rv = |{ rv }7|.
+        WHEN `٨`. rv = |{ rv }8|.
+        WHEN `٩`. rv = |{ rv }9|.
+        WHEN OTHERS.
+          IF lv_c CA '0123456789'.
+            rv = |{ rv }{ lv_c }|.
+          ENDIF.
+      ENDCASE.
+      lv_o = lv_o + 1.
+    ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD clear_grid_states.
+    IF mo_grid IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_rows) = lines( <t> ).
+*   Same columns SET_CELL_STATE( ) writes into - only NUMBER and INPUT
+*   have the _VS/_VST companions, per BUILD_MODEL( ). One writer for
+*   both directions: SET_CELL_STATE( ) already takes IV_STATE, so this
+*   is the same entry point a handler's own clear would use, not a
+*   second copy of the ASSIGN COMPONENT walk.
+    LOOP AT mo_grid->grid_cols( is_field ) INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      DO lv_rows TIMES.
+        set_cell_state( iv_name  = |{ is_field-name }.{ gc-name }#{ sy-index }|
+                         iv_state = 'None'
+                         iv_text  = '' ).
+      ENDDO.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD ensure_grid_states.
+    IF mo_grid IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( is_field-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    LOOP AT mo_grid->grid_cols( is_field ) INTO DATA(gc) WHERE ctype = 'NUMBER' OR ctype = 'INPUT'.
+      LOOP AT <t> ASSIGNING FIELD-SYMBOL(<row>).
+        ASSIGN COMPONENT |{ gc-name }_VS| OF STRUCTURE <row> TO FIELD-SYMBOL(<vs>).
+        IF sy-subrc = 0 AND <vs> IS INITIAL.
+          <vs> = 'None'.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD nav_locked_msg.
+    mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
+      text = zcl_rak_text=>get(
+        iv_no      = zcl_rak_text=>c_no-nav_locked
+        iv_default = 'The fee has been paid, so the earlier steps are closed. Press Done to finish.' ) ) ).
+  ENDMETHOD.
+
+
+  METHOD draft_msg.
+*   MV_CASE_NUMBER is filled by TAKE_CASE( ) only when the backend
+*   returned a case. MV_INTRENO is deliberately NOT used as a fallback:
+*   that is the journey key, and before a case exists it is a GUID_22 -
+*   which is the technical string this method exists to stop showing.
+    IF mv_case_number IS NOT INITIAL.
+      rv = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-draft_saved_ref
+                              iv_v1      = mv_case_number
+                              iv_default = |Saved as draft - { mv_case_number }| ).
+    ELSE.
+      rv = zcl_rak_text=>get( iv_no      = zcl_rak_text=>c_no-draft_saved
+                              iv_default = |Saved as draft| ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD nav_locked.
+*   NAVIGATION ONLY, and only for a case that is finished. Paid used to
+*   stop Back here as well; it now stops EDITING instead - see CASE_MODE( )
+*   in the declarations for why the old answer protected nothing.
+    rv = xsdbool( case_mode( ) = c_mode_done ).
+  ENDMETHOD.
+
+
+  METHOD pay_step.
+    rv = -1.
+    DATA lv_ix TYPE i.
+    lv_ix = 0.
+    LOOP AT ms_config-steps INTO DATA(ls_ns).
+      LOOP AT ls_ns-fields INTO DATA(ls_nf).
+*       TO_UPPER: FTYPE is free text on ZRAK_T_JNY_FLD and a WHERE clause
+*       cannot fold the case.
+        IF to_upper( ls_nf-type ) = 'PAYFEE'.
+          rv = lv_ix.
+          RETURN.
+        ENDIF.
+      ENDLOOP.
+      lv_ix = lv_ix + 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD clear_read_buffer.
+
+*   DROP THE BAdI'S CACHED COPY OF THIS KEY BEFORE ASKING IT ANYTHING.
+*
+*   A journey launched from the landing page with a key - a case id, a
+*   draft id, an INTRENO - is asking one question: what does this
+*   application look like NOW. The DOK and EPDA abstracts answer partly
+*   from INDX(CJ), which they EXPORT to as they go, and a row written on an
+*   earlier visit outlives the change that happened in between. The citizen
+*   is then shown the state their application was in the last time somebody
+*   looked at it, with nothing on screen to say so - and re-launching does
+*   not help, because the re-launch reads the same row.
+*
+*   ONLY ON A KEYED LAUNCH, which is what this branch is. A journey started
+*   fresh has no key and no buffer, and CLEAR_READ_BUFFER( ) is not reached
+*   from anywhere else - not from a step move, not from a save, not from
+*   the payment poll. Clearing a cache once, at the moment its content is
+*   known to be stale, is the whole intent; clearing it on every round trip
+*   would turn a cache into an overhead.
+*
+*   THE KEY IS THE ONE WE ARE ABOUT TO SEND. MV_INTRENO goes out as
+*   ls_hdr-param1 and as INTRENO_JOURNEY, so it is the value the FM will
+*   look this application up by. If the BAdI happens to key its buffer on
+*   something else, this deletes nothing and the trace says which id was
+*   tried - which is the fastest way to find out what the real one is.
+*
+*   ---- TWO THINGS THIS DOES NOT DO, AND BOTH HAVE BITTEN ---------------
+*
+*   IT DOES NOT TOUCH THE SHARED BUFFER. ZCL_EGA_CJ_DOK_ABS->
+*   ACCESS_STUDENT_EXIT_BUFFER uses SHARED BUFFER indx(cj), which is a
+*   different store from DATABASE indx(cj) and is not cleared by this
+*   statement. That one is keyed student_exit_<SID>, is cross-session, and
+*   is the poisoned-row case ZCL_RAK_QNV_BRIDGE reports on - see there. A
+*   caller who assumes this line fixed that will be looking in the wrong
+*   place.
+*
+*   IT DOES NOT COMMIT. Own changes are visible inside the same LUW, so the
+*   read two lines below already sees the row gone; a COMMIT WORK here
+*   would persist whatever else the request had pending, which is the
+*   reason ZCL_RAK_CJ_EVT refuses to commit mid-journey. The delete is made
+*   durable by whatever the backend call commits, and if nothing does, the
+*   row was going to be rewritten anyway.
+    DATA lv_id TYPE indx-srtfd.
+
+    IF mv_intreno IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   TRUNCATION IS REFUSED, NOT SILENT. SRTFD is 22 characters and every
+*   real key is shorter, but a longer one assigned here would cut and then
+*   delete a DIFFERENT application's row - which is a far worse outcome
+*   than not clearing a cache.
+    IF strlen( mv_intreno ) > 22.
+      trace( |BUFFER  key '{ mv_intreno }' is { strlen( mv_intreno ) } characters and | &&
+             |INDX-SRTFD holds 22 - buffer NOT cleared rather than clearing the wrong row| ).
+      RETURN.
+    ENDIF.
+
+    lv_id = mv_intreno.
+
+*   ---- WHICH OF THE THREE SHAPES IS THIS KEY? -------------------------
+*
+*   GS_DATA-CASEID ARRIVES BLANK IN ZCL_EGA_CJ_DOK_ABS->CASE_UPDATE_V2, and
+*   there are two reasons for that with two different fixes. Nothing on the
+*   CJS side can read SCMG_T_CASE_ATTR from a design session, so the launch
+*   reports which one it is rather than the next round being another guess.
+*
+*   That class fills GS_DATA-CASEID in exactly one place - ZIF_EGA_FW_CJI~
+*   GET_SCREEN, which the CJS path never reaches, because
+*   GETSCREENSET_GET_ENTITYSET returns the CJS launch URL before the
+*   GET_SCREEN BAdI call is made. So there is no INDX(CJ) row for MAPPER's
+*   RETRIVE_DATA( ) to restore, and everything downstream depends on the one
+*   remaining chance: READ calls READ_CASE( iv_draft = gv_guid ) - as
+*   IV_DRAFT, never IV_CASE_ID - and that branch sets CASEID only when its
+*   ALPHA-converted SELECT on SCMG_T_CASE_ATTR-EXT_KEY hits. On a miss it
+*   files the value as GS_DATA-DRAFTID instead, silently, and
+*   CASE_UPDATE_V2 has no fallback of its own.
+*
+*   A HIT means the key IS a real case and the fix belongs in the BAdI.
+*   A MISS means CJS is being handed the wrong value and the fix is in
+*   whatever the landing page puts in the launch URL. VIBDRO is asked as
+*   well because that is the third shape PARAM1 can legally be, and a hit
+*   there names the mistake exactly: a real-estate INTRENO where a case
+*   was meant.
+*
+*   BOTH SELECTS ARE WRAPPED, for the reason CASE_KEY_OF( ) is wrapped: a
+*   journey key can be a GUID_22 carrying punctuation, and comparing one
+*   against SCMG_EXT_KEY raises CX_SY_OPEN_SQL_DATA_ERROR rather than
+*   simply missing. BOTH HOST VARIABLES ARE TYPED, because MV_INTRENO is a
+*   STRING and a STRING host variable is a LOB in ABAP SQL. AND IT RUNS
+*   UNDER &trace=x ONLY - two selects per keyed launch buy nothing when
+*   nobody is reading the answer.
+    IF mv_trace = abap_true.
+      DATA lv_ek   TYPE scmg_ext_key.
+      DATA lv_ro   TYPE vibdro-intreno.
+      DATA lv_vcas TYPE string.
+      DATA lv_vro  TYPE string.
+
+      lv_vcas = `MISS - READ_CASE files this as DRAFTID and CASEID stays blank`.
+      lv_vro  = `miss`.
+
+      TRY.
+          lv_ek = |{ CONV scmg_ext_key( mv_intreno ) ALPHA = IN }|.
+          SELECT SINGLE ext_key FROM scmg_t_case_attr
+            WHERE ext_key = @lv_ek
+            INTO @DATA(lv_hcas).
+          IF sy-subrc = 0 AND lv_hcas IS NOT INITIAL.
+            lv_vcas = `HIT - a real case, and READ still passes it as IV_DRAFT`.
+          ENDIF.
+        CATCH cx_root INTO DATA(lx_cas).
+          lv_vcas = |refused - { lx_cas->get_text( ) }|.
+      ENDTRY.
+
+      TRY.
+          lv_ro = mv_intreno.
+          SELECT SINGLE intreno FROM vibdro
+            WHERE intreno = @lv_ro
+            INTO @DATA(lv_hro).
+          IF sy-subrc = 0 AND lv_hro IS NOT INITIAL.
+            lv_vro = `HIT - a real-estate object, not a case`.
+          ENDIF.
+        CATCH cx_root INTO DATA(lx_ro).
+          lv_vro = |refused - { lx_ro->get_text( ) }|.
+      ENDTRY.
+
+      trace( |KEYSHAP '{ mv_intreno }' alpha '{ lv_ek }' · | &&
+             |SCMG_T_CASE_ATTR { lv_vcas } · VIBDRO { lv_vro }| ).
+    ENDIF.
+
+    TRY.
+        DELETE FROM DATABASE indx(cj) ID lv_id.
+        trace( |BUFFER  INDX(CJ) id '{ lv_id }' cleared before the entry read | &&
+               |({ COND string( WHEN sy-subrc = 0 THEN 'row existed' ELSE 'no row' ) })| ).
+      CATCH cx_root INTO DATA(lx_buf).
+*       NEVER FAILS THE LAUNCH. A cache that cannot be cleared is a slow
+*       journey; a launch that dies because of one is no journey at all.
+        trace( |BUFFER  INDX(CJ) delete failed - { lx_buf->get_text( ) }| ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD entry_read.
+    IF mv_step = 0 OR mo_bridge IS NOT BOUND OR mo_be IS NOT BOUND.
+      RETURN.
+    ENDIF.
+    trace( |ENTRY   reading landed step { mv_step } · screen | &&
+           |{ VALUE #( ms_config-steps[ mv_step + 1 ]-bknd_screen OPTIONAL ) }| ).
+
+*   IV_CARRY, and only here. Walking forward POSTS each step on the way, so
+*   a citizen arriving at step N normally has already told the backend what
+*   steps 0..N-1 hold. Landing on N directly posts nothing, and D004 showed
+*   what that costs: its step 0 is a CHOICE - which of twenty-two licences
+*   - and step 1 answered with the choice unmade, so the licence grid's own
+*   JSON came back in the scalar that draws the licence number.
+*
+*   The read is widened, never turned into a post. See BACKEND_READ( )'s
+*   IV_CARRY for the two guards that keep it safe: filled values only, and
+*   no TECHNICALNAME that the journey does not already send anyway.
+    mo_be->backend_read( iv_step = mv_step iv_carry = abap_true ).
+  ENDMETHOD.
+
+
+  METHOD save_feedback.
+
+*   ONE ROW IN ZDT_HM_FEEDBACK, exactly as Z2UI5_CL_EXT_WIDGETS=>
+*   RAKHAPPY_SAVE( ) writes it. The table is the department's, the
+*   reporting on it already exists, and a second store would mean two
+*   numbers for one question.
+*
+*   THE CODES ARE COPIED, NOT REASONED ABOUT, and they do not form a
+*   scale: Excellent 1, Very Poor 2, Average 3, Good 4, Poor 5. That
+*   looks like a mistake and is not ours to correct - whatever reads this
+*   table reads it with those codes, and "improving" them here would put
+*   CJS rows on a different scale from every ShapeIt row beside them.
+*   Copied from RAKHAPPY_SAVE( ) line for line.
+    CHECK mv_fb_rating IS NOT INITIAL.
+
+    DATA ls_fb TYPE zdt_hm_feedback.
+
+    CASE to_upper( mv_fb_rating ).
+      WHEN 'EX'. ls_fb-feedback = '1'.
+      WHEN 'GD'. ls_fb-feedback = '4'.
+      WHEN 'AV'. ls_fb-feedback = '3'.
+      WHEN 'PR'. ls_fb-feedback = '5'.
+      WHEN 'VP'. ls_fb-feedback = '2'.
+      WHEN OTHERS.
+*       A rating the renderer does not draw. Nothing is written rather
+*       than a row with a blank score, which would count as feedback in
+*       every report that reads this table.
+        trace( |HAPPY   rating '{ mv_fb_rating }' is not one of EX/GD/AV/PR/VP - not saved| ).
+        RETURN.
+    ENDCASE.
+
+    TRY.
+        ls_fb-sessionid = NEW cl_random_number( )->if_random_number~get_random_int( i_limit = 1000000000 ).
+      CATCH cx_root.
+    ENDTRY.
+
+*   CASETYPE IS THE BACKEND CATEGORY where the journey has one, and the
+*   journey id where it does not. A journey with no backend still has an
+*   identity worth reporting on, and leaving it blank would put every
+*   such row in one unnamed bucket.
+    ls_fb-casetype = COND #( WHEN ms_config-backend-category IS NOT INITIAL
+                             THEN ms_config-backend-category
+                             ELSE ms_config-journey_id ).
+
+*   THE CASE NUMBER FIRST, THE JOURNEY KEY SECOND, AND NEITHER IF IT WILL
+*   NOT FIT.
+*
+*   CASEID is CHAR(12) and MV_INTRENO is not always a case. On a journey
+*   with no case yet it is the GUID_22 INDX buffer id - 0298oqJ{7z6hjPMRHuI6uG
+*   - which CLAUDE.md describes as existing only until the first real key
+*   appears. Assigned to a CHAR(12) it truncates in silence to
+*   "0298oqJ{7z6h", which matches nothing, joins to nothing, and cannot
+*   even be recognised as the thing it was cut from. That was observed in
+*   the debugger on an ECOMP feedback row.
+*
+*   A BLANK CASEID IS BETTER THAN A TRUNCATED ONE. Blank reads as "this
+*   feedback is not against a case", which is true of a journey that
+*   never created one; twelve characters of a discarded buffer id reads
+*   as a case reference and is not.
+    DATA(lv_key) = COND string( WHEN mv_case_number IS NOT INITIAL
+                                THEN mv_case_number ELSE mv_intreno ).
+
+    IF strlen( lv_key ) <= 12.
+      ls_fb-caseid = lv_key.
+    ELSE.
+      trace( |HAPPY   key '{ lv_key }' is { strlen( lv_key ) } characters and CASEID | &&
+             |holds 12 - saved without a case reference rather than truncated| ).
+    ENDIF.
+
+    ls_fb-uname    = sy-uname.
+    ls_fb-comments = mv_fb_comment.
+    ls_fb-crdate   = sy-datum.
+    ls_fb-crtime   = |{ sy-uzeit+0(2) }:{ sy-uzeit+2(2) }:{ sy-uzeit+4(2) }|.
+    ls_fb-step     = '2'.
+
+*   THE DEPARTMENT, which every report on this table groups by. A row
+*   without one counts as feedback for nobody.
+    ls_fb-departmentid = fb_department( ).
+
+*   CATCH CX_ROOT AND CARRY ON, which is RAKHAPPY_SAVE( )'s own choice and
+*   the right one here too. The citizen has finished their application and
+*   pressed Send on an optional question; a short dump at that moment
+*   would lose them the confirmation page over a survey row. The trace
+*   says what happened for anyone looking.
+    TRY.
+        MODIFY zdt_hm_feedback FROM ls_fb.
+
+*       AND COMMIT, WHICH THE FIRST VERSION DID NOT AND IS WHY NOTHING
+*       WAS SAVED. A MODIFY in an ICF request that nobody commits is rolled
+*       back when the request ends: the trace said "saved", the table stayed
+*       empty, and the two disagreed with no error anywhere.
+*
+*       EVERY CJS CLASS THAT WRITES COMMITS ITS OWN - ZCL_RAK_CJ_LOG and
+*       ZCL_RAK_CJ_ATT_STORE both do. ZCL_RAK_CJ_EVT deliberately does not,
+*       and its reason is the one to check against: a COMMIT WORK
+*       mid-journey persists whatever else the request had pending, which
+*       can mean half a case written because somebody wanted a counter.
+*
+*       THAT REASON DOES NOT APPLY HERE, and this is the whole argument for
+*       the line. FBSEND is terminal: the citizen has already submitted,
+*       the backend call for that submit committed through its own
+*       BAPI_TRANSACTION_COMMIT on an earlier round trip, and this request
+*       does nothing but record an answer to an optional question. There is
+*       no half-finished business transaction for this to close early -
+*       the same test ZCL_RAK_CJ_LOG applies to itself, and the same
+*       warning applies: do not call SAVE_FEEDBACK( ) from anywhere but
+*       FBSEND without revisiting it.
+        COMMIT WORK.
+
+        trace( |HAPPY   saved rating { ls_fb-feedback } for case { ls_fb-caseid } | &&
+               |({ ls_fb-casetype }) department { ls_fb-departmentid }| ).
+      CATCH cx_root INTO DATA(lx_fb).
+        trace( |HAPPY   NOT saved - { lx_fb->get_text( ) }| ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD fb_department.
+
+*   WHICH DEPARTMENT THIS FEEDBACK BELONGS TO.
+*
+*   The portal knows it because the citizen pressed a departent's tile and
+*   the UI5 app posts DEPARTMENT in the HappyMeter payload, which
+*   HAPPYMETERSET_CREATE_ENTITY turns into the code. A CJS journey is
+*   launched by URL and no department travels on it - GETSCREENSET builds
+*   the CJS link with journey, case, login BP, role BP and role, and
+*   nothing else - so the engine has to resolve it from the journey.
+*
+*   IT IS RESOLVED FROM THE DEPARTMENT'S OWN MAP, not from the journey id.
+*   ZEGA_T_CJ_GRP is the table the portal reads to decide which department
+*   a tile appears under, and ZEGA_T_CJ_DEPT turns its numeric role into
+*   the code ('MUN', 'EPDA', 'DOK', 'COURT', 'PP'). Reading the same two
+*   tables means a journey moved between departments moves here too, with
+*   no CJS change and nothing to keep in step. Guessing from the journey
+*   id's first letter would have been simpler and wrong: 'E' is EPDA and
+*   'EC' is not, and nothing on the CJS side records which is which.
+*
+*   READ ONLY. Nothing here writes to the legacy namespace.
+    DATA lv_jny TYPE zrak_t_jny-journey_id.
+    lv_jny = ms_config-journey_id.
+
+    TRY.
+*       THE TILE CODE FIRST, BECAUSE THAT IS THE KEY THE PORTAL USES.
+*       ZRAK_T_JNY-JOURNEY_ID is the CJS key and TILE_CODE is the legacy
+*       one they are the same string on most journeys and deliberately
+*       different on some, which is the whole reason the column exists.
+        SELECT SINGLE tile_code FROM zrak_t_jny
+          WHERE journey_id = @lv_jny
+          INTO @DATA(lv_tile).
+
+        DATA lv_key TYPE zega_t_cj_grp-journeyid.
+        lv_key = COND #( WHEN lv_tile IS NOT INITIAL THEN lv_tile ELSE lv_jny ).
+
+*       SELECT SINGLE on purpose. A journey can be listed under several
+*       ROLES of one department - owner, consultant, contractor all point
+*       at MUN - so more than one row is the normal case and they agree on
+*       the answer. A journey listed under two DEPARTMENTS would be a
+*       portal configuration question, not something to average here.
+        SELECT SINGLE d~department FROM zega_t_cj_grp AS g
+          INNER JOIN zega_t_cj_dept AS d ON d~role = g~department
+          WHERE g~journeyid = @lv_key
+          INTO @DATA(lv_code).
+
+*       SECOND SOURCE, AND IT IS NOT A GUESS - it is the other key the
+*       portal itself uses. ZEGA_T_CJ_ICONS-CATEGORY on a TYPE '1' row is
+*       a department code, which the DPC settles by joining it straight
+*       to ZEGA_CJ_DEPART-DEPARTMENT when it builds the EPDA draft list.
+*
+*       IT MATTERS FOR EXACTLY THE JOURNEYS THE FIRST SOURCE MISSES. A
+*       journey reachable only by a deep link - EC01..EC06 are the ones
+*       in front of us - was never put on a department's tile list, so
+*       ZEGA_T_CJ_GRP has no row for it and never will, while the icons
+*       row exists because something had to draw its card.
+        DATA(lv_dept) = CONV string( lv_code ).
+
+        IF lv_dept IS INITIAL.
+*         ITS OWN VARIABLE, NOT THE ONE ABOVE. CATEGORY and DEPARTMENT are
+*         two different DDIC types, and SELECTing the wider one INTO the
+*         narrower host field truncates in silence - 'COURT' arriving as
+*         'COUR' would match no branch below and read exactly like a
+*         journey with no department at all.
+          SELECT SINGLE category FROM zega_t_cj_icons
+            WHERE id = @lv_key AND type = '1'
+            INTO @DATA(lv_cat).
+          lv_dept = lv_cat.
+        ENDIF.
+
+        rv = SWITCH #( to_upper( lv_dept )
+               WHEN 'EPDA'  THEN '1'
+               WHEN 'MUN'   THEN '2'
+               WHEN 'COURT' THEN '3'
+               WHEN 'PP'    THEN '4'
+*              DOK IS 5 ON THE DOMAIN AND HAS NO BRANCH IN THE PORTAL'S
+*              OWN CASE STATEMENT, which is why every DOK row written
+*              through HAPPYMETERSET_CREATE_ENTITY has a blank department.
+*              Ours does not. Reported, not fixed - the legacy side is
+*              theirs.
+               WHEN 'DOK'   THEN '5'
+*              EE IS E-COMPLAINTS AND IT IS A DEPARTMENT IN ITS OWN RIGHT
+*              - confirmed against ZEGA_CJ_DEPART, and it is where every
+*              EC journey sits. ZDO_DEPARTMENTID stops at 5, so 6 is the
+*              next free value and is what this writes. The DOMAIN DOES
+*              NOT HAVE IT YET, which the check below handles: the value
+*              is refused until somebody adds it, so this branch is
+*              correct now and starts working the moment they do, with no
+*              change here. Adding it is not ours - ZDO_DEPARTMENTID and
+*              ZDT_HM_FEEDBACK belong to the happiness meter, not CJS.
+               WHEN 'EE'    THEN '6'
+               ELSE space ).
+
+*       THE DOMAIN IS THE AUTHORITY, NOT THIS SWITCH.
+*
+*       Nothing at database level enforces a domain's fixed values, so a
+*       code the domain has never heard of writes perfectly happily and
+*       then reads as an untranslated key on every report - which is a
+*       worse failure than blank, because blank at least looks like
+*       missing data instead of looking like a department.
+*
+*       So the answer is checked against DD07L before it is used. Today
+*       that refuses 6 and the row saves blank with a trace line naming
+*       what is missing. The day E-Complaints is added to the domain the
+*       same code starts filling it in, with nothing to redeploy - which
+*       is the point of asking the domain rather than hard-coding what we
+*       believe it contains.
+        IF rv IS NOT INITIAL.
+          DATA lv_dv TYPE dd07l-domvalue_l.
+          lv_dv = rv.
+          SELECT SINGLE @abap_true FROM dd07l
+            WHERE domname = 'ZDO_DEPARTMENTID' AND as4local = 'A' AND domvalue_l = @lv_dv
+            INTO @DATA(lv_known).
+          IF lv_known <> abap_true.
+            trace( |HAPPY   department '{ lv_dept }' resolves to code '{ rv }', which is not a | &&
+                   |fixed value of ZDO_DEPARTMENTID - saved blank. Add it to the domain and | &&
+                   |this fills itself in.| ).
+            CLEAR rv.
+            RETURN.
+          ENDIF.
+        ENDIF.
+
+        IF rv IS INITIAL.
+*         BLANK, AND SAID OUT LOUD. A wrong department is worse than none:
+*         it moves one department's satisfaction score onto another's
+*         report and nothing anywhere shows where it came from. The trace
+*         names the key that missed, which is what an author needs to add
+*         the row.
+*         BOTH ANSWERS ON THE LINE, because which source was empty is the
+*         whole diagnosis: no GRP row and no ICONS row means the journey
+*         is on neither list, and a filled one nobody recognises means the
+*         SWITCH below needs a branch.
+          trace( |HAPPY   no department for tile '{ lv_key }' (ZEGA_T_CJ_GRP | &&
+                 |'{ lv_code }', ZEGA_T_CJ_ICONS '{ lv_cat }') - saved without one| ).
+        ENDIF.
+
+      CATCH cx_root INTO DATA(lx_dep).
+*       NEVER FAILS THE FEEDBACK. The citizen answered a survey; a missing
+*       or renamed legacy table is not a reason to lose their answer.
+        CLEAR rv.
+        trace( |HAPPY   department lookup failed - { lx_dep->get_text( ) }| ).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD page_offset.
+    rv = CONV i( VALUE string( mt_page[ key = to_upper( iv_field ) ]-value DEFAULT '0' ) ).
+    IF rv < 0.
+      rv = 0.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD page_move.
+*   THE PAGE SIZE IS THE FIELD'S OWN GROW_THRESH, read here rather than
+*   passed in, so the event and the renderer cannot disagree about how big
+*   a page is - one column, one reader.
+*   THE SAME FALLBACK THE RENDERER USES, so the pager's step and the
+*   pager's page are the same number. A field with no GROW_THRESH can
+*   still be paged - the safety net does that when a table comes back
+*   over C_PAGE_MAX - and if this method had kept its old "no threshold,
+*   no move" guard, those tables would have drawn Back and Next buttons
+*   that did nothing.
+    DATA(ls_f)   = safe_field( iv_field ).
+    DATA(lv_size) = COND i( WHEN ls_f-grow_thresh > 0
+                            THEN ls_f-grow_thresh ELSE c_page_max ).
+
+    DATA(lv_new) = page_offset( iv_field ) + iv_dir * lv_size.
+    IF lv_new < 0.
+      lv_new = 0.
+    ENDIF.
+
+*   NO UPPER CLAMP HERE, and that is deliberate rather than missing. The
+*   total belongs to the handler and is only known once GET_TABLE( ) has
+*   answered, which happens during the render that follows this event. The
+*   renderer clamps against the total it was given and writes the clamped
+*   value back, so a Next pressed on the last page corrects itself on the
+*   same round trip instead of needing the total to be fetched twice.
+    DATA(lv_key) = to_upper( iv_field ).
+    READ TABLE mt_page ASSIGNING FIELD-SYMBOL(<pg>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <pg>-value = |{ lv_new }|.
+    ELSE.
+      APPEND VALUE #( key = lv_key value = |{ lv_new }| ) TO mt_page.
+    ENDIF.
+
+    trace( |PAGE    { lv_key } offset { lv_new } (size { lv_size }| &&
+           |{ COND string( WHEN ls_f-grow_thresh <= 0 THEN ` - safety net, no GROW_THRESH` ) })| ).
+  ENDMETHOD.
+
+
+  METHOD sort_state.
+    CLEAR: ev_col, ev_order.
+    DATA(lv_v) = VALUE string( mt_sort[ key = to_upper( iv_field ) ]-value DEFAULT `` ).
+    IF lv_v IS INITIAL.
+      RETURN.
+    ENDIF.
+    DATA lv_c TYPE string.
+    SPLIT lv_v AT ':' INTO lv_c ev_order.
+*   GUARDED RATHER THAN CONVERTED BLIND. The value is written by SORT_SET( )
+*   and cannot be anything else today, but it rides a serialized instance -
+*   and CONV i( ) on a non-numeric string raises CX_SY_CONVERSION_NO_NUMBER,
+*   which on a render path is the whole app rather than one unsorted table.
+    IF lv_c CO '0123456789' AND lv_c IS NOT INITIAL AND strlen( lv_c ) <= 4.
+      ev_col = CONV i( lv_c ).
+    ELSE.
+      CLEAR ev_order.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD sort_set.
+    DATA(lv_key) = to_upper( iv_field ).
+    DATA(lv_ord) = COND string( WHEN to_upper( iv_order ) CP 'DESC*' THEN 'Descending'
+                                ELSE 'Ascending' ).
+    DATA(lv_val) = |{ iv_col }:{ lv_ord }|.
+
+*   THE PAGE GOES BACK TO THE TOP. A reorder that left the window where it was
+*   would answer "sort by name" with page four of the new order, which reads as
+*   the sort having done nothing - the citizen is looking at names that are
+*   still not the first ones. Only where the field is actually paged; an
+*   unpaged table has no entry and gains none.
+    READ TABLE mt_page ASSIGNING FIELD-SYMBOL(<pg>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <pg>-value = '0'.
+    ENDIF.
+
+    READ TABLE mt_sort ASSIGNING FIELD-SYMBOL(<so>) WITH KEY key = lv_key.
+    IF sy-subrc = 0.
+      <so>-value = lv_val.
+    ELSE.
+      APPEND VALUE #( key = lv_key value = lv_val ) TO mt_sort.
+    ENDIF.
+
+    trace( |SORT    { lv_key } by column { iv_col } { lv_ord }| ).
+  ENDMETHOD.
+
+
+  METHOD param_step.
+    rv = -1.
+
+    DATA(lv_sp) = zif_rak_journey~get_param( 'step' ).
+    IF lv_sp IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   CO, not a TRY: the parameter is free text off the address bar and a
+*   CONV on 'abc' raises CX_SY_CONVERSION_NO_NUMBER, which on this path -
+*   inside INIT( ), before the first render - is the whole app gone rather
+*   than a journey that opens on step 0.
+*   A STEP_ID IS ACCEPTED AS WELL AS AN INDEX, and the name is the better
+*   half of the two. An index is a position in a list MERGE_DYNAMIC_STEPS( )
+*   is entitled to shorten, so &step=2 addresses whatever is second TODAY;
+*   &step=OWNER addresses the step somebody meant, and stops addressing
+*   anything at all - visibly, on the trace - if that step is renamed or
+*   dropped. It is also what anybody writing the link by hand types first:
+*   this went out as a number, came back as &step=OWNER, and the numeric
+*   test refused it into a silent step 0.
+*
+*   Tried BEFORE the numeric branch so a journey whose STEP_IDs are digits
+*   resolves by name rather than by position.
+    DATA(lv_id) = to_upper( lv_sp ).
+    DATA lv_ix TYPE i.
+    lv_ix = 0.
+    LOOP AT ms_config-steps INTO DATA(ls_st).
+      IF to_upper( ls_st-id ) = lv_id.
+        rv = lv_ix.
+        RETURN.
+      ENDIF.
+      lv_ix = lv_ix + 1.
+    ENDLOOP.
+
+*   STRLEN as well as CN, and the length test is not belt-and-braces: CN
+*   passes '99999999999' - every character IS a digit - and the CONV below
+*   then raises CX_SY_CONVERSION_OVERFLOW, which is the same uncatchable
+*   dump the CN test was written to avoid. Four digits is far past any
+*   real step count; the range test below refuses everything between that
+*   and the journey's actual length.
+    IF lv_sp CN '0123456789' OR strlen( lv_sp ) > 4.
+      trace_gate( |&step={ lv_sp } matches no STEP_ID on this journey | &&
+                  |and is not a step number. The journey has: | &&
+                  |{ concat_lines_of( table = VALUE string_table(
+                       FOR s IN ms_config-steps ( s-id ) ) sep = `, ` ) }. | &&
+                  |Opening on step 0.| ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_si) = CONV i( lv_sp ).
+
+*   Zero-based, so the last addressable step is LINES( ) - 1. Refused
+*   rather than clamped - see the declaration.
+    IF lv_si > lines( ms_config-steps ) - 1.
+      trace_gate( |&step={ lv_si } is outside this journey's | &&
+                  |{ lines( ms_config-steps ) } step(s), counted AFTER the | &&
+                  |dynamic-step merge. Opening on step 0.| ).
+      RETURN.
+    ENDIF.
+
+    rv = lv_si.
+  ENDMETHOD.
+
+
+  METHOD step_of.
+    rv = -1.
+    DATA lv_ix TYPE i.
+    DATA(lv_n) = to_upper( iv_field ).
+    lv_ix = 0.
+    LOOP AT ms_config-steps INTO DATA(ls_ss).
+      LOOP AT ls_ss-fields INTO DATA(ls_sf).
+        IF to_upper( ls_sf-name ) = lv_n.
+          rv = lv_ix.
+          RETURN.
+        ENDIF.
+      ENDLOOP.
+      lv_ix = lv_ix + 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD case_mode.
+    rv = c_mode_edit.
+
+    IF mv_submitted = abap_true OR mv_closed = abap_true.
+      rv = c_mode_done.
+      RETURN.
+    ENDIF.
+
+*   No fee, no lock of any kind. A journey without a PAYFEE control is
+*   exactly as editable as it was before this method existed.
+    DATA(lv_ps) = pay_step( ).
+    IF lv_ps < 0.
+      RETURN.
+    ENDIF.
+
+    READ TABLE ms_config-steps INTO DATA(ls_ps) INDEX lv_ps + 1.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    LOOP AT ls_ps-fields INTO DATA(ls_pf).
+      CHECK to_upper( ls_pf-type ) = 'PAYFEE'.
+      IF val_get( ls_pf-name ) = 'PAID'.
+        rv = c_mode_view.
+        RETURN.
+      ENDIF.
+      EXIT.
+    ENDLOOP.
+
+*   Unpaid AND reopened: the application was filed, a fee was raised, and
+*   the citizen has come back to settle it. Reading is fine; amending is
+*   not, because the amount raised was computed from what is on the screen.
+*
+*   Not applied to a journey being filled in for the first time - a case
+*   guid exists almost immediately there, because BACKEND_CREATE( ) runs on
+*   load, so "a case exists" would have locked the entire first pass.
+    IF mv_resumed = abap_true.
+      rv = c_mode_pay.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -1359,9 +3705,176 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD sim_userdata.
+    CLEAR: ev_userdata, ev_partner.
+    IF sy-sysid <> c_sim_sysid OR sy-mandt <> c_sim_mandt.
+      RETURN.
+    ENDIF.
+
+    DATA lv_user TYPE zega_t_cj_us_log-id.
+    lv_user = to_upper( VALUE #( mt_param[ key = 'SIMUSER' ]-value OPTIONAL ) ).
+    IF lv_user IS INITIAL.
+      lv_user = c_sim_user.
+    ENDIF.
+
+*   THE PARTNER FIRST, BECAUSE IT DOES NOT NEED A SESSION. This method
+*   used to SELECT the session row first and RETURN when there was none -
+*   before resolving the partner, so a system with no live portal session
+*   for this user handed CJS no identity at all.
+*
+*   That is the failure, exactly: a &journey=M011 launch on E10/200 with
+*   no &userdata= posted PARAM3 blank, ZFM_EGA_CJ_FW_POST_N returns
+*   before GET BADI when LOGINBP is blank and the journey is not
+*   anonymous, and the citizen got "The backend did not return a draft
+*   reference. The application cannot be started." No case, ever, from
+*   CJS on its own.
+*
+*   The two facts are independent and were coupled for no reason: WHO the
+*   citizen is comes from the internet user through
+*   ZFM_EGA_GET_BP_FROM_INTERNET_U, and the SESSION KEY comes from
+*   ZEGA_T_CJ_US_LOG. The first is stable configuration; the second is a
+*   live portal login that may simply not exist right now. Resolve the
+*   partner unconditionally, and treat the session key as the bonus it
+*   is.
+*
+*   NOTHING IS WRITTEN TO ZEGA_T_CJ_US_LOG. A row is read when one is
+*   there and mimicked when it is not - which is the instruction, and
+*   also the only safe reading: that table is the portal's, and every
+*   real login owns a row in it.
+    DATA lv_fm_user TYPE string.
+    DATA lv_bp      TYPE bu_partner.
+    lv_fm_user = lv_user.
+    TRY.
+*       IV_INTERNET_USER is TYPE STRING and binds by reference, so a
+*       variable typed ZEGA_T_CJ_US_LOG-ID is refused outright. A
+*       ZRAK_CJ_TESTKEY run once read that refusal as "E10 resolves
+*       nobody" - it resolves everybody; the call was wrong.
+        CALL FUNCTION 'ZFM_EGA_GET_BP_FROM_INTERNET_U'
+          EXPORTING  iv_internet_user    = lv_fm_user
+          IMPORTING  ev_business_partner = lv_bp.
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
+    DATA(lv_role_bp) = COND string( WHEN lv_bp IS NOT INITIAL
+                                    THEN |{ lv_bp ALPHA = OUT }| ).
+    CONDENSE lv_role_bp.
+    ev_partner = lv_role_bp.
+
+*   The ACTIVE row. An inactive one is a previous session and matches
+*   nothing on the way back.
+    SELECT SINGLE user_key FROM zega_t_cj_us_log
+      WHERE id = @lv_user AND active = @abap_true
+      INTO @DATA(lv_key).
+    IF sy-subrc <> 0.
+*     NO LIVE SESSION, AND THAT IS NOT FATAL ANY MORE. Without a key
+*     there is no envelope to mimic - GET_BP( ) matches ZEGA_T_CJ_US_LOG
+*     on the EBP member, so an invented one would resolve nobody and a
+*     blank one is worse than none. But EV_PARTNER is already set, and
+*     RESOLVE_IDENTITY( )'s fallback takes it from there: the journey
+*     knows who the citizen is, the BP item goes out, and PARAM3 is
+*     filled. Which is all the create needs.
+      trace( |IDENT   no active { lv_user } session row - partner | &&
+             |{ COND string( WHEN ev_partner IS NOT INITIAL THEN ev_partner ELSE '(none)' ) }| &&
+             | resolved from the internet user instead, no session key| ).
+      RETURN.
+    ENDIF.
+
+*   ROLEBP IS NOT OPTIONAL, and a blank one is worse than no envelope.
+*   GET_BP( ) does NOT look the role partner up - it hands back whatever
+*   the envelope carried. The legacy BAdI then reads property, fees and
+*   case ownership against that number, so a blank one asks the backend
+*   "what does partner <nothing> own" and gets the honest answer:
+*
+*       You currently have no registered properties in our system
+*
+*   - on a screen already listing three parcels, because the DPC path
+*   resolves identity from the x-custom1 header instead and never sees
+*   this envelope. Two identity paths, one of them blank, no contradiction
+*   reported anywhere. So the partner resolved above goes into it.
+*
+*   THE ENVELOPE, NOT THE BARE KEY. Two classes are called GET_BP( ) and
+*   they take different things: ZCL_EGA_CJ_UTILITY - the one the engine
+*   calls just below, and the one the legacy BAdI calls - deserializes
+*   &userdata= as JSON and matches ZEGA_T_CJ_US_LOG on its EBP member,
+*   while the DPC's own GET_BP( ) takes the key verbatim. Handing the bare
+*   key to the first matches no row and resolves nobody, silently.
+*   ZCL_RAK_CJ_CTX=>SESSION_KEY_OF( ) unwraps this again for the second.
+*
+*   ROLENAME is left blank deliberately. It names the role the citizen is
+*   acting IN, and the portal's own codes for it are not known here -
+*   inventing one would filter the backend's reads to a role nobody holds,
+*   which is a quieter failure than the blank ROLEBP above was.
+    ev_userdata = |\{"ebp":"{ lv_key }","rolebp":"{ lv_role_bp }","rolename":""\}|.
+  ENDMETHOD.
+
+
   METHOD set_field_state.
-    val_set( iv_name = |{ iv_name }_VS|  iv_value = iv_state ).
-    val_set( iv_name = |{ iv_name }_VST| iv_value = iv_text ).
+*   A grid cell, not a scalar field - '<GRID_FIELD>.<COL>#<ROW>', the
+*   same compound name ON_CHANGE already gets for one (see GRIDCHG_ in
+*   Z2UI5_IF_APP~MAIN). A scalar field name never carries a '#', so this
+*   is a safe, sufficient test - existing callers are all scalar and hit
+*   VAL_SET( ) exactly as before.
+    IF iv_name CS '#'.
+      set_cell_state( iv_name = iv_name iv_state = iv_state iv_text = iv_text ).
+      RETURN.
+    ENDIF.
+    val_set( iv_name = iv_name iv_suffix = '_VS'  iv_value = iv_state ).
+    val_set( iv_name = iv_name iv_suffix = '_VST' iv_value = iv_text ).
+  ENDMETHOD.
+
+
+  METHOD set_cell_state.
+    DATA(lv_hash) = find( val = iv_name sub = '#' ).
+    IF lv_hash < 0.
+      RETURN.
+    ENDIF.
+    DATA(lv_head) = substring( val = iv_name len = lv_hash ).
+    DATA(lv_row)  = substring( val = iv_name off = lv_hash + 1 ).
+    IF lv_row IS INITIAL OR lv_row CN '0123456789'.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_dot) = find( val = lv_head sub = '.' ).
+    IF lv_dot < 0.
+      RETURN.
+    ENDIF.
+    DATA(lv_grid) = substring( val = lv_head len = lv_dot ).
+    DATA(lv_col)  = substring( val = lv_head off = lv_dot + 1 ).
+
+*   Same lookup GRID_INDEX( ) already does to turn a grid field name into
+*   its internal table - COMP_NAME( ), then ASSIGN COMPONENT against the
+*   live model, never a fresh SELECT or a cached copy.
+    FIELD-SYMBOLS <model> TYPE any.
+    ASSIGN mr_model->* TO <model>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( lv_grid ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    FIELD-SYMBOLS <t> TYPE STANDARD TABLE.
+    ASSIGN <tab> TO <t>.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+*   ROW is already the 1-based table index GRID_INDEX( ) resolved from
+*   the cell's _UID when the compound name was built - never a UID
+*   itself, so this goes straight to a table READ, no second lookup.
+    READ TABLE <t> ASSIGNING FIELD-SYMBOL(<row>) INDEX CONV i( lv_row ).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_colname) = zcl_rak_journey_util=>comp_name( lv_col ).
+    ASSIGN COMPONENT |{ lv_colname }_VS| OF STRUCTURE <row> TO FIELD-SYMBOL(<vs>).
+    IF sy-subrc = 0.
+      <vs> = iv_state.
+    ENDIF.
+    ASSIGN COMPONENT |{ lv_colname }_VST| OF STRUCTURE <row> TO FIELD-SYMBOL(<vst>).
+    IF sy-subrc = 0.
+      <vst> = iv_text.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -1398,7 +3911,48 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD opt_evt.
-    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+*   A change event is raised when a RULE depends on this field - or when the
+*   journey has a handler at all.
+*
+*   The rule test on its own was a trap. ON_CHANGE( ) is the documented way for a
+*   handler to react to a field, and it simply never fired unless some rule
+*   happened to name that field as its source. A handler could redefine
+*   ON_CHANGE, the method could be correct, and nothing would call it - no error,
+*   no trace, no clue. That is what kept the Notary declaration dropdown from
+*   loading its blueprint: SET_SUBSERVICE( ) sits in ON_CHANGE and the field was
+*   nobody's rule source.
+*
+*   The cost is one round trip when a citizen changes a select on a journey that
+*   has a handler. That is the point of having one, and it is the same round trip
+*   Next already makes. Journeys with no handler class are unaffected.
+*   IV_TYPED SPLITS THE TWO CASES, and the split is the point.
+*
+*   On a control the citizen PICKS from - a select, a radio group, a switch - a
+*   round trip per change is invisible: the choice is made with the mouse and
+*   nobody tabs straight out of it. The OR above is what makes ON_CHANGE( ) fire
+*   for a handler at all, and it stays.
+*
+*   On a control the citizen TYPES into it is not invisible, and this is the
+*   regression it caused. Leaving a text field raises CHANGE, which is a round
+*   trip, which re-renders the view and drops focus - so the first Tab appears to
+*   do nothing and the second one works. Every text field, every journey with a
+*   handler class, which is nearly all of them. The commit that added the OR
+*   reasoned about it as one round trip on a select and did not notice that the
+*   same helper feeds the inputs.
+*
+*   So a typed field goes back to the original test: it raises CHANGE only when a
+*   RULE names it as a source. A handler that genuinely needs ON_CHANGE while
+*   someone types opts in through configuration - a ZRAK_T_JNY_RULE row with that
+*   field as SRC_FIELD - which is the CJS answer anyway: config before code.
+    IF iv_typed = abap_true.
+      IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] ).
+        rv = mo_client->_event( |CHANGE_{ iv_name }| ).
+      ENDIF.
+      RETURN.
+    ENDIF.
+
+    IF line_exists( ms_config-rules[ src_field = to_upper( iv_name ) ] )
+       OR mo_logic IS BOUND.
       rv = mo_client->_event( |CHANGE_{ iv_name }| ).
     ENDIF.
   ENDMETHOD.
@@ -1433,7 +3987,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~get_case.
-    rv = mv_case_guid.
+    rv = mv_intreno.
   ENDMETHOD.
 
 
@@ -1514,7 +4068,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
   METHOD case_reference.
     rv = COND #( WHEN mv_case_number IS NOT INITIAL THEN mv_case_number
-                 ELSE mv_case_guid ).
+                 ELSE mv_intreno ).
 
     IF rv CO '0123456789' AND rv IS NOT INITIAL.
       SHIFT rv LEFT DELETING LEADING '0'.
@@ -1531,6 +4085,49 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     CREATE OBJECT mo_render EXPORTING io_engine = me.
     CREATE OBJECT mo_be EXPORTING io_engine = me.
     CREATE OBJECT mo_rules EXPORTING io_engine = me.
+
+*   DYNAMIC, AND ALLOWED TO FAIL. Same reason RENDER_ONE( ) calls
+*   ZCL_RAK_CJ_OPTS=>RESOLVE( ) with CALL METHOD (...): everything behind
+*   this class inherits the legacy DPC, and one inactive object down there
+*   must not stop every journey and the Studio from loading.
+    CLEAR mt_ctrl.
+
+    TRY.
+        CREATE OBJECT mo_pcl TYPE ('ZCL_RAK_CJ_PARCEL')
+          EXPORTING io_engine = me.
+        APPEND mo_pcl TO mt_ctrl.
+      CATCH cx_root.
+        CLEAR mo_pcl.
+    ENDTRY.
+
+*   THE PROJECT SELECTOR, IN ITS OWN TRY. Separately, so one inactive
+*   control cannot take the other down with it - which is the whole point
+*   of creating these by name rather than referencing the classes.
+    TRY.
+        DATA lo_prj TYPE REF TO zif_rak_cj_control.
+        CREATE OBJECT lo_prj TYPE ('ZCL_RAK_CJ_PROJECT')
+          EXPORTING io_engine = me.
+        APPEND lo_prj TO mt_ctrl.
+      CATCH cx_root ##NO_HANDLER.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD ctrl_event.
+    LOOP AT mt_ctrl INTO DATA(lo_c).
+      IF lo_c IS NOT BOUND.
+        CONTINUE.
+      ENDIF.
+      TRY.
+          IF lo_c->on_event( iv_event ) = abap_true.
+            rv_handled = abap_true.
+            RETURN.
+          ENDIF.
+        CATCH cx_root ##NO_HANDLER.
+*         Not this control's, or it failed. Either way the next one gets
+*         the event and, if none takes it, the engine's own dispatch does.
+      ENDTRY.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -1566,13 +4163,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ELSE.
       mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
         text = |TRACE  BACKEND  { lv_calls } Notary API call(s) on this interaction| ) ).
-      LOOP AT lt_belog INTO DATA(lv_bl2).
-        IF lv_bl2 CS '-->' OR lv_bl2 CS '<--'.
-          mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
-            text = |TRACE  BACKEND  { lv_bl2 }| ) ).
-        ENDIF.
-      ENDLOOP.
     ENDIF.
+
+*   EVERY line, not only the ones carrying --> or <--.
+*
+*   The filter that used to sit here showed HTTP arrows and discarded the rest,
+*   which quietly threw away the only lines that explain a call that did NOT
+*   happen: AUTH not attempted, LOOKUP skipped, LOOKUP no endpoint, BLUEPRINT
+*   skipped - and the request payloads, which HTTP( ) has always logged and
+*   nobody has ever been able to see.
+*
+*   That is backwards. "No Notary API call was made" is the symptom; those
+*   notes are the reason, and they were being collected and dropped one line
+*   before the screen.
+*
+*   Also moved OUT of the ELSE. The zero-call case is exactly when the notes
+*   matter most, and it was the one case that displayed none of them.
+    LOOP AT lt_belog INTO DATA(lv_bl2).
+      mt_msg = VALUE #( BASE mt_msg ( type = 'Information'
+        text = |TRACE  BACKEND  { lv_bl2 }| ) ).
+    ENDLOOP.
 
     DATA(lv_ms) = tock( mv_req_t0 ).
 
@@ -1609,8 +4219,16 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lt_dyn TYPE zif_rak_journey_backend=>tt_dyn_field.
+*   Indices of steps with nothing to draw, deleted after the loop rather than
+*   inside it - deleting from the table being looped over skips rows.
+    DATA lt_drop TYPE STANDARD TABLE OF i WITH EMPTY KEY.
 
     LOOP AT ms_config-steps ASSIGNING FIELD-SYMBOL(<dstep>).
+
+*     Captured HERE, not read later. DESCRIBE_STEP( ) reads and loops over tables
+*     of its own, and any of those resets SY-TABIX - so by the time the drop
+*     decision is made below, SY-TABIX no longer names this step.
+      DATA(lv_ix) = sy-tabix.
 
       IF <dstep>-bknd_screen IS INITIAL.
         CONTINUE.
@@ -1619,13 +4237,41 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       CLEAR lt_dyn.
 
       TRY.
-          lt_dyn = mo_backend->describe_step( <dstep>-bknd_screen ).
+*         The model goes with the step name. A dynamic step can depend on
+*         something the citizen chose - the Notary blueprint depends on the
+*         declaration - and DESCRIBE_STEP( ) runs before on_init( ) and every
+*         other handler hook, so this is the only place it can be handed over.
+*         Guarded: MO_BE is the QNV-side helper and is not bound on every path.
+          lt_dyn = mo_backend->describe_step(
+                     iv_step   = <dstep>-bknd_screen
+                     it_fields = COND #( WHEN mo_be IS BOUND THEN mo_be->be_fields( ) ) ).
         CATCH cx_root INTO DATA(lx_dyn).
           mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }=EXCEPTION | .
           CONTINUE.
       ENDTRY.
 
       mv_dyn_note = |{ mv_dyn_note }{ <dstep>-bknd_screen }={ lines( lt_dyn ) }fld |.
+
+*     A step that has no static fields of its own AND whose backend describes no
+*     fields either has nothing to draw. Note it and drop it below.
+*
+*     This is the Notary business-object case. The blueprint returns businessFields
+*     as an EMPTY ARRAY for the declaration types that have no business object -
+*     Approval & Signature, No Objection, Pledge, Clearance - and the legacy portal
+*     does not show the section at all for those. CJS was rendering an empty step
+*     with a heading, a Next button and nothing to fill in, and then POSTing to
+*     BKND_SCREEN for a business object that does not exist.
+*
+*     Deliberately narrow. DESCRIBE_STEP is implemented for the BO screen only and
+*     returns nothing for every other screen, so keying this on "backend described
+*     no fields" alone would drop every step on the journey. A step that carries
+*     configured fields always survives.
+      IF <dstep>-fields IS INITIAL AND lt_dyn IS INITIAL.
+        APPEND lv_ix TO lt_drop.
+        mv_dyn_note = |{ mv_dyn_note }{ <dstep>-id } DROPPED (no configured fields, | &&
+                      |backend described none) |.
+        CONTINUE.
+      ENDIF.
 
       LOOP AT lt_dyn INTO DATA(ls_dyn).
 
@@ -1641,12 +4287,26 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
         APPEND VALUE #(
           name    = lv_dnm
-          label   = COND string( WHEN ls_dyn-label IS NOT INITIAL
+*         Arabic when the journey is Arabic. The backend already resolves
+*         LABEL_AR off the blueprint and it was being thrown away here, so every
+*         blueprint-driven field carried an English label on the Arabic journey -
+*         on a screen where every configured field beside it was translated.
+*         Same precedence ZCL_RAK_JOURNEY_REPO->PICK( ) uses: Arabic if asked for
+*         and present, English otherwise.
+          label   = COND string( WHEN mv_lang = 'A' AND ls_dyn-label_ar IS NOT INITIAL
+                                 THEN ls_dyn-label_ar
+                                 WHEN ls_dyn-label IS NOT INITIAL
                                  THEN ls_dyn-label
                                  ELSE ls_dyn-name )
           type    = COND string( WHEN ls_dyn-type IS NOT INITIAL
                                  THEN to_upper( ls_dyn-type )
                                  ELSE 'INPUT' )
+*         MAX_LEN was computed by DESCRIBE_STEP and dropped here, so a blueprint
+*         field with a length limit accepted anything and failed at the Notary API
+*         instead of at the field - the citizen learns about it on submit, with no
+*         indication of which answer was too long.
+          validation = VALUE #( max_len = ls_dyn-max_len
+                                regex   = ls_dyn-regex )
           options = VALUE #( FOR o IN ls_dyn-options ( key = o-key text = o-text ) )
         ) TO <dstep>-fields.
 
@@ -1658,6 +4318,25 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     ENDLOOP.
 
+*   Descending, so an earlier delete cannot shift a later index.
+*
+*   MS_CONFIG-STEPS is rebuilt from the same blueprint on every round trip, so the
+*   drop is the same every time and MV_STEP keeps addressing the step the citizen
+*   is actually on. The clamp is for the one case that is not stable: a resumed
+*   draft whose stored step index was recorded before a step disappeared.
+    IF lines( lt_drop ) > 0 AND lines( lt_drop ) < lines( ms_config-steps ).
+      SORT lt_drop DESCENDING.
+      LOOP AT lt_drop INTO DATA(lv_drop).
+        DELETE ms_config-steps INDEX lv_drop.
+      ENDLOOP.
+      IF mv_step >= lines( ms_config-steps ).
+        mv_step = lines( ms_config-steps ) - 1.
+      ENDIF.
+      IF mv_step < 0.
+        mv_step = 0.
+      ENDIF.
+    ENDIF.
+
   ENDMETHOD.
 
 
@@ -1668,7 +4347,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     DATA lv_ix TYPE i.
-    lv_ix = val_get( |{ ls_f-name }_IX| ).
+    lv_ix = val_get( iv_name = ls_f-name iv_suffix = '_IX' ).
     IF lv_ix < 0.
       RETURN.
     ENDIF.
@@ -1694,6 +4373,28 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD resolve_identity.
+
+*   FIRST, so everything below - GET_BP( ), MV_LOGINBP, and the USERDATA
+*   the bridge posts to the legacy backend - runs off it exactly as it
+*   would from a real portal launch. Nothing downstream knows the
+*   difference, which is the point: the simulated path must not be a
+*   second code path.
+    DATA lv_sim   TYPE string.
+    DATA lv_sim_bp TYPE string.
+    IF mv_userdata IS INITIAL.
+      sim_userdata( IMPORTING ev_userdata = lv_sim
+                              ev_partner  = lv_sim_bp ).
+      IF lv_sim IS NOT INITIAL.
+        mv_userdata = lv_sim.
+        READ TABLE mt_param ASSIGNING FIELD-SYMBOL(<sim>) WITH KEY key = 'USERDATA'.
+        IF sy-subrc = 0.
+          <sim>-value = lv_sim.
+        ELSE.
+          APPEND VALUE #( key = 'USERDATA' value = lv_sim ) TO mt_param.
+        ENDIF.
+        trace( |IDENT   simulated session for { c_sim_user } - { c_sim_sysid }/{ c_sim_mandt } only| ).
+      ENDIF.
+    ENDIF.
 
     mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
     mv_rolebp  = bp_of( VALUE #( mt_param[ key = 'ROLEBP' ]-value OPTIONAL ) ).
@@ -1721,8 +4422,40 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    IF mv_loginbp IS INITIAL AND sy-sysid <> 'E30'.
+*   &loginbp= ON THE URL IS A DEVELOPMENT STUB, and the guard used to be
+*   `sy-sysid <> 'E30'` - which let anyone who could reach the quality
+*   system name themselves as any partner by editing the address bar, and
+*   then file a request as that person. Development only now, through the
+*   one place that answers the question.
+    IF mv_loginbp IS INITIAL AND zcl_rak_journey_util=>dev_stubs_ok( ) = abap_true.
       mv_loginbp = bp_of( VALUE #( mt_param[ key = 'LOGINBP' ]-value OPTIONAL ) ).
+    ENDIF.
+
+*   THE SIMULATED PARTNER IS A FALLBACK, NOT A SECOND SOURCE. GET_BP( )
+*   above parses the envelope and is believed when it answers. When it
+*   does not - and it is a legacy class whose exact JSON expectations
+*   cannot be checked from here - the partner resolved directly from the
+*   internet user stands in, so a simulated session still knows who it is.
+*   Without this, every downstream read filtered on a blank partner and
+*   the parcel list said "No partner is known for this journey".
+    IF mv_loginbp IS INITIAL AND lv_sim_bp IS NOT INITIAL.
+      mv_loginbp = lv_sim_bp.
+      trace( |IDENT   partner { mv_loginbp } from the simulated user, not from GET_BP| ).
+    ENDIF.
+
+*   AND SAY SO WHEN THERE IS STILL NOBODY, because everything downstream
+*   then fails in a way that names something else. A blank partner makes
+*   ZFM_EGA_CJ_FW_POST_N return before GET BADI on a journey that is not
+*   anonymous, so the create comes back with no draft reference and no
+*   message at all - which reads as a missing BAdI registration, a wrong
+*   category or a filter miss, and sent one investigation to each of
+*   those. The one line that would have ended it belongs here.
+    IF mv_loginbp IS INITIAL.
+      trace( |IDENT   NO PARTNER RESOLVED. On { c_sim_sysid }/{ c_sim_mandt } a launch | &&
+             |without &userdata= falls back to { c_sim_user }; anywhere else the launch | &&
+             |must carry &userdata= or &loginbp=. The backend create will return no | &&
+             |draft reference and no message, because the FM returns before GET BADI | &&
+             |when the partner is blank.| ).
     ENDIF.
 
     IF mv_rolebp IS INITIAL.
@@ -1751,7 +4484,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     val_set( iv_name = 'CASE_NUMBER' iv_value = mv_case_number ).
 
-    trace( |CASE    backend returned case { mv_case_number } - journey key stays { mv_case_guid }| ).
+    trace( |CASE    backend returned case { mv_case_number } - journey key stays { mv_intreno }| ).
   ENDMETHOD.
 
 
@@ -1769,6 +4502,13 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+
+  METHOD dev_msg.
+    IF zcl_rak_journey_util=>is_dev( ) = abap_false.
+      RETURN.
+    ENDIF.
+    mt_msg = VALUE #( BASE mt_msg ( type = iv_type text = iv_text ) ).
+  ENDMETHOD.
 
   METHOD trace.
     IF mv_trace = abap_false.
@@ -1806,11 +4546,37 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_rak_journey~finish_now.
+*   NOT THE LAST STEP: the move is all finishing means here, and
+*   ADVANCE_STEP( ) already does it - including the backend read and
+*   ON_AFTER_READ( ) the next step needs.
+    IF mv_step < lines( ms_config-steps ) - 1.
+      zif_rak_journey~advance_step( ).
+      rv_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+*   THE LAST STEP: submit, through the same method the Submit press goes
+*   through and not a copy of it. HANDLE_SUBMIT( ) runs VALIDATE_ALL( ),
+*   ON_SUBMIT( ), the attachments and the post, and sets MV_SUBMITTED only
+*   when every one of those passed. Reimplementing any of that here would
+*   be a second submit path to keep in step with the first.
+*
+*   MV_SUBMITTED IS THE SUCCESS CODE. On a refusal HANDLE_SUBMIT( ) returns
+*   with the errors in MT_MSG and MV_SUBMITTED untouched, so the citizen
+*   sees what went wrong and stays on the payment step with Complete still
+*   there to press. That is the whole safeguard: a timer may finish a
+*   journey that succeeded, never one that failed.
+    handle_submit( ).
+    rv_ok = mv_submitted.
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey~advance_step.
     IF mv_step < lines( ms_config-steps ) - 1.
       mv_step = mv_step + 1.
       IF mo_bridge IS BOUND.
-        mo_be->backend_read( mv_step ).
+        mo_be->backend_read( iv_step = mv_step ).
         IF mo_logic IS BOUND.
           TRY.
               mo_logic->on_after_read( me ).
@@ -1854,7 +4620,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       IF lv_final = abap_true.
         lt_pa = mo_be->attachments_for_backend( ).
       ENDIF.
-      trace( |POST    screen { ls_step-bknd_screen } · guid { mv_case_guid } · { lines( lt_pi ) } items| &&
+      trace( |POST    screen { ls_step-bknd_screen } · guid { mv_intreno } · { lines( lt_pi ) } items| &&
              | · { lines( lt_pt ) } table row(s) · { lines( lt_pa ) } attachment(s)| &&
              | · { COND string( WHEN lv_status IS NOT INITIAL THEN lv_status ELSE 'no STATUS' ) }| &&
              COND string( WHEN lv_final = abap_false AND mt_attach IS NOT INITIAL
@@ -1869,16 +4635,54 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       mo_bridge->post(
         EXPORTING
           iv_screen      = ls_step-bknd_screen
-          iv_guid        = mv_case_guid
+          iv_guid        = mv_intreno
           it_items       = lt_pi
           it_tables      = lt_pt
           it_attachments = lt_pa
         IMPORTING
-          ev_guid        = mv_case_guid
+          ev_guid        = mv_intreno
           ev_case        = DATA(lv_case_new)
           et_msg         = DATA(lt_m) ).
       take_case( lv_case_new ).
       trace( |POST    { lines( lt_m ) } message(s) back| ).
+
+*     ---- THE FILES ARE ON THE CASE NOW, AND THE ROW SAYS SO ------------
+*
+*     NOT A DELETE. This used to be DROP_ATTACHMENTS( ) on the final post and
+*     that broke Back - the uploader drew from staging alone and the citizen
+*     was shown a Documents step with every slot empty. The files stay; all
+*     that is recorded is that a second copy now exists on the case, which is
+*     the fact a retention sweep needs and could not previously know.
+*
+*     FILED IS WHAT MAKES A PURGE SAFE. Age alone cannot tell an abandoned
+*     upload from one belonging to a paid application, and it certainly cannot
+*     tell either from a draft the citizen means to come back to. A filed row
+*     is recoverable from the case; an unfiled one exists nowhere else, and
+*     deleting it is the only version of this that loses data.
+      IF lt_pa IS NOT INITIAL.
+        DATA lt_fguid TYPE string_table.
+        CLEAR lt_fguid.
+*       THE IN-MEMORY FLAG TOO. TY_ATT has carried a FILED field since it was
+*       written - "already handed to the backend - never send twice" - and only
+*       the NATIVE backend path ever set it; on the QNV bridge path it stayed
+*       blank. Setting both here keeps the row and the session agreeing about
+*       the same fact, which is the whole point of writing it down.
+*
+*       IT DOES NOT YET SUPPRESS THE RE-SEND. Staging is no longer dropped at
+*       the post, so a filed file still travels on every later post -
+*       harmless, because the BAdI ignores a duplicate, but not free at ten
+*       documents of base64 per round trip. ATTACHMENTS_FOR_BACKEND( ) skipping
+*       a filed row is the obvious next step and is deliberately not taken
+*       here: it changes what reaches the backend, which is a decision, not a
+*       tidy-up.
+        LOOP AT mt_attach ASSIGNING FIELD-SYMBOL(<ls_fa>).
+          APPEND <ls_fa>-guid TO lt_fguid.
+          <ls_fa>-filed = abap_true.
+        ENDLOOP.
+        zcl_rak_cj_att_store=>mark_filed( lt_fguid ).
+        trace( |ATTACH  { lines( lt_fguid ) } staged file(s) marked filed - the case | &&
+               |holds a copy, so a purge may take them| ).
+      ENDIF.
 
       READ TABLE lt_m WITH KEY type = 'Error' TRANSPORTING NO FIELDS.
       IF sy-subrc = 0.
@@ -1887,12 +4691,68 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
       ENDIF.
       APPEND LINES OF lt_m TO mt_msg.
 
-      IF lv_final = abap_true.
-        drop_attachments( ).
-      ENDIF.
+*     ---- STAGING IS NO LONGER DISCARDED HERE -------------------------
+*
+*     This ran DROP_ATTACHMENTS( ) on the PAYMENT and SUBMIT post - deleting
+*     the rows from ZRAK_CJ_ATTX and clearing MT_ATTACH - on the reasoning
+*     that the files were with the backend by then and staging was spent.
+*     True, and it still broke the screen: RENDER_CHIPS( ) drew the uploader
+*     from MT_ATTACH alone, so pressing Back after reaching Payment showed a
+*     Documents step with every slot empty. The citizen who has just uploaded
+*     ten files is told they uploaded none.
+*
+*     RENDER_CHIPS( ) NOW ALSO DRAWS MT_BE_ATTACH, so the case's own copy
+*     appears whether or not staging survives - which is the real fix, and the
+*     only one that helps a journey relaunched from a deep link, where this
+*     engine instance never staged anything. Keeping staging as well is belt
+*     and braces for the window between upload and post.
+*
+*     THE COST IS THAT NOTHING PURGES ZRAK_CJ_ATTX, and that is a deliberate,
+*     temporary trade: every staged file now outlives its journey. Retention
+*     belongs to an archive step outside the request, not to a DELETE on the
+*     one round trip that happens to be the last - ZRAK_CJ_ATT_PURGE exists
+*     for exactly this and has never been run.
+*
+*     DROP_ATTACHMENTS( ) IS STILL CALLED FROM HANDLE_DELETE( ), where the
+*     citizen has explicitly discarded the application. That is a decision,
+*     not a side effect of navigating forward.
     ENDIF.
 
     rv_ok = abap_true.
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey~rekey_attachments.
+
+*   A NO-OP WHEN THERE IS NOTHING TO MOVE, and deliberately silent about it.
+*   A dialog calls this on every save, including saves where the key never
+*   changed - an Edit of an existing row - so "moved nothing" is the normal
+*   case and not worth a message.
+    IF iv_from IS INITIAL OR iv_to IS INITIAL OR iv_from = iv_to.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_fld) = to_upper( iv_field ).
+
+    LOOP AT mt_attach ASSIGNING FIELD-SYMBOL(<ls_rk>) WHERE okey = iv_from.
+*     IV_FIELD NARROWS, BLANK MEANS ALL. A dialog with six uploaders keyed on
+*     one subject moves all six with one call; a caller that wants only one
+*     of them names it.
+      IF lv_fld IS NOT INITIAL AND <ls_rk>-field <> lv_fld.
+        CONTINUE.
+      ENDIF.
+      <ls_rk>-okey = iv_to.
+      rv_moved = rv_moved + 1.
+    ENDLOOP.
+
+*   THE STORE IS NOT TOUCHED. OKEY is how CJS groups staged files while they
+*   wait; the file itself lives in ZRAK_CJ_ATTX under its own guid and the
+*   guid does not change. So this is a relabel, not a move, and nothing has
+*   to be re-uploaded or re-read.
+    IF rv_moved > 0.
+      trace( |ATTACH  re-keyed { rv_moved } file(s) from { iv_from } to { iv_to }| &&
+             COND string( WHEN lv_fld IS NOT INITIAL THEN | on { lv_fld }| ) ).
+    ENDIF.
   ENDMETHOD.
 
 
@@ -1936,7 +4796,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
-    ASSIGN COMPONENT to_upper( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
+    ASSIGN COMPONENT zcl_rak_journey_util=>comp_name( ls_fld-name ) OF STRUCTURE <model> TO FIELD-SYMBOL(<tab>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -1984,13 +4844,31 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
     ENDIF.
 
     ensure_parts( ).
-    mo_render->render_uploader( io_box   = io_view
-                                iv_field = ls_f-name
-                                iv_types = ls_f-attach_types
-                                iv_maxmb = ls_f-attach_maxmb
-                                iv_scope = '_POP'
-                                iv_key   = iv_key ).
-    mo_render->render_chips( io_box = io_view iv_field = ls_f-name iv_key = iv_key ).
+
+*   CHIPS FIRST, THEN THE PICKER, AND THE PICKER ONLY WHEN THERE IS NO FILE.
+*   This used to draw them the other way round, so a handler-drawn dialog put
+*   a new file BELOW its picker while every uploader on a page put it above -
+*   two orders for one control, and only one of them could match what the
+*   citizen had just been looking at.
+*
+*   The gate is the same one RENDER_ATTACH( ) applies: one file per uploader,
+*   which the engine enforces at ATTSAVE_ regardless of what was drawn, and
+*   no picker at all once the case is frozen.
+    DATA(lv_popcnt) = mo_render->render_chips( io_box   = io_view
+                                               iv_field = ls_f-name
+                                               iv_key   = iv_key
+                                               iv_bound = abap_true ).
+*   THE SAME PAIR THE PAGE DRAWS, in the dialog's own component scope. Both
+*   states are in the fragment all the time and switch on their bound values,
+*   so staging a file in a dialog no longer changes the fragment's markup -
+*   which is what lets SEND_POPUP( ) refresh the model instead of rebuilding
+*   the dialog. The frozen-case and one-file-per-uploader gates that used to
+*   sit here are folded into _ATTPOF.
+    mo_render->render_att_pair( io_box   = io_view
+                                is_field = ls_f
+                                iv_other = lv_popcnt
+                                iv_key   = iv_key
+                                iv_pop   = abap_true ).
   ENDMETHOD.
 
 
@@ -2070,12 +4948,14 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~set_hidden.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'HIDDEN' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'HIDDEN' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 
 
   METHOD zif_rak_journey~set_readonly.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'READONLY' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'READONLY' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 
 
@@ -2085,6 +4965,7 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
 
   METHOD zif_rak_journey~set_required.
-    mo_rules->set_prop( iv_field = iv_field iv_prop = 'REQUIRED' iv_on = iv_on ).
+    mo_rules->set_prop( iv_field = iv_field iv_prop = 'REQUIRED' iv_on = iv_on
+                        iv_step  = iv_step ).
   ENDMETHOD.
 ENDCLASS.

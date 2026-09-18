@@ -6,14 +6,22 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
   PUBLIC SECTION.
 *   Cross-checks a CJS journey against the ShapeIt configuration it posts to.
 *
-*   Everything here compares ZRAK_T_JNY* against /QNV/SB_UI_DEFIN and
-*   ZEGA_T_CJ_2_OBJ. It never opens a case, never calls a BAdI and writes
-*   nothing, so it is safe to run on any system at any time.
+*   Everything here compares ZRAK_T_JNY* against /QNV/SB_UI_DEFIN,
+*   ZEGA_T_CJ_2_OBJ and the ShapeIt UI map. It never opens a case, never calls a
+*   BAdI and writes nothing, so it is safe to run on any system at any time.
 *
 *   It exists because the two sides fail SILENTLY when they disagree. A step
 *   pointing at a screen that has no /QNV rows still renders, still validates and
 *   still posts - the BAdI reads an empty LT_DEFIN and does nothing. There is no
 *   error anywhere. The developer sees a working form and a missing case.
+*
+*   THE SCREEN NAME IS THE WHOLE OF THE CONTRACT, and there are two ways a BAdI
+*   uses it. DOK and EPDA BRANCH ON IT - IF cs_general_data-screenname EQ
+*   'ND026_1_2' - which X03, X04, X11 and X12 cover. The RE-object framework
+*   every Municipality journey runs through, ZCL_EGA_CJ_FW_RO_ABS_V1, uses it as
+*   a KEY INTO ZEGA_T_CJ_UI_MAP instead and reads the OBJECTKEY rows to decide
+*   which operations run at all. X16 covers that half, and it is the half where
+*   a mismatch costs the container case rather than a validation.
 
     TYPES: BEGIN OF ty_msg,
              sev  TYPE c LENGTH 1,        " E blocker · W risk · I note
@@ -34,6 +42,18 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
     CLASS-DATA gt_defn TYPE STANDARD TABLE OF /qnv/sb_ui_defin WITH EMPTY KEY.
     CLASS-DATA gt_msg  TYPE tt_msg.
 
+*   The ShapeIt UI map, normalised. Held as three strings rather than as the
+*   legacy structure on purpose: X16 resolves the table AND its columns at
+*   runtime, so nothing here may be typed against either. See X16.
+    TYPES: BEGIN OF ty_map,
+             screen TYPE string,
+             mode   TYPE string,          " RWMODE · 1 read · 2 post
+             obj    TYPE string,          " OBJECTKEY · ATTACHMENT, PLDTL, FEES_1 ...
+           END OF ty_map.
+    TYPES tt_map TYPE STANDARD TABLE OF ty_map WITH EMPTY KEY.
+    CLASS-DATA gt_map    TYPE tt_map.
+    CLASS-DATA gv_maptab TYPE string.
+
     CLASS-METHODS add IMPORTING iv_sev  TYPE c
                                 iv_rule TYPE string
                                 iv_step TYPE string OPTIONAL
@@ -49,6 +69,44 @@ CLASS zcl_rak_cjs_xcheck DEFINITION
     CLASS-METHODS x08_status_carrier.
     CLASS-METHODS x09_grid_contract.
     CLASS-METHODS x10_next_requires.
+    CLASS-METHODS x13_label_truncated.
+    CLASS-METHODS x14_overlength_name.
+    CLASS-METHODS x15_required_readonly.
+    CLASS-METHODS x16_ui_map.
+
+*   ---- X17: THE STUDIO ROUND-TRIP AUDIT --------------------------------
+*   THE ASK BEHIND R14-2, and the reason the four assignments were only the
+*   symptom. Three times now a column has been added to a ZRAK_T_JNY* table,
+*   written by a loader, and silently emptied by the Studio, because
+*   SAVE_JOURNEY( ) rewrites those tables IN FULL and anything it does not
+*   name it deletes: CLOSED_LIST, NO_BROWSE, then CJ_TYPE / DRAFT_MODE /
+*   ATTACH_MODE / STEP-ACTIVE.
+*
+*   The rule that was supposed to prevent it - "a new column is not finished
+*   until the Studio can round-trip it" - is a discipline, and a discipline
+*   has been the only guard each time. This is the mechanical version: read
+*   the FIELDNAMEs of each table out of the DDIC, look for each one in
+*   ZCL_RAK_CJS's own source, and report the ones that appear nowhere.
+*
+*   IT READS SOURCE, WHICH IS UNUSUAL HERE AND IS THE POINT. Nothing else can
+*   answer the question - the defect is a column MISSING from a statement, and
+*   a missing statement leaves no runtime trace at all. Every earlier
+*   detection was somebody reading the INSERT by eye.
+*
+*   DELIBERATELY COARSE. It asks only "does this column name occur in the
+*   class", not "is it assigned in the right statement". A name that appears
+*   in a comment and nowhere else would pass. That is the correct trade: the
+*   failure mode being hunted is a column the Studio has NEVER heard of - all
+*   five found so far occurred exactly zero times - and a coarse check with no
+*   false positives will be left switched on, where a precise one that cries
+*   wolf gets ignored. It is a floor, not a proof.
+    CLASS-METHODS x17_studio_roundtrip.
+    CLASS-METHODS col_of IMPORTING is_line   TYPE any
+                                   it_try    TYPE string_table
+                         RETURNING VALUE(rv) TYPE string.
+    CLASS-METHODS map_modes IMPORTING iv_screen TYPE string
+                                      iv_obj    TYPE string
+                            RETURNING VALUE(rv) TYPE string.
 ENDCLASS.
 
 
@@ -62,7 +120,7 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
 
 
   METHOD check.
-    CLEAR: gs_jny, gt_step, gt_fld, gt_defn, gt_msg.
+    CLEAR: gs_jny, gt_step, gt_fld, gt_defn, gt_msg, gt_map, gv_maptab.
 
     SELECT SINGLE * FROM zrak_t_jny INTO @gs_jny WHERE journey_id = @iv_journey.
     IF sy-subrc <> 0.
@@ -94,11 +152,24 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
       x12_screen_family( ).
       x05_step_order( ).
       x09_grid_contract( ).
+*     Last, and reaching furthest outside CJS of anything here - it resolves a
+*     legacy table by name at runtime. Everything it can raise is caught inside
+*     it; the ordering is belt and braces, so a surprise cannot cost the rules
+*     above their findings.
+      x16_ui_map( ).
     ENDIF.
 
     x06_pay_screen( ).
     x08_status_carrier( ).
     x10_next_requires( ).
+    x13_label_truncated( ).
+    x14_overlength_name( ).
+    x15_required_readonly( ).
+*   Not journey-specific - it audits the Studio against the DDIC and answers
+*   the same on every journey. Run here anyway rather than in a separate
+*   report: the Studio calls XCHECK on load and on save, so this is the one
+*   place an author is already looking when they add a column.
+    x17_studio_roundtrip( ).
 
     IF gt_msg IS INITIAL.
       add( iv_sev  = 'I'
@@ -524,6 +595,159 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD x13_label_truncated.
+*   A label that is EXACTLY at its column width was almost certainly cut on
+*   insert rather than written that length. ZLABEL is CHAR(150), ZLABEL_AR
+*   the same since the widening, and the giveaway is that the text stops
+*   mid-sentence: EC01's certification ends "...held responsible for".
+*
+*   Nothing raises for this. The row inserts, the field renders, and the
+*   citizen ticks a consent statement whose second half nobody has read -
+*   which is worse than an error, because it looks like it worked.
+*
+*   The fix is the TEXT: convention on DEFAULT_VAL (CHAR 1000), read by
+*   ZCL_RAK_JOURNEY_RENDER->LONG_TEXT( ). This only reports; a label that is
+*   genuinely 150 characters long and complete is a false positive, and
+*   saying so costs a glance where missing a cut declaration costs more.
+    CONSTANTS lc_label_len TYPE i VALUE 150.
+
+    LOOP AT gt_fld INTO DATA(ls_f).
+      IF ls_f-default_val CP 'TEXT:*'.
+*       Already on the long-text route - the label is a fallback, not the
+*       text anyone reads.
+        CONTINUE.
+      ENDIF.
+
+*     The other long-text route: a row in ZCL_RAK_TEXT=>LONG_TEXTS( ),
+*     which is where a legal declaration belongs - literals there have no
+*     length ceiling and no missing _AR twin. LONG( ) hands back the label
+*     unchanged when it holds nothing, so a different answer means this
+*     field is covered and the truncated ZLABEL is never rendered.
+*
+*     Without this test X13 reports a blocker that has already been fixed,
+*     and a checker that cries wolf is one people learn to skip.
+*
+*     CONV on all three: LONG( ) takes strings by reference, and these are
+*     DDIC-typed fields. Passing them raw is what dumped this class once.
+      DATA(lv_lbl) = CONV string( ls_f-zlabel ).
+      IF zcl_rak_text=>long( iv_journey = CONV #( ls_f-journey_id )
+                             iv_field   = CONV #( ls_f-field_name )
+                             iv_default = lv_lbl ) <> lv_lbl.
+        CONTINUE.
+      ENDIF.
+
+      IF strlen( ls_f-zlabel ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name }: ZLABEL is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Put the full text in ZCL_RAK_TEXT=>LONG_TEXTS( ), | &&
+                       |or in DEFAULT_VAL as TEXT:... / TEXT:@nnn.| ).
+      ENDIF.
+
+      IF strlen( ls_f-zlabel_ar ) >= lc_label_len.
+        add( iv_sev  = COND #( WHEN to_upper( ls_f-ftype ) = 'CHECKBOX' THEN 'E' ELSE 'W' )
+             iv_rule = 'X13'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name }: ZLABEL_AR is at the { lc_label_len }-character limit | &&
+                       |and is probably truncated. Use ZCL_RAK_TEXT=>LONG_TEXTS( ), which holds | &&
+                       |EN and AR with no length ceiling.| ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x14_overlength_name.
+*   ZCL_RAK_JOURNEY_UTIL=>COMP_NAME( ) is what turns a free-text FIELD_NAME into
+*   an ABAP structure component: upper-cased, sanitised, and - past 23 characters
+*   - collapsed into an 18-character prefix plus a 4-digit hash of the WHOLE
+*   name, so BUILD_MODEL( ) never dumps CX_SY_STRUCT_COMP_NAME even on a
+*   companion suffix as long as _IDTYPE (7 characters: 23 + 7 = 30, the DDIC cap).
+*
+*   ERROR at 24: the base name itself is now silently rewritten into a hash, and
+*   the component the field is bound to no longer resembles its own name in a
+*   trace, in SE24, or in an ASSIGN COMPONENT written against the obvious name.
+*
+*   WARNING from 17: a field this long has likely grown, or will grow, a
+*   companion lookup - a handler reading _IDTYPE, _NAME, _VS, _VST, _IX or _EXP
+*   off it. Every such call has to run COMP_NAME( ) on the BASE name and append
+*   the suffix afterwards, never build the suffixed string first and hand THAT
+*   to COMP_NAME( ) - doing it the wrong way round makes the 23-character
+*   collapse fire on a different, longer string than BUILD_MODEL( ) built the
+*   component under, and the lookup silently finds nothing. VAL_GET( )/
+*   VAL_SET( )/BIND_OF( )/BIND_STATE( ) take the suffix as its own parameter for
+*   exactly this reason, but this checker cannot see handler source, and nothing
+*   stops a handler calling the public GET_VAL( )/SET_VAL( ) the old, wrong way.
+*   17 is the base length at which even the longest suffix, _IDTYPE at 7
+*   characters, first pushes 17 + 7 = 24 over the 23-character line.
+    CONSTANTS lc_warn TYPE i VALUE 17.
+    CONSTANTS lc_err  TYPE i VALUE 24.
+
+    LOOP AT gt_fld INTO DATA(ls_f).
+      DATA(lv_len) = strlen( CONV string( ls_f-field_name ) ).
+      IF lv_len >= lc_err.
+        add( iv_sev  = 'E'
+             iv_rule = 'X14'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name } is { lv_len } characters. COMP_NAME( ) collapses | &&
+                       |anything at 24 or more into an 18-character-plus-hash component that no | &&
+                       |longer resembles the field name - every trace, SE24 lookup and handler | &&
+                       |ASSIGN COMPONENT against the obvious name will find nothing. Rename it | &&
+                       |to 23 characters or fewer.| ).
+      ELSEIF lv_len >= lc_warn.
+        add( iv_sev  = 'W'
+             iv_rule = 'X14'
+             iv_step = CONV #( ls_f-step_id )
+             iv_text = |{ ls_f-field_name } is { lv_len } characters. A companion lookup on it | &&
+                       |( _IDTYPE, _NAME, _VS, _VST, _IX, _EXP ) is one COMP_NAME( ) call away | &&
+                       |from silently binding to nothing - the base name plus a 7-character | &&
+                       |suffix like _IDTYPE already exceeds the 23-character cap BUILD_MODEL( ) | &&
+                       |builds components under. Keep field names at 16 characters or fewer if | &&
+                       |any companion lookup is planned.| ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD x15_required_readonly.
+*   MISSING_REQUIRED( ) opens with LOOP AT ls_ms-fields ... WHERE readonly =
+*   abap_false - a READONLY field is skipped before REQUIRED is ever tested, no
+*   matter what REQUIRED says. REQ_LABEL( ) does not make the same check, so the
+*   asterisk still renders: the field looks mandatory and nothing ever enforces
+*   it. On a field the citizen cannot edit - written instead by ON_INIT( ) or a
+*   popup - that gap has shipped at least one blank-but-accepted submission.
+*
+*   This is exactly the "warn at save time" the engine cannot yet express as
+*   real enforcement: honouring REQUIRED on a read-only field would mean testing
+*   the bound value instead of editability, which is a MISSING_REQUIRED change,
+*   not a config one. Until that lands, flag the combination here, where a
+*   Studio author sees it before it reaches a citizen.
+    LOOP AT gt_fld INTO DATA(ls_f) WHERE required = abap_true AND readonly = abap_true.
+      IF ls_f-ftype = 'PAYFEE' OR ls_f-ftype = 'REQPANEL' OR ls_f-ftype = 'DISPLAY'
+         OR ls_f-ftype = 'READONLY' OR ls_f-ftype = 'TABLE' OR ls_f-ftype = 'UPLOAD'
+         OR ls_f-ftype = 'STATUS' OR ls_f-ftype = 'OBJNUM' OR ls_f-ftype = 'PROGRESS'
+         OR ls_f-ftype = 'LINK'.
+*       MISSING_REQUIRED excludes these types a second time, after the READONLY
+*       filter, for reasons that have nothing to do with editability - a TABLE
+*       has no scalar to be empty, a STATUS carrier is not the citizen's to
+*       fill in. Flagging them here on top would be the same false alarm X09
+*       already learned not to raise on a display grid.
+        CONTINUE.
+      ENDIF.
+      add( iv_sev  = 'E'
+           iv_rule = 'X15'
+           iv_step = CONV #( ls_f-step_id )
+           iv_text = |{ ls_f-field_name } is REQUIRED and READONLY together. | &&
+                     |MISSING_REQUIRED( ) tests WHERE readonly = abap_false, so a read-only | &&
+                     |field is skipped before REQUIRED is ever looked at - the asterisk renders, | &&
+                     |Submit never checks it, and a value left blank by whatever writes this | &&
+                     |field posts anyway. If the citizen genuinely cannot type here, seed and | &&
+                     |validate the value in ON_INIT( ) / ON_CUSTOM_VALIDATE( ) instead of relying | &&
+                     |on REQUIRED.| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD x11_badi_screen_literals.
 *   The one place a shared screen CAN bite CJS.
 *
@@ -736,5 +960,466 @@ CLASS ZCL_RAK_CJS_XCHECK IMPLEMENTATION.
                      |{ lv_own } step(s) post into it. { lines( lt_scr ) - lv_own } screen(s) | &&
                      |are unreachable from CJS.| ).
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD col_of.
+*   X11 resolves a legacy column by probing the structure instead of naming it in
+*   a SELECT, for the reason written there: a checker that will not activate
+*   because it guessed a column wrong is worse than one that skips a rule and
+*   says so. X16 needs four of them, so the probe is a method.
+    LOOP AT it_try INTO DATA(lv_try).
+      ASSIGN COMPONENT lv_try OF STRUCTURE is_line TO FIELD-SYMBOL(<v>).
+      IF sy-subrc = 0.
+        rv = lv_try.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD map_modes.
+*   Which RWMODEs this screen carries any of these OBJECTKEYs in. IV_OBJ may name
+*   alternatives separated by '/', because the abstract asks for them that way -
+*   INITIAL or FINAL, CPG_1 or CPG_2, FEES_1 or FEES_2 - and either satisfies it.
+*   Blank means the operation never runs on this screen, in any direction.
+    DATA lt_alt  TYPE string_table.
+    DATA lt_mode TYPE string_table.
+
+    SPLIT iv_obj AT '/' INTO TABLE lt_alt.
+    LOOP AT gt_map INTO DATA(ls_m) WHERE screen = iv_screen.
+      READ TABLE lt_alt TRANSPORTING NO FIELDS WITH KEY table_line = ls_m-obj.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      READ TABLE lt_mode TRANSPORTING NO FIELDS WITH KEY table_line = ls_m-mode.
+      IF sy-subrc <> 0.
+        APPEND ls_m-mode TO lt_mode.
+      ENDIF.
+    ENDLOOP.
+
+    SORT lt_mode AS TEXT BY table_line.
+    rv = concat_lines_of( table = lt_mode sep = `,` ).
+  ENDMETHOD.
+
+
+  METHOD x16_ui_map.
+*   THE SECOND HALF OF X03, AND THE HALF MUNICIPALITY ACTUALLY RUNS ON.
+*
+*   X03 proves a step's BKND_SCREEN exists in /QNV/SB_UI_DEFIN. That is what the
+*   DOK and EPDA abstracts need: they branch on the screen NAME - X11 checks
+*   those literals - and read their fields out of LT_DEFIN.
+*
+*   ZCL_EGA_CJ_FW_RO_ABS_V1, which every Municipality journey posts through, does
+*   not branch on the name at all. It uses it as a KEY into a second table and
+*   lets the rows decide which operations run:
+*
+*       SELECT * FROM zega_t_cj_ui_map INTO TABLE mt_ui_map
+*         WHERE journeyid = mv_journeytype AND rwmode EQ operation
+*           AND screen    EQ ms_header_param-screenname.
+*
+*   and then, for the whole of READ and the case-creating half of UPDATE:
+*
+*       IF line_exists( mt_ui_map[ objectkey = 'ATTACHMENT' ] ).  get_attachment( ).
+*       IF line_exists( mt_ui_map[ objectkey = 'PLDTL' ] ).       get_parcels( ).
+*       IF line_exists( mt_ui_map[ objectkey = 'INITIAL' ] ) OR ... 'FINAL'.  get_fees( ).
+*       IF line_exists( mt_ui_map[ objectkey = 'CPG_1' ] )   OR ... 'CPG_2'.  gateway block
+*       IF line_exists( mt_ui_map[ objectkey = 'FEES_1' ] ).      payment_check( )
+*                                                                 create_dummy_case( )
+*
+*   So a screen that is correctly configured in /QNV and missing from the map
+*   posts, returns SUCCESS, and does nothing. No error, no message, ~1 ms - the
+*   same silence X03 was written for, one table further in. The expensive one is
+*   the last: no FEES_1 row means UPDATE never creates the container case, so the
+*   Pay press posts, creates nothing, and the gateway opens against a case with
+*   no open item to bill. That is the timer under "Complete your payment in the
+*   new tab" with nothing behind it.
+*
+*   NOTHING IN CJS READS THIS TABLE AT RUNTIME AND NOTHING SHOULD. CJS sends a
+*   screen name and the department's map decides the rest; keeping the read here,
+*   at design time in the checker, is what stops a legacy table from reaching the
+*   engine. The one runtime read of anything /QNV is READ_TABLE( )'s DATA2 lookup
+*   in ZCL_RAK_QNV_BRIDGE, and it is deliberately the only one.
+*
+*   WHICH IS ALSO WHY EVERY NAME BELOW IS RESOLVED AT RUNTIME. These tables are
+*   expected to survive under different names. A checker that will not activate
+*   because it names a table that has been renamed takes the Studio's whole
+*   cross-check panel with it - so the table is probed, the columns are probed,
+*   and a miss degrades to an 'I' that says which name to add. Same reasoning as
+*   X11, and the reason X16 is called last in CHECK( ).
+*
+*   WHAT IS NOT REPORTED, deliberately:
+*     - a journey with no rows at all. DOK and EPDA journeys have none and are
+*       correct; saying "no mapping" to every one of them is how a rule gets
+*       ignored. One 'I', naming both readings, and nothing else.
+*     - a screened step with no rows of its own. The map switches on composites -
+*       attachments, parcels, fees, the gateway - and a plain data-entry screen
+*       legitimately needs none. What IS reported is a step whose own fields say
+*       it needs one: an uploader with no ATTACHMENT row, a parcel control with
+*       no PLDTL row, a PAYFEE step with no FEES row. The expectation comes from
+*       the CJS side, so the rule stays framework-level rather than Municipality-
+*       specific - it simply has nothing to say where nothing is mapped.
+    IF gs_jny-bknd_journey IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA lr_tab  TYPE REF TO data.
+    DATA lr_line TYPE REF TO data.
+    DATA lv_v    TYPE string.
+    DATA ls_row  TYPE ty_map.
+    FIELD-SYMBOLS <lt_raw> TYPE STANDARD TABLE.
+    FIELD-SYMBOLS <ls_raw> TYPE any.
+    FIELD-SYMBOLS <raw>    TYPE any.
+    FIELD-SYMBOLS <val>    TYPE any.
+
+*   Every name the map has been known by. First one that resolves wins.
+    DATA(lt_tab) = VALUE string_table( ( `ZEGA_T_CJ_UI_MAP` ) ).
+    LOOP AT lt_tab INTO DATA(lv_try).
+      TRY.
+          CREATE DATA lr_tab  TYPE STANDARD TABLE OF (lv_try).
+          CREATE DATA lr_line TYPE (lv_try).
+          gv_maptab = lv_try.
+          EXIT.
+        CATCH cx_root.
+          CLEAR gv_maptab.
+      ENDTRY.
+    ENDLOOP.
+
+    IF gv_maptab IS INITIAL.
+      add( iv_sev  = 'I'
+           iv_rule = 'X16'
+           iv_text = |The ShapeIt UI map does not exist in this system under any name X16 | &&
+                     |knows: { concat_lines_of( table = lt_tab sep = `, ` ) }. Every | &&
+                     |operation ZCL_EGA_CJ_FW_RO_ABS_V1 switches on an OBJECTKEY row - | &&
+                     |attachments, parcels, fees, the payment gateway and the container | &&
+                     |case - is therefore unchecked. Add the current name to LT_TAB in X16 | &&
+                     |and the rule starts working again.| ).
+      RETURN.
+    ENDIF.
+
+    ASSIGN lr_tab->*  TO <lt_raw>.
+    ASSIGN lr_line->* TO <ls_raw>.
+
+    DATA(lv_c_jny) = col_of( is_line = <ls_raw>
+                             it_try  = VALUE string_table(
+                               ( `JOURNEYID` ) ( `JOURNEY_ID` ) ( `JOURNEYTYPE` ) ( `JNY_ID` ) ) ).
+    DATA(lv_c_scr) = col_of( is_line = <ls_raw>
+                             it_try  = VALUE string_table(
+                               ( `SCREEN` ) ( `SCREENNAME` ) ( `SCREEN_NAME` ) ) ).
+    DATA(lv_c_mod) = col_of( is_line = <ls_raw>
+                             it_try  = VALUE string_table(
+                               ( `RWMODE` ) ( `RW_MODE` ) ( `MODE` ) ( `OPERATION` ) ) ).
+    DATA(lv_c_obj) = col_of( is_line = <ls_raw>
+                             it_try  = VALUE string_table(
+                               ( `OBJECTKEY` ) ( `OBJECT_KEY` ) ( `OBJKEY` ) ( `OBJECT` ) ) ).
+
+    IF lv_c_jny IS INITIAL OR lv_c_scr IS INITIAL OR lv_c_obj IS INITIAL.
+      add( iv_sev  = 'I'
+           iv_rule = 'X16'
+           iv_text = |{ gv_maptab } exists but X16 could not find its journey, screen or | &&
+                     |OBJECTKEY column, so the map was not checked. Add the real column | &&
+                     |names to the candidate lists in X16 and the rule starts working.| ).
+      RETURN.
+    ENDIF.
+
+*   Journey only, in the SELECT. Screen and mode are filtered in ABAP because
+*   both need normalising first, and the map is small - one journey's worth.
+    DATA(lv_where) = |{ lv_c_jny } = '{ gs_jny-bknd_journey }'|.
+    TRY.
+        SELECT * FROM (gv_maptab) INTO TABLE @<lt_raw> WHERE (lv_where).
+      CATCH cx_root INTO DATA(lx).
+        add( iv_sev  = 'I'
+             iv_rule = 'X16'
+             iv_text = |{ gv_maptab } could not be read: { lx->get_text( ) }. The OBJECTKEY | &&
+                       |operations were not checked.| ).
+        RETURN.
+    ENDTRY.
+
+    LOOP AT <lt_raw> ASSIGNING <raw>.
+      CLEAR ls_row.
+      ASSIGN COMPONENT lv_c_scr OF STRUCTURE <raw> TO <val>.
+      IF sy-subrc = 0.
+        lv_v = <val>.
+        ls_row-screen = condense( to_upper( lv_v ) ).
+      ENDIF.
+      ASSIGN COMPONENT lv_c_obj OF STRUCTURE <raw> TO <val>.
+      IF sy-subrc = 0.
+        lv_v = <val>.
+        ls_row-obj = condense( to_upper( lv_v ) ).
+      ENDIF.
+      IF lv_c_mod IS NOT INITIAL.
+        ASSIGN COMPONENT lv_c_mod OF STRUCTURE <raw> TO <val>.
+        IF sy-subrc = 0.
+          lv_v = <val>.
+          ls_row-mode = condense( to_upper( lv_v ) ).
+        ENDIF.
+      ENDIF.
+      APPEND ls_row TO gt_map.
+    ENDLOOP.
+
+    IF gt_map IS INITIAL.
+      add( iv_sev  = 'I'
+           iv_rule = 'X16'
+           iv_text = |{ gv_maptab } holds no rows for backend journey | &&
+                     |{ gs_jny-bknd_journey }. Two readings, and they are far apart: for a | &&
+                     |DOK or EPDA journey this is correct, because those abstracts branch on | &&
+                     |the screen NAME and never read the map; for a Municipality one it | &&
+                     |means every attachment, parcel, fee and payment operation is switched | &&
+                     |off, since ZCL_EGA_CJ_FW_RO_ABS_V1 runs each of them only where an | &&
+                     |OBJECTKEY row exists. Check which abstract this journey is registered | &&
+                     |to before deciding.| ).
+      RETURN.
+    ENDIF.
+
+*   ---- what each step's OWN fields say it needs from the map ----------
+    TYPES: BEGIN OF ty_exp,
+             obj  TYPE string,           " alternatives, separated by /
+             mode TYPE string,           " the direction that actually runs it
+             sev  TYPE c LENGTH 1,
+             why  TYPE string,
+           END OF ty_exp.
+    TYPES tt_exp TYPE STANDARD TABLE OF ty_exp WITH EMPTY KEY.
+    DATA lt_exp TYPE tt_exp.
+
+    LOOP AT gt_step INTO DATA(ls_step) WHERE bknd_screen IS NOT INITIAL.
+      DATA(lv_scr) = condense( to_upper( CONV string( ls_step-bknd_screen ) ) ).
+      CLEAR lt_exp.
+
+      READ TABLE gt_fld TRANSPORTING NO FIELDS
+        WITH KEY step_id = ls_step-step_id ftype = 'UPLOAD'.
+      IF sy-subrc = 0.
+        APPEND VALUE #( obj = `ATTACHMENT` mode = `1` sev = 'W'
+          why = `READ calls GET_ATTACHMENT only inside that branch, so files already on ` &&
+                `the case never come back - the citizen re-uploads on every visit and ` &&
+                `nothing on screen says why.` ) TO lt_exp.
+      ENDIF.
+
+      READ TABLE gt_fld TRANSPORTING NO FIELDS
+        WITH KEY step_id = ls_step-step_id ftype = 'PARCEL'.
+      IF sy-subrc = 0.
+        APPEND VALUE #( obj = `PLDTL` mode = `1` sev = 'W'
+          why = `READ calls GET_PARCELS only inside that branch, so the parcel grid comes ` &&
+                `back empty and the step looks like a rendering fault.` ) TO lt_exp.
+      ENDIF.
+
+      READ TABLE gt_fld TRANSPORTING NO FIELDS
+        WITH KEY step_id = ls_step-step_id ftype = 'PAYFEE'.
+      IF sy-subrc = 0.
+        APPEND VALUE #( obj = `FEES_1/FEES_2` mode = `2` sev = 'E'
+          why = `UPDATE creates the container case ONLY inside that branch - ` &&
+                `PAYMENT_CHECK then CREATE_DUMMY_CASE, writing the new id to ` &&
+                `characteristic CJ12. Without it the Pay press posts, creates nothing, ` &&
+                `and the gateway opens against a case with no open item to bill.` ) TO lt_exp.
+        APPEND VALUE #( obj = `CPG_1/CPG_2` mode = `1` sev = 'W'
+          why = `the gateway block in READ never runs: ATB_FLAG, the PW_RB radio pair and ` &&
+                `GET_RB_CPG_DETAILS are all skipped, so the payment panel renders in its ` &&
+                `unresolved state.` ) TO lt_exp.
+        APPEND VALUE #( obj = `INITIAL/FINAL` mode = `1` sev = 'W'
+          why = `READ calls GET_FEES only inside that branch, so the fee list and the ` &&
+                `total it feeds come back empty.` ) TO lt_exp.
+      ENDIF.
+
+      LOOP AT lt_exp INTO DATA(ls_e).
+        DATA(lv_in) = map_modes( iv_screen = lv_scr iv_obj = ls_e-obj ).
+        IF lv_in CS ls_e-mode.
+          CONTINUE.
+        ENDIF.
+        DATA(lv_dir) = COND string( WHEN ls_e-mode = `1` THEN `read`
+                                    WHEN ls_e-mode = `2` THEN `post`
+                                    ELSE |mode { ls_e-mode }| ).
+        DATA(lv_else) = COND string( WHEN lv_in IS NOT INITIAL THEN
+          | It IS mapped under RWMODE { lv_in }, which is the other direction and does | &&
+          |not help here.| ).
+        add( iv_sev  = ls_e-sev
+             iv_rule = 'X16'
+             iv_step = |{ ls_step-step_id }|
+             iv_text = |Screen { lv_scr } has no { ls_e-obj } row in { gv_maptab } for | &&
+                       |journey { gs_jny-bknd_journey } in RWMODE { ls_e-mode } | &&
+                       |({ lv_dir }), and this step needs one: { ls_e-why }{ lv_else }| ).
+      ENDLOOP.
+
+*     What the screen DOES carry, once per step. The map is the only place this
+*     is visible and it is not in any CJS table, so printing it is most of the
+*     value: a wrong OBJECTKEY is far easier to see next to the step than in
+*     SE16 on a table keyed by a journey code nobody remembers.
+      DATA lt_seen TYPE string_table.
+      CLEAR lt_seen.
+      LOOP AT gt_map INTO DATA(ls_m) WHERE screen = lv_scr.
+        DATA(lv_pair) = |{ ls_m-obj }/{ ls_m-mode }|.
+        READ TABLE lt_seen TRANSPORTING NO FIELDS WITH KEY table_line = lv_pair.
+        IF sy-subrc <> 0.
+          APPEND lv_pair TO lt_seen.
+        ENDIF.
+      ENDLOOP.
+      IF lt_seen IS NOT INITIAL.
+        SORT lt_seen AS TEXT BY table_line.
+        add( iv_sev  = 'I'
+             iv_rule = 'X16'
+             iv_step = |{ ls_step-step_id }|
+             iv_text = |{ lv_scr } is mapped for OBJECTKEY/RWMODE | &&
+                       |{ concat_lines_of( table = lt_seen sep = ` · ` ) }.| ).
+      ENDIF.
+    ENDLOOP.
+
+*   ---- rows this journey maps that CJS can never reach -----------------
+*   Grouped into one line and kept at 'I'. A Municipality journey code covers
+*   BOTH stage services - NSUBDIVISION_1_* apply-and-pay and NSUBDIVISION_2_*
+*   the later stage - while a CJS journey covers one, so the other stage's
+*   screens are expected here and reporting them one per row would bury the
+*   findings above. Worth printing all the same: a screen that belongs to THIS
+*   stage and appears in this list is the X12 off-by-one seen from the map side.
+    DATA lt_orph TYPE string_table.
+    DATA lv_hit  TYPE abap_bool.
+    LOOP AT gt_map INTO ls_m.
+*     Compared normalised on both sides rather than by READ TABLE ... WITH KEY.
+*     BKND_SCREEN is CHAR 30 and the map value is a string that has already been
+*     upper-cased and condensed here; a keyed read would compare the two raw and
+*     report a screen as unreachable over a case difference alone.
+      CLEAR lv_hit.
+      LOOP AT gt_step INTO DATA(ls_st) WHERE bknd_screen IS NOT INITIAL.
+        IF condense( to_upper( CONV string( ls_st-bknd_screen ) ) ) = ls_m-screen.
+          lv_hit = abap_true.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+      IF lv_hit = abap_true.
+        CONTINUE.
+      ENDIF.
+      READ TABLE lt_orph TRANSPORTING NO FIELDS WITH KEY table_line = ls_m-screen.
+      IF sy-subrc <> 0.
+        APPEND ls_m-screen TO lt_orph.
+      ENDIF.
+    ENDLOOP.
+
+    IF lt_orph IS NOT INITIAL.
+      SORT lt_orph AS TEXT BY table_line.
+      add( iv_sev  = 'I'
+           iv_rule = 'X16'
+           iv_text = |{ gs_jny-bknd_journey } maps | &&
+                     |{ concat_lines_of( table = lt_orph sep = `, ` ) } in { gv_maptab }, | &&
+                     |and no step of this journey posts to | &&
+                     |{ COND string( WHEN lines( lt_orph ) = 1 THEN `it` ELSE `them` ) }. | &&
+                     |Expected where a journey code covers both stage services and CJS | &&
+                     |models them as two journeys. If a screen listed here belongs to THIS | &&
+                     |stage, read BKND_SCREEN down SEQNR against it - that is X12's | &&
+                     |off-by-one seen from the map side.| ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD x17_studio_roundtrip.
+*   Read the DDIC, read the Studio's source, report every column the Studio
+*   never mentions. See the declaration for why this is coarse on purpose.
+    DATA lt_tab TYPE string_table.
+
+*   THE SIX TABLES SAVE_JOURNEY( ) REWRITES IN FULL. Not every ZRAK_T_JNY*
+*   table - only the ones a Save replaces, because those are the only ones
+*   where omitting a column DELETES data. ZRAK_CJ_LAYOUT is not here: it is
+*   written by PERSIST( ), which RESOLVEs first and overwrites only its own
+*   fields, so a column it does not know is left alone rather than blanked.
+    lt_tab = VALUE string_table( ( `ZRAK_T_JNY` )
+                                 ( `ZRAK_T_JNY_STEP` )
+                                 ( `ZRAK_T_JNY_FLD` )
+                                 ( `ZRAK_T_JNY_OPT` )
+                                 ( `ZRAK_T_JNY_COL` )
+                                 ( `ZRAK_T_JNY_RULE` ) ).
+
+*   THE STUDIO'S OWN SOURCE, read once for all six tables.
+*
+*   READ_REPORT ON A CLASS POOL, not the class name: a global class lives in
+*   the generated program <name>========CP, and READ_REPORT on
+*   'ZCL_RAK_CJS' finds nothing and reports nothing - which would make this
+*   rule pass silently on every column, the exact failure it exists to catch.
+*   So a blank result is reported rather than treated as a clean run.
+*   NEITHER OF THESE MAY BE A STRING, and both were.
+*   READ REPORT is a classic statement: it wants a character-like field for
+*   the program name and a table of character-like lines for the source. A
+*   TYPE string program name is rejected outright - "LV_POOL must be a
+*   character-like field (data type C, N, D, or T)" - and TABLE OF string for
+*   the source is the same mistake one line up.
+*
+*   THE LINE TYPE IS DECLARED HERE RATHER THAN BORROWED. The obvious choice
+*   is ABAPTXT255_TAB, and it is the wrong kind of guess: whether its line is
+*   an elementary CHAR255 or a structure wrapping one cannot be read from
+*   here, and if it is a structure then CONCAT_LINES_OF( ) below fails on the
+*   very next statement - a second activation round to learn one fact. An
+*   elementary C LENGTH 255 satisfies both statements by construction.
+    TYPES ty_srcline TYPE c LENGTH 255.
+    DATA lt_src  TYPE STANDARD TABLE OF ty_srcline WITH EMPTY KEY.
+    DATA lv_pool TYPE progname.
+
+    lv_pool = |ZCL_RAK_CJS{ repeat( val = `=` occ = 19 ) }CP|.
+
+*   SY-SUBRC, not TRY/CATCH. READ REPORT signals a missing program through
+*   SY-SUBRC and raises nothing, so a CATCH here would be dead code that
+*   reads like protection.
+    READ REPORT lv_pool INTO lt_src.
+    IF sy-subrc <> 0.
+      CLEAR lt_src.
+    ENDIF.
+
+    IF lt_src IS INITIAL.
+      add( iv_sev  = 'I'
+           iv_rule = 'X17'
+           iv_text = |X17 could not read the Studio's source ({ lv_pool }), so the | &&
+                     |Studio round-trip was not audited. This is reported rather than | &&
+                     |passed quietly: a rule that cannot read its input has not | &&
+                     |checked anything.| ).
+      RETURN.
+    ENDIF.
+
+    DATA(lv_src) = to_upper( concat_lines_of( table = lt_src sep = | | ) ).
+
+    LOOP AT lt_tab INTO DATA(lv_tab).
+
+*     THE COLUMNS AS THE DDIC HAS THEM. DD03L rather than a structure
+*     description, so this sees what is really on the table today - including
+*     a column added since this class was last touched, which is the whole
+*     case being guarded.
+      SELECT fieldname FROM dd03l
+        INTO TABLE @DATA(lt_col)
+        WHERE tabname  = @lv_tab
+          AND as4local = 'A'
+          AND fieldname NOT LIKE '.%'
+        ORDER BY position.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      DATA lt_miss TYPE string_table.
+      CLEAR lt_miss.
+
+      LOOP AT lt_col INTO DATA(ls_col).
+        DATA(lv_col) = to_upper( condense( CONV string( ls_col-fieldname ) ) ).
+
+*       NEVER PART OF A ROUND TRIP, so their absence is correct and reporting
+*       them would be the noise that gets a rule switched off. MANDT is set
+*       from SY-MANDT, the key columns are built by the Studio from the
+*       journey and step it is editing, and the two audit columns are stamped
+*       at write time on purpose.
+        IF lv_col = 'MANDT'      OR lv_col = 'JOURNEY_ID' OR lv_col = 'STEP_ID'
+        OR lv_col = 'FIELD_NAME' OR lv_col = 'COL_NAME'   OR lv_col = 'RULE_ID'
+        OR lv_col = 'SEQNR'      OR lv_col = 'OPT_KEY'
+        OR lv_col = 'CHANGED_BY' OR lv_col = 'CHANGED_AT'.
+          CONTINUE.
+        ENDIF.
+
+        IF lv_src NS lv_col.
+          APPEND lv_col TO lt_miss.
+        ENDIF.
+      ENDLOOP.
+
+      IF lt_miss IS NOT INITIAL.
+        add( iv_sev  = 'W'
+             iv_rule = 'X17'
+             iv_text = |{ lv_tab }: { lines( lt_miss ) } column(s) the Studio never | &&
+                       |mentions - { concat_lines_of( table = lt_miss sep = `, ` ) }. | &&
+                       |SAVE_JOURNEY( ) rewrites this table in full, so a Save BLANKS | &&
+                       |each of them and reports success. Whatever loader writes them | &&
+                       |is the only thing keeping them, and one Save from the Studio | &&
+                       |on any journey destroys them. Add each to the structure, the | &&
+                       |load, the INSERT and an editor - all four, or the next Save | &&
+                       |undoes whichever half is missing.| ).
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.

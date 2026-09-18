@@ -7,8 +7,79 @@ SELECT-OPTIONS s_jrn FOR sy-lisel NO INTERVALS.
 PARAMETERS p_detl RADIOBUTTON GROUP g1 DEFAULT 'X'.
 PARAMETERS p_summ RADIOBUTTON GROUP g1.
 PARAMETERS p_expt RADIOBUTTON GROUP g1.
+*   THE FOURTH MODE, AND THE ONE THAT WAS MISSING. ZCL_RAK_CJ_TXT_IO has
+*   had IMPORT( ) for as long as it has had EXPORT( ) and nothing ever
+*   called it, so the round trip stopped half way: a journey's texts could
+*   be exported for a translator and there was no way to put the Arabic
+*   back except field by field in the Studio.
+PARAMETERS p_impt RADIOBUTTON GROUP g1.
+*   THE FIFTH MODE. Every label, section heading, message, placeholder and
+*   option text on a MIGRATED screen already exists in both languages in
+*   the legacy text tables - that is the standing rule, "migrated wording
+*   is READ, never written, and never hand-translated". A journey missing
+*   its Arabic does not need a translator; it needs the row the department
+*   already owns.
+*
+*   So this mode does not translate anything. It looks the Arabic up and
+*   fills it in, for every selected journey at once.
+PARAMETERS p_fill RADIOBUTTON GROUP g1.
+*   THE SIXTH MODE, and the one to hand to whoever does the translating.
+*   Backfill first, then this: it exports ONLY what backfill could not
+*   fill - no legacy row anywhere - so the file is the real remaining work
+*   rather than every text on the journey. Beside it goes a glossary of
+*   every English/Arabic pair the legacy tables hold, which is what keeps
+*   the answer consistent with the screens the citizen already knows.
+PARAMETERS p_gap  RADIOBUTTON GROUP g1.
+*   THE SEVENTH MODE, and the only one that changes ENGLISH. A migrated
+*   screen carries whatever case the legacy row had, which on several
+*   journeys is SHOUTING - "JOB TITLE IS REQUIRED", "NATIONALITY",
+*   "SELECT A CANDIDATE, OR OTHER IF THEY ARE NOT LISTED" - beside
+*   perfectly ordinary sentence case on the field next to it.
+*
+*   RUN IT AFTER BACKFILL, NOT BEFORE. English is the join key the
+*   backfill matches on, and rewriting it first turns exact matches into
+*   normalised ones - which still work, but a normalised match is the one
+*   that can come back AMBIG. Fill first, then tidy.
+PARAMETERS p_case RADIOBUTTON GROUP g1.
+*   THE EIGHTH MODE, AND THE PAIR TO P_IMPT. A translation round is two
+*   presses: extract everything, hand the file out, put the same file back.
+*
+*   IT IGNORES S_JRN DELIBERATELY. P_EXPT already exported every journey
+*   when the selection was left blank, but that was a CONSEQUENCE of the
+*   fallback below rather than something the screen offered - and the branch
+*   carried a "Select at least one journey to export" refusal that could not
+*   fire, so the report said the opposite of what it did. Whoever runs a
+*   translation round should not have to know that an empty field means
+*   everything.
+*
+*   THE FILE IT WRITES IS THE FILE P_IMPT READS. Same EXPORT_ROWS( ) shape,
+*   same path parameter, so the round trip is one file and one filename.
+*   Nothing here is scoped or filtered: a gap-only file is what P_GAP is for,
+*   and mixing the two would make the import ambiguous about what it may
+*   leave alone.
+PARAMETERS p_xall RADIOBUTTON GROUP g1.
 
 PARAMETERS p_path TYPE string LOWER CASE DEFAULT 'C:\temp\cjs_texts.xls'.
+
+*   TEST RUN IS THE DEFAULT, and it is the same discipline as
+*   ZRAK_CJ_ATT_PURGE: an import rewrites the wording of every journey in
+*   the file, and a mistyped path or a spreadsheet saved in the wrong
+*   format should show a log rather than change anything. IMPORT( ) itself
+*   already takes IV_COMMIT and defaults it false - it builds the full log
+*   either way and only writes at the end - so the test run reports exactly
+*   what the real one would do.
+PARAMETERS p_test AS CHECKBOX DEFAULT 'X'.
+
+*   BACKFILL ONLY, AND OFF BY DEFAULT. Assemble a caption the legacy
+*   tables do not hold from the parts they do: "Grade 2 - Uniform Fee" is
+*   not a row anywhere, but "Grade 2" and "Uniform Fee" both are.
+*
+*   It is the one thing in this report that PRODUCES Arabic rather than
+*   reading it. Composing two of the department's own rows is not a hand
+*   translation, but it is not a lookup either - so it stays a deliberate
+*   tick, and every row it fills is logged as COMPOSED rather than CHANGE
+*   so a reviewer can see exactly what was assembled.
+PARAMETERS p_comp AS CHECKBOX DEFAULT ' '.
 
 
 CLASS lcl_app DEFINITION FINAL.
@@ -30,6 +101,162 @@ CLASS lcl_app DEFINITION FINAL.
 
     CLASS-METHODS do_export
       IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS do_import.
+
+    TYPES: BEGIN OF ty_pair,
+             en  TYPE string,
+             ar  TYPE string,
+             amb TYPE abap_bool,
+           END OF ty_pair.
+    TYPES ty_t_pair TYPE HASHED TABLE OF ty_pair WITH UNIQUE KEY en.
+
+*   FOUR MAPS, NOT TWO: an EXACT one and a NORMALISED one per table.
+*
+*   Normalising alone was wrong, and the legacy data says so plainly:
+*
+*     DOKSL_ND001_1_3_CYCLE_1   "Cycle 1"   الدورة الأولى
+*     DOKSL_ND001_2_4_CYCLE_1   "CYCLE 1"   المرحلة الأولى
+*
+*   Two rows, different Arabic, distinguished ONLY by case. Exactly they
+*   are two keys and each matches its own journey correctly - which is
+*   what the first run did. Upper-cased they collide, disagree, and both
+*   become AMBIG: a working fill turned into manual work.
+*
+*   So exact wins and normalised is the fallback. A journey whose English
+*   matches a legacy row character for character takes that row's Arabic;
+*   only a text that matches nothing exactly falls through to the loose
+*   key, which is where "Teacher Flag" and "Documents:" are recovered.
+*   THE FOUR MAPS AS STATE, not as four exporting parameters threaded
+*   through every caller. LOOKUP( ) needs all four and COMPOSE( ) needs
+*   LOOKUP( ), and passing them down two levels was four parameters that
+*   could be passed in the wrong order.
+    CLASS-DATA gt_lbl     TYPE ty_t_pair.
+    CLASS-DATA gt_val     TYPE ty_t_pair.
+    CLASS-DATA gt_lbl_nrm TYPE ty_t_pair.
+    CLASS-DATA gt_val_nrm TYPE ty_t_pair.
+
+*   EVERY PAIR, AMBIGUOUS ONES INCLUDED AND KEPT APART.
+*
+*   The four maps above are keyed on the English, so a term with two
+*   different Arabic keeps the first and a flag - which is all the
+*   backfill needs, since it refuses to choose either way. The GLOSSARY
+*   needs the opposite: the moment a term is ambiguous is exactly the
+*   moment a reviewer has to see both candidates and pick one. This keeps
+*   them, and the export dedupes on the PAIR rather than on the English,
+*   so an unambiguous term still appears once.
+    CLASS-DATA gt_all     TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    CLASS-METHODS legacy_pairs.
+
+*   ONE ENGLISH TEXT, LOOKED FOR EVERYWHERE IT COULD BE.
+*
+*   Four attempts in order: the kind's own table exactly, the OTHER table
+*   exactly, then the same two normalised. IV_OPT only decides which table
+*   is tried FIRST - it no longer decides which table is tried at all.
+*
+*   That split was wrong and the /QNV/SB_VALUET dump is what showed it:
+*   "Books Fee", "Uniform Fee" and "School Fee" are all VALUET rows, and
+*   every one of them is a LABEL on the CJS side. Searching LABELT alone
+*   for a label meant they could never be found, however the key was
+*   normalised.
+    CLASS-METHODS lookup
+      IMPORTING iv_en        TYPE string
+                iv_opt       TYPE abap_bool
+      RETURNING VALUE(rs_p)  TYPE ty_pair.
+
+*   A COMPOSED CAPTION, ASSEMBLED FROM PARTS THAT ARE THEMSELVES REAL ROWS.
+*
+*   "Grade 2 - Uniform Fee" was never a legacy row and never will be: the
+*   legacy screen drew a fee TABLE, with the grades down the side and the
+*   fee kinds across the top, and the migration flattened it into one
+*   caption per cell. Both halves exist though - "Grade 2" in SB_LABELT,
+*   "Uniform Fee" in SB_VALUET - so the Arabic can be assembled from the
+*   department's own words rather than invented.
+*
+*   OFF BY DEFAULT AND LOGGED APART. This is the one thing in this report
+*   that PRODUCES Arabic rather than reading it, and the standing rule is
+*   that migrated wording is read and never hand-translated. Composing two
+*   real rows is not a hand translation, but it is not a lookup either -
+*   so it needs a human to turn it on and a separate action code in the
+*   log to review. Every part must resolve; one miss and the whole caption
+*   is left as NOTFOUND rather than half-filled.
+    CLASS-METHODS compose
+      IMPORTING iv_en       TYPE string
+                iv_opt      TYPE abap_bool
+      RETURNING VALUE(rv_ar) TYPE string.
+
+*   THE MATCH KEY, applied to BOTH sides so they cannot drift.
+*
+*   An exact, case-sensitive compare left most of the first run's misses
+*   on the table for no good reason: a legacy caption written "Teacher
+*   Flag" or "Documents:" is the same text as the journey's "Teacher flag"
+*   and "Documents", and refusing to fill the Arabic over a colon helps
+*   nobody. Upper-cased, condensed, and stripped of the trailing
+*   punctuation a caption carries and a value never does.
+*
+*   IT CAN ONLY CREATE AMBIGUITY, NEVER A WRONG ANSWER - which is what
+*   makes loosening it safe. Two legacy rows that normalise together and
+*   disagree in Arabic are marked AMBIG and skipped exactly as before, so
+*   the worst case is a row that used to be NOTFOUND becoming one a human
+*   is asked about.
+    CLASS-METHODS norm
+      IMPORTING iv_txt        TYPE clike
+      RETURNING VALUE(rv_key) TYPE string.
+
+*   Insert a pair, or mark the key ambiguous when a second row disagrees.
+*   One method because the same three lines were being written four times
+*   - twice per table, once per map - which is how two of them end up
+*   deciding ambiguity differently.
+    CLASS-METHODS add_pair
+      IMPORTING iv_en   TYPE string
+                iv_ar   TYPE string
+      CHANGING  ct_pair TYPE ty_t_pair.
+
+*   THE ONE SCAN BOTH BACKFILL AND THE GAP EXPORT RUN.
+*
+*   ET_GAP is exactly the rows that ended NOTFOUND - no legacy Arabic
+*   anywhere - which is what makes the gap file the real remaining work
+*   rather than a re-export of everything. Written as one method so the
+*   two modes cannot disagree about what a gap is: the list a translator
+*   is sent is by construction the list backfill could not close.
+    CLASS-METHODS scan_journeys
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey
+      EXPORTING et_log     TYPE zcl_rak_cj_txt_io=>ty_t_imp_log
+                et_write   TYPE zif_rak_cj_text_src=>ty_t_txt
+                et_gap     TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    CLASS-METHODS do_backfill
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS do_gaps
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+    CLASS-METHODS do_case
+      IMPORTING it_journey TYPE zif_rak_cj_text_src=>ty_t_journey.
+
+*   SENTENCE CASE, WITH THE ACRONYMS PUT BACK.
+*
+*   Blank unless the text is worth changing, so the caller does not have
+*   to repeat the test: a string that is not all-caps, or is a single
+*   short token that is almost certainly an acronym, comes back empty and
+*   is left alone.
+*
+*   SENTENCE CASE RATHER THAN TITLE CASE, deliberately. Title case needs a
+*   list of words that stay lower - is, a, the, of, for - and gets "Job
+*   Title Is Required" wrong without one and "E-Mail" wrong with one.
+*   Sentence case has a single rule, matches the majority of the existing
+*   captions, and is what the untouched fields next to these already use.
+    CLASS-METHODS sentence_case
+      IMPORTING iv_txt        TYPE string
+      RETURNING VALUE(rv_new) TYPE string.
+
+    CLASS-METHODS write_file
+      IMPORTING iv_path TYPE string
+                iv_xstr TYPE xstring.
+
+    CLASS-METHODS show_import
+      IMPORTING it_log TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
 
 ENDCLASS.
 
@@ -88,32 +315,637 @@ CLASS lcl_app IMPLEMENTATION.
 
   METHOD do_export.
 
-    DATA lt_bin  TYPE solix_tab.
-    DATA lv_len  TYPE i.
+*   Through WRITE_FILE( ), the same one the gap export uses. Three modes
+*   now put a file on disk and there is one method that does it.
+    DATA(lo_io) = NEW zcl_rak_cj_txt_io( ).
+    write_file( iv_path = p_path
+                iv_xstr = lo_io->export( it_journey ) ).
+    MESSAGE |Exported to { p_path }| TYPE 'S'.
 
-    DATA(lo_io)   = NEW zcl_rak_cj_txt_io( ).
-    DATA(lv_xstr) = lo_io->export( it_journey ).
+  ENDMETHOD.
 
-    lv_len = xstrlen( lv_xstr ).
-    lt_bin = cl_bcs_convert=>xstring_to_solix( lv_xstr ).
 
-    cl_gui_frontend_services=>gui_download(
-      EXPORTING bin_filesize = lv_len
-                filename     = p_path
-                filetype     = 'BIN'
-      CHANGING  data_tab     = lt_bin
-      EXCEPTIONS OTHERS      = 1 ).
+  METHOD norm.
+    rv_key = to_upper( condense( CONV string( iv_txt ) ) ).
+*   Trailing caption punctuation only, and one pass is enough: a caption
+*   carries at most a colon, an asterisk for required, or both.
+    WHILE strlen( rv_key ) > 0
+      AND ( substring( val = rv_key off = strlen( rv_key ) - 1 ) = ':'
+         OR substring( val = rv_key off = strlen( rv_key ) - 1 ) = '*'
+         OR substring( val = rv_key off = strlen( rv_key ) - 1 ) = ' ' ).
+      rv_key = substring( val = rv_key len = strlen( rv_key ) - 1 ).
+    ENDWHILE.
+    rv_key = condense( rv_key ).
+  ENDMETHOD.
 
+
+  METHOD add_pair.
+    IF iv_en IS INITIAL OR iv_ar IS INITIAL.
+      RETURN.
+    ENDIF.
+    READ TABLE ct_pair ASSIGNING FIELD-SYMBOL(<p>) WITH TABLE KEY en = iv_en.
     IF sy-subrc = 0.
-      MESSAGE |Exported to { p_path }| TYPE 'S'.
+*     A SECOND ROW THAT AGREES IS NOT AMBIGUITY. Most duplicates are the
+*     same caption on two screens with the same Arabic, and marking those
+*     would refuse work for no reason.
+      IF <p>-ar <> iv_ar.
+        <p>-amb = abap_true.
+      ENDIF.
     ELSE.
-      MESSAGE 'Download failed' TYPE 'E'.
+      INSERT VALUE #( en = iv_en ar = iv_ar ) INTO TABLE ct_pair.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD lookup.
+    CLEAR rs_p.
+    DATA(lv_exact) = condense( iv_en ).
+    DATA(lv_key)   = norm( iv_en ).
+
+*   EXACT BEFORE NORMALISED, ALWAYS - "Cycle 1" and "CYCLE 1" carry
+*   different Arabic and only the exact compare tells them apart. The
+*   kind's own table is tried first at each level, so an OPTION still
+*   prefers SB_VALUET and a label still prefers SB_LABELT; the other
+*   table is a fallback rather than a competitor.
+    IF iv_opt = abap_true.
+      READ TABLE gt_val     INTO rs_p WITH TABLE KEY en = lv_exact.
+      IF sy-subrc <> 0. READ TABLE gt_lbl     INTO rs_p WITH TABLE KEY en = lv_exact. ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_val_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_lbl_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+    ELSE.
+      READ TABLE gt_lbl     INTO rs_p WITH TABLE KEY en = lv_exact.
+      IF sy-subrc <> 0. READ TABLE gt_val     INTO rs_p WITH TABLE KEY en = lv_exact. ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_lbl_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+      IF sy-subrc <> 0. READ TABLE gt_val_nrm INTO rs_p WITH TABLE KEY en = lv_key.   ENDIF.
+    ENDIF.
+
+    IF sy-subrc <> 0.
+      CLEAR rs_p.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD compose.
+    CLEAR rv_ar.
+
+*   ONLY A HYPHEN-SEPARATED CAPTION. " - " with spaces, not a bare
+*   hyphen: "Pre-KG" and "Non Teaching" must not be torn in half, and a
+*   spaced hyphen is what the migration used to join the two parts.
+    IF iv_en NS ' - '.
+      RETURN.
+    ENDIF.
+
+    SPLIT iv_en AT ' - ' INTO TABLE DATA(lt_part).
+    IF lines( lt_part ) < 2.
+      RETURN.
+    ENDIF.
+
+    DATA lv_out TYPE string.
+    LOOP AT lt_part INTO DATA(lv_part).
+      DATA(ls_part) = lookup( iv_en = condense( lv_part ) iv_opt = iv_opt ).
+*     ALL OR NOTHING. A caption half in Arabic and half in English is
+*     worse than one still in English: it reads as a bug to the citizen
+*     and it hides from this report, because the row stops being blank.
+      IF ls_part-ar IS INITIAL OR ls_part-amb = abap_true.
+        CLEAR rv_ar.
+        RETURN.
+      ENDIF.
+      lv_out = COND #( WHEN lv_out IS INITIAL THEN ls_part-ar ELSE |{ lv_out } - { ls_part-ar }| ).
+    ENDLOOP.
+
+    rv_ar = lv_out.
+  ENDMETHOD.
+
+
+  METHOD legacy_pairs.
+
+*   ENGLISH IS THE JOIN KEY, and it is a sound one rather than a
+*   convenience. The migrator copied these texts OUT of these same tables
+*   into ZRAK_T_JNY*, verbatim - LOAD_TEXT_CACHES( ) reads exactly the two
+*   selects below - so the English sitting on a migrated field IS a
+*   /QNV/ labeltext, character for character. Nothing else links the two:
+*   the migrator keeps the resolved text and not the LABEL_CODE it came
+*   from, so there is no id to join on.
+*
+*   AMBIGUITY IS RECORDED, NOT RESOLVED. Two label codes can share an
+*   English text and carry DIFFERENT Arabic - "Name" is the obvious one.
+*   Where that happens the pair is marked and the backfill skips it and
+*   says so, because picking one at random would put the wrong Arabic on
+*   a citizen's form and nothing downstream would ever flag it. Where the
+*   duplicates agree, which is most of them, it is not ambiguous at all.
+    CLEAR: gt_lbl, gt_val, gt_lbl_nrm, gt_val_nrm, gt_all.
+
+    SELECT spras, label_code, labeltext FROM /qnv/sb_labelt
+      INTO TABLE @DATA(lt_l).                             "#EC CI_NOWHERE
+    SELECT spras, value_code, value_desc FROM /qnv/sb_valuet
+      INTO TABLE @DATA(lt_v).                             "#EC CI_NOWHERE
+
+    DATA lv_en TYPE string.
+    DATA lv_ar TYPE string.
+
+    LOOP AT lt_l INTO DATA(ls_l) WHERE spras = 'E'.
+      lv_en = condense( CONV string( ls_l-labeltext ) ).
+      CHECK lv_en IS NOT INITIAL.
+      READ TABLE lt_l INTO DATA(ls_la) WITH KEY spras = 'A' label_code = ls_l-label_code.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      lv_ar = condense( CONV string( ls_la-labeltext ) ).
+      CHECK lv_ar IS NOT INITIAL.
+
+      APPEND VALUE #( text_en = lv_en text_ar = lv_ar ) TO gt_all.
+      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_lbl ).
+      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_lbl_nrm ).
+    ENDLOOP.
+
+    LOOP AT lt_v INTO DATA(ls_v) WHERE spras = 'E'.
+      lv_en = condense( CONV string( ls_v-value_desc ) ).
+      CHECK lv_en IS NOT INITIAL.
+      READ TABLE lt_v INTO DATA(ls_va) WITH KEY spras = 'A' value_code = ls_v-value_code.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      lv_ar = condense( CONV string( ls_va-value_desc ) ).
+      CHECK lv_ar IS NOT INITIAL.
+
+      APPEND VALUE #( text_en = lv_en text_ar = lv_ar ) TO gt_all.
+      add_pair( EXPORTING iv_en = lv_en         iv_ar = lv_ar CHANGING ct_pair = gt_val ).
+      add_pair( EXPORTING iv_en = norm( lv_en ) iv_ar = lv_ar CHANGING ct_pair = gt_val_nrm ).
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD scan_journeys.
+
+    CLEAR: et_log, et_write, et_gap.
+
+    legacy_pairs( ).
+
+    IF gt_lbl IS INITIAL AND gt_val IS INITIAL.
+      MESSAGE '/QNV/SB_LABELT and /QNV/SB_VALUET returned no EN/AR pairs in this client' TYPE 'E'.
+    ENDIF.
+
+    DATA(lo_src) = NEW zcl_rak_cj_text_src_cfg( ).
+    DATA lt_log   TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
+    DATA lt_write TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    DATA lt_txt TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    LOOP AT it_journey INTO DATA(lv_j).
+*     Into a variable first: LOOP AT does not take a method call as its
+*     source.
+      lt_txt = lo_src->zif_rak_cj_text_src~read_journey( lv_j ).
+      LOOP AT lt_txt INTO DATA(ls_t).
+
+*       ONLY A GAP IS FILLED. An Arabic text already on the journey is
+*       left alone whatever the legacy table says - somebody may have
+*       corrected it since, and overwriting a correction with the row it
+*       was correcting is the one way this could destroy work.
+        IF ls_t-text_ar IS NOT INITIAL OR ls_t-text_en IS INITIAL.
+          CONTINUE.
+        ENDIF.
+
+*       NOAR NEVER REACHES THE BACKFILL OR THE GAP FILE. ATTACH_LABEL and
+*       DESCR are visible on screen and have NO _AR column in
+*       ZRAK_T_JNY_FLD, so their Arabic side is permanently blank - which
+*       means they look exactly like a gap to both tests above and are
+*       neither.
+*
+*       Left in, the backfill would look each one up and fail to write it
+*       anywhere, and the GAP FILE - the one handed to a translator as the
+*       real remaining work - would carry rows with nowhere to put the
+*       answer. A translator returning them would see the import accept the
+*       file and change nothing, which is the worst of the three outcomes.
+*
+*       They still appear in the DETAIL run, which is where they belong:
+*       a finding that needs a DDIC column or a TEXT:@nnn indirection,
+*       not a translation.
+        IF ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-noar.
+          CONTINUE.
+        ENDIF.
+
+*       OPTION texts come from the VALUE table, everything else from the
+*       LABEL table - the same split LOAD_TEXT_CACHES( ) makes.
+*       NOT EVERY "ENGLISH TEXT" IS A CAPTION, and the ones that are not
+*       must never be filled.
+*
+*       The first run surfaced GS_DATA-STAFF-PARTNER, DD/MM/YYYY, DDMMYYYY
+*       and fields whose whole label is their own technical name. Those are
+*       CJS configuration defects - a tech name or a placeholder mask that
+*       leaked into ZLABEL - and giving them Arabic makes them worse in two
+*       ways: the citizen still sees a technical string, and the row stops
+*       being blank, so it disappears from this report and from the
+*       coverage summary. A defect that hides is worse than one that shows.
+*
+*       Reported rather than skipped silently, because each one is a real
+*       config row somebody should fix.
+*       MATCHING THE FIELD NAME IS NOT ENOUGH, AND THE FIRST RUN PROVED
+*       IT. This test used to be "the text equals the technical name",
+*       full stop, and it refused half the DOK backlog: CURRICULUM
+*       captioned "Curriculum", LOCATION "Location", EMAIL "Email",
+*       OWNERS "Owners", DESTINATION "Destination". Those are not
+*       technical names that leaked - they are the right caption for a
+*       well-named field, and every one of them has Arabic sitting in the
+*       legacy table. Flagged as TECHNAME they were skipped by the
+*       backfill, left out of the gap file, and could never be closed by
+*       any route this report offers.
+*
+*       SO THE TEXT HAS TO LOOK TECHNICAL AS WELL AS MATCH. An underscore
+*       or a dash is the signal - RAK_PRIVATE_SCHOOL, OUTSIDE_RAK_SCHOOL,
+*       APPOINTMENT_TEMPORARY are all still caught, because a caption
+*       written for a citizen does not carry them. Prose that happens to
+*       equal its field name goes on to the lookup, which is where it
+*       always belonged.
+        DATA(lv_up)   = to_upper( condense( ls_t-text_en ) ).
+        DATA(lv_elem) = to_upper( condense( CONV string( ls_t-elem_id ) ) ).
+        IF lv_up CS 'GS_DATA-' OR lv_up CS '[]'
+           OR lv_up = 'DD/MM/YYYY' OR lv_up = 'DDMMYYYY' OR lv_up = 'DD.MM.YYYY'
+           OR ( lv_up = lv_elem AND ( lv_up CS '_' OR lv_up CS '-' ) ).
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'TECHNAME'   new_en  = ls_t-text_en
+                          message = |Not a caption - a technical name or input mask in the text column. Fix the configuration, do not translate it| ) TO lt_log.
+          CONTINUE.
+        ENDIF.
+
+        DATA(lv_opt) = xsdbool( ls_t-txt_kind = zcl_rak_cj_text_src_cfg=>c_kind-option ).
+        DATA(ls_p)   = lookup( iv_en = ls_t-text_en iv_opt = lv_opt ).
+        DATA lv_act TYPE c LENGTH 10.
+        lv_act = 'CHANGE'.
+
+        IF ls_p-amb = abap_true.
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'AMBIG'      new_en  = ls_t-text_en
+                          message = |This English has more than one Arabic in the legacy table - | &&
+                                    |pick one in the gap file, both are listed in the glossary| ) TO lt_log.
+
+*         AND IT IS A GAP, WHICH IT WAS NOT BEFORE. An ambiguous row was
+*         skipped by the backfill AND left out of the gap export - the
+*         export took only NOTFOUND - so under the documented process
+*         "fill it by hand" meant field by field in the Studio, once per
+*         journey, for a term like "Mobile number" that appears on eight
+*         of them. There was no route that closed it.
+*
+*         It belongs in the file for the same reason NOTFOUND does: the
+*         Arabic is not decided, and a person has to decide it. The
+*         difference is only that here the candidates already exist,
+*         which the glossary beside the file now shows.
+          APPEND ls_t TO et_gap.
+          CONTINUE.
+        ENDIF.
+
+*       COMPOSITION IS THE LAST RESORT AND ONLY WHEN ASKED FOR. A whole
+*       caption that exists as a legacy row always wins over one assembled
+*       from halves - the department's own wording for the whole thing is
+*       better than our joining of its parts, and it is only reached when
+*       nothing matched at all.
+        IF ls_p-ar IS INITIAL AND p_comp = abap_true.
+          ls_p-ar = compose( iv_en = ls_t-text_en iv_opt = lv_opt ).
+          IF ls_p-ar IS NOT INITIAL.
+            lv_act = 'COMPOSED'.
+          ENDIF.
+        ENDIF.
+
+        IF ls_p-ar IS INITIAL.
+          APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                          action  = 'NOTFOUND'   new_en  = ls_t-text_en
+                          message = |No row in either legacy text table with this English| ) TO lt_log.
+*         THE GAP SET IS THE ROW AS IT STANDS - English filled, Arabic
+*         blank - so the file the gap export writes is the file IMPORT( )
+*         reads back. The translator fills one column and nothing about
+*         the key changes.
+          APPEND ls_t TO et_gap.
+          CONTINUE.
+        ENDIF.
+
+        APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                        action  = lv_act       new_en  = ls_t-text_en
+                        new_ar  = ls_p-ar
+                        message = COND #( WHEN lv_act = 'COMPOSED'
+                                          THEN |Assembled from the legacy Arabic of each part - review before committing| ) ) TO lt_log.
+
+        ls_t-text_ar = ls_p-ar.
+        APPEND ls_t TO lt_write.
+
+      ENDLOOP.
+    ENDLOOP.
+
+    et_log   = lt_log.
+    et_write = lt_write.
+
+  ENDMETHOD.
+
+
+  METHOD do_backfill.
+
+    scan_journeys( EXPORTING it_journey = it_journey
+                   IMPORTING et_log     = DATA(lt_log)
+                             et_write   = DATA(lt_write)
+                             et_gap     = DATA(lt_gap) ).
+
+    IF lt_log IS INITIAL.
+      MESSAGE 'Nothing missing - every selected journey already has its Arabic' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+*   THE WRITE GOES THROUGH THE SAME SOURCE THE IMPORT USES, so a backfilled
+*   text and a translated one land the same way and there is one writer
+*   rather than two.
+    IF p_test = abap_false AND lt_write IS NOT INITIAL.
+      DATA(lo_wsrc) = NEW zcl_rak_cj_text_src_cfg( ).
+      lo_wsrc->zif_rak_cj_text_src~write( lt_write ).
+    ENDIF.
+
+    show_import( lt_log ).
+
+  ENDMETHOD.
+
+
+  METHOD do_gaps.
+
+    scan_journeys( EXPORTING it_journey = it_journey
+                   IMPORTING et_log     = DATA(lt_log)
+                             et_write   = DATA(lt_write)
+                             et_gap     = DATA(lt_gap) ).
+
+    IF lt_gap IS INITIAL.
+      MESSAGE 'No gaps - everything either has its Arabic or can be backfilled. Run Backfill.' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+*   THE GLOSSARY IS EVERY PAIR THE LEGACY TABLES HOLD - AMBIGUOUS TERMS
+*   INCLUDED, AND THAT IS THE CHANGE THAT MAKES THE FILE USABLE.
+*
+*   It used to be built from the four keyed maps with the ambiguous
+*   entries dropped, which had it exactly backwards: an unambiguous term
+*   needs no glossary because the backfill already filled it, and the one
+*   term a reviewer genuinely has to look up - two Arabic, pick one - was
+*   the one deliberately left out. They got a gap file asking for a
+*   decision and nothing to decide from.
+*
+*   Built from the raw pairs instead, deduped on the PAIR. An ordinary
+*   term still appears once however many legacy rows carry it; an
+*   ambiguous one appears once per distinct Arabic, side by side, which
+*   is the whole point.
+    DATA lt_gloss TYPE zif_rak_cj_text_src=>ty_t_txt.
+    lt_gloss = gt_all.
+    SORT lt_gloss BY text_en ASCENDING text_ar ASCENDING.
+    DELETE ADJACENT DUPLICATES FROM lt_gloss COMPARING text_en text_ar.
+
+    DATA(lo_io) = NEW zcl_rak_cj_txt_io( ).
+
+    write_file( iv_path = p_path
+                iv_xstr = lo_io->export_rows( lt_gap ) ).
+
+*   A SECOND FILE, NOT A SECOND SHEET. The gap file has to stay parseable
+*   by IMPORT( ) exactly as it is - seven columns, one header - and a
+*   glossary block appended to it would arrive as rows whose keys the
+*   system does not have and be rejected one by one.
+    write_file( iv_path = |{ p_path }.glossary.txt|
+                iv_xstr = lo_io->export_glossary( lt_gloss ) ).
+
+    MESSAGE |{ lines( lt_gap ) } gap(s) written to { p_path }, | &&
+            |{ lines( lt_gloss ) } glossary pair(s) beside it| TYPE 'S'.
+
+  ENDMETHOD.
+
+
+  METHOD sentence_case.
+
+    CLEAR rv_new.
+
+    DATA(lv_src) = condense( iv_txt ).
+    IF lv_src IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   ONLY A STRING THAT IS ALREADY ALL CAPS. Anything with a lower-case
+*   letter in it was written deliberately and is not this mode's business
+*   - "School Name Arabic 2" stays exactly as it is.
+    IF lv_src <> to_upper( lv_src ).
+      RETURN.
+    ENDIF.
+
+*   AND ONLY IF THERE IS A LETTER TO CHANGE. "*", "X", "F9", "03.05.2023"
+*   and "1" are all-caps by accident of having no lower case at all.
+    IF lv_src CN 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' AND lv_src NA 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+      RETURN.
+    ENDIF.
+    IF lv_src NA 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.
+      RETURN.
+    ENDIF.
+
+*   A LONE SHORT TOKEN IS AN ACRONYM, NOT A SHOUT. PRO, NOC, EID, CV, ISO
+*   and the rest are correct as they stand, and lower-casing them would be
+*   the only actual damage this mode could do.
+    IF lv_src NS ` ` AND strlen( lv_src ) <= 5.
+      RETURN.
+    ENDIF.
+
+    DATA lt_tok TYPE string_table.
+    SPLIT to_lower( lv_src ) AT ` ` INTO TABLE lt_tok.
+
+*   THE ACRONYMS THAT SURVIVE INSIDE A SENTENCE. Matched on the token with
+*   its trailing punctuation stripped, so "(RTA)" and "ID:" are recognised
+*   and keep whatever was around them.
+    DATA(lt_acr) = VALUE string_table(
+      ( `id` ) ( `eid` ) ( `noc` ) ( `pro` ) ( `cv` ) ( `iso` ) ( `gps` )
+      ( `rak` ) ( `uae` ) ( `vat` ) ( `pdf` ) ( `jpg` ) ( `jpeg` ) ( `png` )
+      ( `doc` ) ( `docx` ) ( `kg` ) ( `moe` ) ( `fahr` ) ( `rta` ) ( `ewe` )
+      ( `poa` ) ( `epda` ) ( `dok` ) ( `msds` ) ( `gfa` ) ( `eva` ) ( `dcr` )
+      ( `tnoc` ) ( `bp` ) ( `mb` ) ( `aed` ) ( `szhp` ) ( `gra` ) ( `mp` ) ).
+
+    DATA lv_out TYPE string.
+    LOOP AT lt_tok INTO DATA(lv_tok).
+      DATA(lv_bare) = lv_tok.
+*     Strip what a caption hangs on a word so the acronym itself matches.
+      REPLACE ALL OCCURRENCES OF REGEX '[^a-z0-9]' IN lv_bare WITH ``.
+      IF line_exists( lt_acr[ table_line = lv_bare ] ).
+        DATA(lv_use) = lv_tok.
+        REPLACE ALL OCCURRENCES OF lv_bare IN lv_use WITH to_upper( lv_bare ).
+      ELSE.
+        lv_use = lv_tok.
+      ENDIF.
+      lv_out = COND #( WHEN lv_out IS INITIAL THEN lv_use ELSE |{ lv_out } { lv_use }| ).
+    ENDLOOP.
+
+*   The first letter last, so an acronym that opens the sentence is not
+*   undone by it.
+    IF strlen( lv_out ) > 0.
+      lv_out = to_upper( substring( val = lv_out len = 1 ) )
+            && substring( val = lv_out off = 1 ).
+    ENDIF.
+
+    IF lv_out <> lv_src.
+      rv_new = lv_out.
     ENDIF.
 
   ENDMETHOD.
 
 
+  METHOD do_case.
+
+    DATA(lo_src) = NEW zcl_rak_cj_text_src_cfg( ).
+    DATA lt_log   TYPE zcl_rak_cj_txt_io=>ty_t_imp_log.
+    DATA lt_write TYPE zif_rak_cj_text_src=>ty_t_txt.
+    DATA lt_txt   TYPE zif_rak_cj_text_src=>ty_t_txt.
+
+    LOOP AT it_journey INTO DATA(lv_j).
+      lt_txt = lo_src->zif_rak_cj_text_src~read_journey( lv_j ).
+      LOOP AT lt_txt INTO DATA(ls_t).
+
+        DATA(lv_new) = sentence_case( ls_t-text_en ).
+        CHECK lv_new IS NOT INITIAL.
+
+        APPEND VALUE #( journey = ls_t-journey elem_id = ls_t-elem_id
+                        action  = 'CASE'
+                        old_en  = ls_t-text_en new_en = lv_new
+                        old_ar  = ls_t-text_ar new_ar = ls_t-text_ar ) TO lt_log.
+
+*       THE ARABIC RIDES ALONG UNCHANGED. WRITE( ) takes a whole row, so
+*       sending one with a blank Arabic would erase it - the English tidy
+*       would quietly undo the backfill that ran before it.
+        ls_t-text_en = lv_new.
+        APPEND ls_t TO lt_write.
+
+      ENDLOOP.
+    ENDLOOP.
+
+    IF lt_log IS INITIAL.
+      MESSAGE 'No all-capitals English found on the selected journeys' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+    IF p_test = abap_false.
+      lo_src->zif_rak_cj_text_src~write( lt_write ).
+    ENDIF.
+
+    show_import( lt_log ).
+
+  ENDMETHOD.
+
+
+  METHOD write_file.
+
+    DATA(lv_len) = xstrlen( iv_xstr ).
+    DATA(lt_bin) = cl_bcs_convert=>xstring_to_solix( iv_xstr ).
+
+    cl_gui_frontend_services=>gui_download(
+      EXPORTING bin_filesize = lv_len
+                filename     = iv_path
+                filetype     = 'BIN'
+      CHANGING  data_tab     = lt_bin
+      EXCEPTIONS OTHERS      = 1 ).
+
+    IF sy-subrc <> 0.
+      MESSAGE |Could not write { iv_path }| TYPE 'E'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD do_import.
+
+    DATA lt_bin TYPE solix_tab.
+    DATA lv_len TYPE i.
+
+    cl_gui_frontend_services=>gui_upload(
+      EXPORTING filename   = p_path
+                filetype   = 'BIN'
+      IMPORTING filelength = lv_len
+      CHANGING  data_tab   = lt_bin
+      EXCEPTIONS OTHERS    = 1 ).
+
+    IF sy-subrc <> 0.
+      MESSAGE |Could not read { p_path }| TYPE 'E'.
+    ENDIF.
+
+    DATA(lv_xstr) = cl_bcs_convert=>solix_to_xstring( it_solix = lt_bin iv_size = lv_len ).
+
+*   NO JOURNEY FILTER ON AN IMPORT, deliberately. The file names its own
+*   journeys in column 1 and IMPORT( ) rejects any key the system does not
+*   have, so the selection screen's journey list would be a second filter
+*   that can only disagree with the file. Export a subset, translate it,
+*   import it back - the subset is decided once, at export.
+    DATA(lo_io)  = NEW zcl_rak_cj_txt_io( ).
+    DATA(lt_log) = lo_io->import( iv_xstr   = lv_xstr
+                                  iv_commit = xsdbool( p_test = abap_false ) ).
+
+    IF lt_log IS INITIAL.
+      MESSAGE 'Nothing to change - every text in the file already matches the system' TYPE 'S'.
+      RETURN.
+    ENDIF.
+
+    show_import( lt_log ).
+
+  ENDMETHOD.
+
+
+  METHOD show_import.
+
+    DATA(lt_log) = it_log.
+
+    TRY.
+        cl_salv_table=>factory( IMPORTING r_salv_table = DATA(lo_alv)
+                                CHANGING  t_table      = lt_log ).
+        lo_alv->get_functions( )->set_all( ).
+        lo_alv->get_columns( )->set_optimize( ).
+
+*       THE TITLE CARRIES THE MODE, because the two runs otherwise produce
+*       an identical-looking list and the only difference is whether the
+*       database moved. Counting CHANGE rows rather than all rows: SKIP and
+*       REJECT lines are reported and written nowhere.
+*       CASE counts as a change, because it is one - the same ALV shows
+*       the backfill and the case tidy, and both write.
+        DATA(lv_chg) = REDUCE i( INIT n = 0 FOR ls IN it_log
+                                 NEXT n = COND #( WHEN ls-action = 'CHANGE' OR ls-action = 'CASE'
+                                                  THEN n + 1 ELSE n ) ).
+*       THE OTHER TWO OUTCOMES BELONG IN THE TITLE TOO. A run that fills
+*       230 and leaves 400 unmatched is a different result from one that
+*       fills 230 and leaves none, and the first list scrolls too far to
+*       see which you got. NOTFOUND wants a translator; AMBIG wants a
+*       person to choose - so they are counted apart rather than lumped.
+        DATA(lv_nf)  = REDUCE i( INIT n = 0 FOR l2 IN it_log
+                                 NEXT n = COND #( WHEN l2-action = 'NOTFOUND' THEN n + 1 ELSE n ) ).
+        DATA(lv_amb) = REDUCE i( INIT n = 0 FOR l3 IN it_log
+                                 NEXT n = COND #( WHEN l3-action = 'AMBIG' THEN n + 1 ELSE n ) ).
+*       COMPOSED IS COUNTED APART FROM CHANGE, because it is the only
+*       figure in this line that somebody has to look at rather than
+*       accept. A run of 300 CHANGE is a lookup; 300 COMPOSED is 300
+*       captions this report assembled.
+        DATA(lv_cmp) = REDUCE i( INIT n = 0 FOR l4 IN it_log
+                                 NEXT n = COND #( WHEN l4-action = 'COMPOSED' THEN n + 1 ELSE n ) ).
+        DATA(lv_tec) = REDUCE i( INIT n = 0 FOR l5 IN it_log
+                                 NEXT n = COND #( WHEN l5-action = 'TECHNAME' THEN n + 1 ELSE n ) ).
+        DATA(lv_rest) = COND string(
+          WHEN lv_nf > 0 OR lv_amb > 0 OR lv_cmp > 0 OR lv_tec > 0
+          THEN | · { lv_cmp } composed · { lv_nf } not in the legacy tables · { lv_amb } ambiguous · | &&
+               |{ lv_tec } not captions| ).
+
+        lo_alv->get_display_settings( )->set_list_header(
+          COND #( WHEN p_test = abap_true
+                  THEN |TEST RUN - { lv_chg } text(s) WOULD change. Nothing written.{ lv_rest }|
+                  ELSE |{ lv_chg } text(s) written.{ lv_rest }| ) ).
+
+        lo_alv->display( ).
+      CATCH cx_salv_msg.
+        MESSAGE 'ALV could not be displayed' TYPE 'E'.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
   METHOD run.
+
+*   IMPORT FIRST, BEFORE THE JOURNEY LIST IS RESOLVED. The file names its
+*   own journeys, so an import needs neither the selection screen's list
+*   nor the "text source returned no journeys" guard below - which would
+*   otherwise refuse the one mode that can put translations INTO a system
+*   that has none.
+    IF p_impt = abap_true.
+      do_import( ).
+      RETURN.
+    ENDIF.
 
     DATA(lt_journey) = journeys( ).
     DATA(lo_qa)      = NEW zcl_rak_cj_txt_qa( ).
@@ -126,11 +958,27 @@ CLASS lcl_app IMPLEMENTATION.
     ENDIF.
 
     CASE abap_true.
-      WHEN p_expt.
-        IF lt_journey IS INITIAL.
-          MESSAGE 'Select at least one journey to export' TYPE 'E'.
+      WHEN p_xall.
+*       EVERY JOURNEY THE SOURCE KNOWS, not the selection. Asked for again
+*       here rather than reusing LT_JOURNEY, because LT_JOURNEY is only the
+*       full list when S_JRN happened to be empty.
+        DATA(lt_all) = lo_qa->available_journeys( ).
+        IF lt_all IS INITIAL.
+          MESSAGE 'Text source returned no journeys to extract.' TYPE 'E'.
         ENDIF.
+        do_export( lt_all ).
+      WHEN p_expt.
+*       THE REFUSAL THAT USED TO BE HERE COULD NOT FIRE. LT_JOURNEY has
+*       already fallen back to every journey above, so "select at least one
+*       journey to export" was unreachable AND untrue - a blank selection
+*       exported all of them. P_XALL says so on the screen instead.
         do_export( lt_journey ).
+      WHEN p_fill.
+        do_backfill( lt_journey ).
+      WHEN p_gap.
+        do_gaps( lt_journey ).
+      WHEN p_case.
+        do_case( lt_journey ).
       WHEN p_summ.
         show_summary( lo_qa->summarise( lt_journey ) ).
       WHEN OTHERS.
