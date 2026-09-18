@@ -281,6 +281,8 @@ CLASS zcl_rak_cj_parcel DEFINITION
     METHODS sel_list RETURNING VALUE(rt) TYPE string_table.
     METHODS is_sel   IMPORTING iv_key    TYPE string
                      RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS sel_now  IMPORTING iv_key    TYPE string
+                     RETURNING VALUE(rv) TYPE abap_bool.
     METHODS toggle   IMPORTING iv_field  TYPE string
                                iv_key    TYPE string.
 
@@ -829,10 +831,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     CLEAR: mo_e->mv_pcl_t1, mo_e->mv_pcl_t2, mo_e->mv_pcl_t3,
            mo_e->mv_pcl_t4, mo_e->mv_pcl_t5, mo_e->mv_pcl_t6.
 
-    IF mv_multi = abap_false.
-      RETURN.
-    ENDIF.
-
+*   BOTH MODES NOW. This returned here when the field was single-select,
+*   because the only thing the slots drove was the multi tick box and the
+*   single card carried a Select BUTTON whose caption it read straight off
+*   LV_SEL. The button is gone and both modes draw the same bound check
+*   box, so both modes need the slots loaded - left as it was, every card
+*   on a single-select journey would bind to a slot nobody filled and
+*   render permanently unticked.
     DATA(lv_slot) = 0.
     LOOP AT it_page INTO DATA(ls_r).
       lv_slot = lv_slot + 1.
@@ -849,7 +854,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      DATA(lv_on) = is_sel( lv_k ).
+      DATA(lv_on) = sel_now( lv_k ).
 
       CASE lv_slot.
         WHEN 1. mo_e->mv_pcl_t1 = lv_on.
@@ -904,15 +909,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_sec) = cell( is_row = is_row iv_comp = 'SECTORTEXT' ).
     DATA(lv_use) = cell( is_row = is_row iv_comp = 'LANDUSE' ).
     DATA(lv_typ) = cell( is_row = is_row iv_comp = 'TYPE' ).
-*   SELECTED - membership in multi mode, equality in single mode. The
-*   single-mode comparison is left exactly as it was so no existing
-*   journey changes behaviour.
-    DATA lv_sel TYPE abap_bool.
-    IF mv_multi = abap_true.
-      lv_sel = is_sel( lv_key ).
-    ELSE.
-      lv_sel = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
-    ENDIF.
+*   SELECTED - membership in multi mode, equality in single mode, and both
+*   read through SEL_NOW( ) now that TICKS( ) has to reach the same verdict
+*   about the same card. The single-mode comparison inside it is left
+*   exactly as it was, so no existing journey changes behaviour.
+    DATA(lv_sel) = sel_now( lv_key ).
 
 *   THE LIVE CARD SHOWS 507060119, NOT 00000000000507060119. PropertiesSet
 *   returns the padded form and the legacy control strips it for display.
@@ -969,8 +970,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   when it sat in the action row and had to say what it did. Beside the
 *   parcel number that caption competes with the number for the first
 *   thing read, and the number is what identifies the row - so the box is
-*   bare and the whole card is the label. The single-select path keeps its
-*   captioned button, untouched.
+*   bare and the whole card is the label.
+*   ---- ONE CONTROL FOR BOTH MODES -----------------------------------
+*   The single-select card used to close with an emphasised Select /
+*   Selected button at the bottom right while the multi one carried this
+*   box at the top left, so the same list offered two different
+*   affordances depending on an ftype the citizen cannot see. It is a tick
+*   box in both modes now, in this one place, and the button is gone.
+*
+*   WHAT DID NOT CHANGE IS THE SELECTION RULE. Single select still means
+*   ONE parcel: the event below sends PICK_, which REPLACES the stored
+*   value, so ticking a second card moves the choice rather than adding
+*   to it and the first card unticks on the next paint. Making the box
+*   send TOG_ in both modes would have been the smaller diff and would
+*   have written a separator-joined LIST into a field every single-select
+*   journey reads as one key.
 *   ---- BOUND, NOT WRITTEN, AND THAT IS THE FLICKER FIX ---------------
 *   `selected = xsdbool( lv_sel )` put the tick state into the MARKUP, so
 *   every tick changed the XML - and SEND_VIEW( ) takes the quiet path
@@ -996,32 +1010,51 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   outside the paged loop, or a C_PAGE_SIZE raised without adding
 *   attributes, then behaves exactly as it used to instead of losing its
 *   tick state altogether.
-    IF mv_multi = abap_true.
-      DATA(lo_cbx) = lo_top.
-      CASE iv_slot.
-        WHEN 1.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t1 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 2.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t2 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 3.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t3 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 4.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t4 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 5.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t5 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 6.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t6 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN OTHERS.
-          lo_cbx->checkbox( selected = xsdbool( lv_sel = abap_true )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-      ENDCASE.
-    ENDIF.
+*
+*   TICKING AN ALREADY-TICKED BOX IN SINGLE MODE CLEARS IT, and it clears
+*   it through the payload the Clear button beside the heading already
+*   sends - PICK_<field>~ with an empty key. Sending the key again, which
+*   is what the Select button did on every press, would re-select what the
+*   citizen just unticked and the box would spring back under their finger.
+*   A check box has two directions where a button had one; this is the
+*   second one.
+*
+*   DECIDED HERE, AT RENDER, NOT IN THE EVENT HANDLER, and that is not a
+*   preference. MV_MULTI is assigned in RENDER( ), and the control is
+*   rebuilt every round trip by ENSURE_PARTS( ) - so at event-dispatch
+*   time it is still blank whatever the journey is, exactly as MV_FLD is
+*   (see TOGGLE( )'s header). Branching on the mode inside ON_EVENT( )
+*   would read single-select on a multi journey and every tick would
+*   replace the list instead of extending it.
+    DATA(lv_ev) = COND string(
+      WHEN mv_multi = abap_true THEN |{ c_pfx }TOG_{ mv_fld }~{ lv_key }|
+      WHEN lv_sel   = abap_true THEN |{ c_pfx }PICK_{ mv_fld }~|
+      ELSE                           |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ).
+
+    DATA(lo_cbx) = lo_top.
+    CASE iv_slot.
+      WHEN 1.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t1 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 2.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t2 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 3.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t3 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 4.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t4 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 5.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t5 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 6.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t6 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN OTHERS.
+        lo_cbx->checkbox( selected = xsdbool( lv_sel = abap_true )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+    ENDCASE.
 
     lo_top->title( text = lv_show level = 'H5' class = 'rakPclNo' ).
     IF lv_badge IS NOT INITIAL.
@@ -1041,9 +1074,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
     DATA(lo_act) = lo_bot->hbox( class = 'rakPclAct' ).
 
-*   Full Details FIRST and quiet, Select last and emphasised - the live
-*   card puts the commitment at the end of the row, and a link beside a
-*   filled button reads as the secondary action without needing to say so.
+*   FULL DETAILS AND NOTHING ELSE - this row held a link and then an
+*   emphasised Select button, and the sentence that stood here explained
+*   the pairing: quiet link first, commitment last. The button is gone,
+*   choosing is the tick box at the front of the top row, so there is no
+*   pairing left to read - only the one secondary action.
 *   A row without an INTRENO gets no link rather than a link that opens an
 *   empty dialog: the $expand read is addressed by that key.
     IF lv_int IS NOT INITIAL.
@@ -1053,30 +1088,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                               |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
     ENDIF.
 
-*   IN MULTI MODE THE ACTION ROW ENDS HERE - Full Details and nothing
-*   else. The checkbox that used to be drawn at this point has moved to
-*   the FRONT of the top row; see the block there for why. Returning
-*   before the Select button is what keeps the card from offering two
-*   ways to choose the same parcel, one of which would replace the whole
-*   selection instead of adding to it.
+*   AND THE ACTION ROW ENDS HERE, IN BOTH MODES - Full Details and nothing
+*   else. The Select / Selected button that used to close the single-select
+*   card was removed with this line: choosing is the tick box at the front
+*   of the top row now, and a card carrying both would offer two ways to
+*   do one thing, sitting at opposite corners and disagreeing about
+*   whether choosing is an ACTION or a STATE.
 *
-*   SELECTED IS STILL BOUND FROM THE STORED LIST up there, so a tick
-*   survives paging, searching and a round trip - it is not client-side
-*   state - and the event is still a TOGGLE. PICK_ replaces the whole
-*   value, which is right for one parcel and is exactly what stopped a
-*   merge being assembled; TOG_ adds or removes one key and leaves the
-*   rest.
-    IF mv_multi = abap_true.
-      RETURN.
-    ENDIF.
-
-    lo_act->button(
-      text  = COND #( WHEN lv_sel = abap_true THEN t( iv_en = `Selected` iv_ar = `محددة` )
-                                              ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
-      icon  = COND #( WHEN lv_sel = abap_true THEN 'sap-icon://accept' ELSE '' )
-      type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
-      press = mo_e->mo_client->_event(
-                |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ) ).
+*   SELECTED IS BOUND FROM THE STORED VALUE up there, so a tick survives
+*   paging, searching and a round trip - it is not client-side state.
   ENDMETHOD.
 
 
@@ -1105,6 +1125,33 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         RETURN.
       ENDIF.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD sel_now.
+*   IS THIS CARD'S PARCEL CHOSEN - read by CARD( ) to pick the tick box's
+*   event and by TICKS( ) to load the slot the box binds to. Those two have
+*   to reach the SAME answer for the same card: a box drawn ticked that
+*   sends the "select me" payload takes two presses to clear, and one drawn
+*   unticked that sends the Clear payload cannot be ticked at all. They
+*   were two copies of the test, in two methods, and only one of them ever
+*   ran - which is why this is a method rather than a second COND.
+*
+*   MODE-DEPENDENT, AND THAT IS WHY IT IS NOT IS_SEL( ) ITSELF. Multi is a
+*   membership in the separator-joined list; single is an equality against
+*   the whole stored value, which is the test the Select button always
+*   used. IS_SEL( ) has to stay the plain membership test, because
+*   TOGGLE( ) calls it from the EVENT dispatch where MV_MULTI has not been
+*   assigned yet - RENDER( ) sets it and the control is rebuilt every round
+*   trip - so a mode-aware IS_SEL( ) would read SINGLE on a multi journey
+*   and every tick would add and never remove.
+*
+*   SAFE TO CALL FROM EITHER, because both callers run inside RENDER( ).
+    IF mv_multi = abap_true.
+      rv = is_sel( iv_key ).
+    ELSE.
+      rv = xsdbool( mo_e->val_get( mv_fld ) = iv_key ).
+    ENDIF.
   ENDMETHOD.
 
 
