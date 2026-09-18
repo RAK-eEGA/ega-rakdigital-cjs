@@ -128,6 +128,12 @@
      <FRKDIR>E</FRKDIR>
     </DD28J>
    </DD28J_TABLE>
+   <TABL_EXTRAS>
+    <TDDAT>
+     <TABNAME>ZMV_JNY_STEP</TABNAME>
+     <CCLASS>&amp;NC&amp;</CCLASS>
+    </TDDAT>
+   </TABL_EXTRAS>
   </asx:values>
  </asx:abap>
 </abapGit>

@@ -115,6 +115,10 @@ CLASS zcl_m028_cod_logic DEFINITION
     CONSTANTS c_pop_roof TYPE string VALUE 'BLD_ROOF' ##NO_TEXT.
     CONSTANTS c_pop_heli TYPE string VALUE 'BLD_HELI' ##NO_TEXT.
     CONSTANTS c_pop_base TYPE string VALUE 'BLD_BASEMENT' ##NO_TEXT.
+
+    CONSTANTS c_evt_details TYPE string VALUE 'ADD DetailsHF'.
+    CONSTANTS c_evt_ownok TYPE string VALUE 'OWN_OK' ##NO_TEXT.
+    CONSTANTS c_evt_owncx TYPE string VALUE 'OWN_CANCEL' ##NO_TEXT.
 *   ---- CONSTRUCTION AND UTILITIES CONFIGURATION -----------------------
 *   The popup's THIRD section, and it was missing entirely. The eleven
 *   fields above were derived from an English walkthrough that showed
@@ -261,17 +265,26 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
 *   usage type side by side, and eleven fields one per row is a dialog
 *   nobody can see the bottom of. Three would make the numeric fields a
 *   third of the width for no gain.
-    dialog_form( io_ctx     = io_ctx
-                 io_popup   = io_popup
-                 iv_title   = COND string( WHEN sy-langu = 'A'
-                                           THEN `إضافة مبنى`
-                                           ELSE `Add A Building` )
-                 it_fields  = building_fields( )
-                 iv_ok_text = COND string( WHEN sy-langu = 'A'
-                                           THEN `إضافة المبنى`
-                                           ELSE `Add Building` )
-                 iv_ok_evt  = c_evt_ok
-                 iv_cxl_evt = c_evt_cancel
+    CASE iv_id.
+
+      WHEN c_pop_id.
+        dialog_form( io_ctx     = io_ctx
+                     io_popup   = io_popup
+                     iv_title   = COND string( WHEN sy-langu = 'A'
+                                               THEN `إضافة مبنى`
+                                               ELSE `Add A Building` )
+                     it_fields  = building_fields( )
+                     iv_ok_text = COND string( WHEN sy-langu = 'A'
+                                               THEN `إضافة المبنى`
+                                               ELSE `Add Building HF` )
+**                     iv_ok_evt  = c_evt_ok
+**                     iv_cxl_evt = c_evt_cancel
+
+                     iv_ok_evt  = c_evt_ownok
+                     iv_cxl_evt = c_evt_owncx
+
+
+
 *                THREE, MATCHING THE LIVE SCREEN, and it was two.
 *                The Arabic walkthrough lays this dialog out in three
 *                columns per section, and the field count went from
@@ -279,10 +292,13 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
 *                block - which at two columns is seven rows of a
 *                scrolling popup. DIALOG_FORM( ) accepts 1, 2 or 3 and
 *                clamps anything else, so this is the widest it offers.
-                 iv_columns = 3 ).
+                     iv_columns = 3 ).
 
+        RETURN.
 
-      endmethod.
+      WHEN OTHERS.
+    ENDCASE.
+  ENDMETHOD.
 
 
   METHOD building_fields.
@@ -455,12 +471,21 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
 *   the next one.
 *
 *   CP, NOT AN OFFSET, on every comparison - see the constants.
-    IF iv_event CP |*{ c_evt_add }*|.
+
+*    IF iv_event CP |*{ c_evt_add }*|. "OWN_OK
+*      clear_popup( io_ctx ).
+*      chem_form_load( io_ctx ).
+*      io_ctx->open_popup( c_pop_id ).
+*      RETURN.
+*    ENDIF.
+
+    IF iv_event = c_evt_details. "'ADD DetailsHF'.
       clear_popup( io_ctx ).
       chem_form_load( io_ctx ).
       io_ctx->open_popup( c_pop_id ).
       RETURN.
     ENDIF.
+
 
     IF iv_event CP |*{ c_evt_cancel }*|.
       clear_popup( io_ctx ).
@@ -468,42 +493,51 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    IF iv_event CP |*{ c_evt_ok }*|.
+**    IF iv_event CP |*{ c_evt_ok }*|.
+***      DATA(lt_msg) = validate_popup( io_ctx ).
+***      IF lt_msg IS NOT INITIAL.
+***        LOOP AT lt_msg INTO DATA(ls_m).
+***          io_ctx->add_msg( iv_type = ls_m-type iv_text = ls_m-text ).
+***        ENDLOOP.
+***        RETURN.
+***      ENDIF.
+**
+**      DATA(ls_grid1) = io_ctx->get_grid_data( c_fld_grid ).
+**      DATA lt_cell1 TYPE zif_rak_journey=>tt_string.
+**      lt_cell1 = VALUE #(
+**        ( io_ctx->get_val( c_pop_name ) )
+**        ( io_ctx->get_val( c_pop_type ) )
+**        ( io_ctx->get_val( c_pop_usage ) )
+**        ( io_ctx->get_val( c_pop_cost ) )
+**        ( io_ctx->get_val( c_pop_hgt ) )
+**        ( io_ctx->get_val( c_pop_typ ) )
+**        ( io_ctx->get_val( c_pop_flr ) )
+**        ( io_ctx->get_val( c_pop_mezz ) )
+**        ( io_ctx->get_val( c_pop_roof ) )
+**        ( io_ctx->get_val( c_pop_heli ) )
+**        ( io_ctx->get_val( c_pop_base ) )
+**        ( io_ctx->get_val( c_pop_found ) )
+**        ( io_ctx->get_val( c_pop_const ) )
+**        ( io_ctx->get_val( c_pop_syst ) ) ).
+**      APPEND lt_cell1 TO ls_grid1-rows.
+**
+**      io_ctx->set_grid_data( iv_field = c_fld_grid is_data = ls_grid1 ).
+**
+**      clear_popup( io_ctx ).
+**      io_ctx->close_popup( ).
+**      RETURN.
+**    ENDIF.
 
-*     THE SAVE AND THE CLOSE ARE BOTH GATED ON THE VERDICT, and leaving
-*     the dialog open is the point - the citizen keeps what they typed.
-      DATA(lt_msg) = validate_popup( io_ctx ).
-      IF lt_msg IS NOT INITIAL.
-        LOOP AT lt_msg INTO DATA(ls_m).
-          io_ctx->add_msg( iv_type = ls_m-type iv_text = ls_m-text ).
-        ENDLOOP.
-        RETURN.
-      ENDIF.
+    IF iv_event = c_evt_ownok.
+*      DATA(lt_msg) = validate_popup( io_ctx ).
+*      IF lt_msg IS NOT INITIAL.
+*        LOOP AT lt_msg INTO DATA(ls_m).
+*          io_ctx->add_msg( iv_type = ls_m-type iv_text = ls_m-text ).
+*        ENDLOOP.
+*        RETURN.
+*      ENDIF.
 
-*     ---- THE CELL ORDER IS THE CONTRACT ----------------------------
-*     SET_GRID_DATA( ) maps by name, but the COLUMNS came straight back
-*     from GET_GRID_DATA( ), so the map is an identity map and cell N
-*     lands in configured column N. A cell out of order is written to
-*     the neighbouring column; one past the last column is dropped.
-*     Neither raises anything.
-*
-*     The order lives in ZRAK_T_JNY_COL for ADDBUILDING, seeded by
-*     ZRAK_M028_LOAD, and it is:
-*
-*       10 BNAME  20 BTYPE  30 BUSAGE  40 BCOST  50 BHEIGHT
-*       60 BTYPICAL  70 BFLOORS  80 BMEZZ  90 BROOF
-*       100 BHELI  110 BBASEMENT
-*       120 BFOUND  130 BCONSTR  140 BSYSTEM
-*
-*     Read that report before adding or reordering a column here.
-*
-*     THE THREE NEW ONES ARE APPENDED, NOT INSERTED, and that is why
-*     this change is safe. They belong to the popup's third section,
-*     which reads last on screen, so appending happens to match the
-*     visual order - but the reason for appending is that inserting
-*     anywhere else would shift every cell after it into its
-*     neighbour's column, silently, on a grid that already holds rows.
-      DATA(ls_grid) = io_ctx->get_grid_data( c_fld_grid ).
+      DATA(ls_grid) = io_ctx->get_grid_data( 'ADDBUILDING_HF' ).
       DATA lt_cell TYPE zif_rak_journey=>tt_string.
       lt_cell = VALUE #(
         ( io_ctx->get_val( c_pop_name ) )
@@ -522,17 +556,19 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
         ( io_ctx->get_val( c_pop_syst ) ) ).
       APPEND lt_cell TO ls_grid-rows.
 
-      io_ctx->set_grid_data( iv_field = c_fld_grid is_data = ls_grid ).
+      io_ctx->set_grid_data( iv_field = 'ADDBUILDING_HF' is_data = ls_grid ).
 
       clear_popup( io_ctx ).
       io_ctx->close_popup( ).
       RETURN.
     ENDIF.
 
+
+
     IF iv_event CP c_edit_pop.
-      own_edit( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
-      io_ctx->open_popup( c_pop_id ).
-      RETURN.
+*      own_edit( io_ctx = io_ctx iv_id = substring( val = iv_event off = 9 ) ).
+*      io_ctx->open_popup( c_pop_id ).
+*      RETURN.
     ENDIF.
 
     super->zif_rak_journey_logic~on_popup_event( io_ctx   = io_ctx
@@ -667,31 +703,48 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
 
   METHOD render_building_details.
 
-    DATA(ls_g) = io_ctx->get_grid_data( 'ADDBUILDING' ).
+
+    DATA(ls_g) = io_ctx->get_grid_data( 'ADDBUILDING_HF' ).
 
     DATA(lo_hd) = io_view->hbox( justifycontent = 'SpaceBetween'
                                  alignitems     = 'Center'
                                  class          = 'sapUiSmallMarginTop' ).
 
+    lo_hd->title( text = 'Building Details-Hasan' class = 'rakBlkTitle' ).
+    lo_hd->button( text  = 'Add Details-Hasan'
+                   type  = 'Emphasized'
+                   icon  = 'sap-icon://add'
+                   press = io_ctx->event( c_evt_details ) ).
+
     DATA(lo_t)  = io_view->table( alternaterowcolors = abap_true ).
+    DATA(lo_cl) = lo_t->columns( ).
+    lo_cl->column( )->text( 'BUILDING NAME' ).
+    lo_cl->column( )->text( 'BUILDING TYPE' ).
+    lo_cl->column( )->text( 'BUILDING USAGE TYPE' ).
+    lo_cl->column( )->text( 'CAS Number' ).
+    lo_cl->column( )->text( 'Gross Weight' ).
+    lo_cl->column( halign = 'End' )->text( '' ).
+
+
+
     DATA(lo_it) = lo_t->items( ).
     LOOP AT ls_g-rows INTO DATA(lt_r).
 
       DATA(lv_building) = VALUE string( lt_r[ 1 ] OPTIONAL ).
-      DATA(lv_mat)   = VALUE string( lt_r[ 2 ] OPTIONAL ).
-      DATA(lv_chem)  = VALUE string( lt_r[ 3 ] OPTIONAL ).
-      DATA(lv_cas)   = VALUE string( lt_r[ 4 ] OPTIONAL ).
-      DATA(lv_w8t)   = VALUE string( lt_r[ 8 ] OPTIONAL ).
+      DATA(lv_type)      = VALUE string( lt_r[ 2 ] OPTIONAL ).
+      DATA(lv_usage)     = VALUE string( lt_r[ 3 ] OPTIONAL ).
+      DATA(lv_cas)      = VALUE string( lt_r[ 4 ] OPTIONAL ).
+      DATA(lv_w8t)      = VALUE string( lt_r[ 5 ] OPTIONAL ).
 
 
 
       DATA(lo_cells) = lo_it->column_list_item( )->cells( ).
-*      DATA(lo_nm) = lo_cells->vbox( ).
-*      lo_nm->text( text = lv_hs_no ).
-*      lo_cells->text( lv_mat ).
-*      lo_cells->text( lv_chem ).
-*      lo_cells->text( lv_cas ).
-*      lo_cells->text( lv_w8t ).
+      DATA(lo_nm) = lo_cells->vbox( ).
+      lo_nm->text( text = lv_building ).
+      lo_cells->text( lv_type ).
+      lo_cells->text( lv_usage ).
+      lo_cells->text( lv_cas ).
+      lo_cells->text( lv_w8t ).
 
       DATA(lo_act) = lo_cells->hbox( ).
       lo_act->button( icon    = 'sap-icon://edit'
@@ -699,10 +752,10 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
                       tooltip = 'Edit details'
                       press   = io_ctx->event( |OWN_EDIT_{ lv_building }| ) ).
 
-*      lo_act->button( icon    = 'sap-icon://delete'
-*                      type    = 'Transparent'
-*                      tooltip = 'Delete'
-*                      press   = io_ctx->event( |OWN_DEL_{ lv_hs_no }| ) ).
+      lo_act->button( icon    = 'sap-icon://delete'
+                      type    = 'Transparent'
+                      tooltip = 'Delete'
+                      press   = io_ctx->event( |OWN_DEL_{ lv_building }| ) ).
     ENDLOOP.
 
   ENDMETHOD.
@@ -715,7 +768,7 @@ CLASS ZCL_M028_COD_LOGIC IMPLEMENTATION.
         io_view = io_view.
 
      IF io_ctx->get_step( ) = 1.
-*      render_building_details( io_ctx = io_ctx io_view = io_view ).
+      render_building_details( io_ctx = io_ctx io_view = io_view ).
       RETURN.
     ENDIF.
   endmethod.
