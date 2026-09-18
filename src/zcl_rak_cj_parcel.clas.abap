@@ -281,6 +281,10 @@ CLASS zcl_rak_cj_parcel DEFINITION
     METHODS sel_list RETURNING VALUE(rt) TYPE string_table.
     METHODS is_sel   IMPORTING iv_key    TYPE string
                      RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS sel_now  IMPORTING iv_key    TYPE string
+                     RETURNING VALUE(rv) TYPE abap_bool.
+    METHODS sel_tog  IMPORTING iv_field  TYPE string
+                               iv_key    TYPE string.
     METHODS toggle   IMPORTING iv_field  TYPE string
                                iv_key    TYPE string.
 
@@ -442,6 +446,31 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       rt = mt_own.
       RETURN.
     ENDIF.
+
+*   ---- KEPT ACROSS ROUND TRIPS, EXACTLY AS ROWS( ) IS -----------------
+*   THE AGENT TAB WAS PAYING TWICE. MV_OWNRD above is this control's own
+*   and dies with it every round trip - ENSURE_PARTS( ) rebuilds the
+*   control - so on the Property Agent tab a tick read the managed-owner
+*   list AND the full parcel list, both from the legacy backend, to redraw
+*   a toolbar and a list that had not changed. See the note on the engine
+*   attributes for the whole argument; this is the second half of it.
+*
+*   NO KEY, UNLIKE ROWS( ). Mode and owner change what the PARCEL read
+*   returns; nothing on the step changes who the citizen may act for. The
+*   flag is what distinguishes "read, and the answer was none" from "not
+*   read yet" - without it an agent with an empty list would re-read on
+*   every round trip forever, which is the case that needs this most.
+    FIELD-SYMBOLS <lt_own> TYPE zcl_rak_property_api=>tt_partner_rows.
+    IF mo_e->mv_pcl_ownrd = abap_true AND mo_e->mr_pcl_own IS BOUND.
+      ASSIGN mo_e->mr_pcl_own->* TO <lt_own>.
+      IF sy-subrc = 0.
+        mt_own   = <lt_own>.
+        mv_ownrd = abap_true.
+        rt       = mt_own.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     mv_ownrd = abap_true.
     TRY.
         DATA(ls) = api( )->managed_owners( ).
@@ -449,6 +478,16 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       CATCH cx_root.
         CLEAR mt_own.
     ENDTRY.
+
+    CREATE DATA mo_e->mr_pcl_own TYPE zcl_rak_property_api=>tt_partner_rows.
+    ASSIGN mo_e->mr_pcl_own->* TO <lt_own>.
+    IF sy-subrc = 0.
+      <lt_own> = mt_own.
+      mo_e->mv_pcl_ownrd = abap_true.
+    ELSE.
+      CLEAR: mo_e->mr_pcl_own, mo_e->mv_pcl_ownrd.
+    ENDIF.
+
     rt = mt_own.
   ENDMETHOD.
 
@@ -462,21 +501,64 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
       rt = mt_rows.
       RETURN.
     ENDIF.
+
+*   ---- THE SAME ROWS THE LAST ROUND TRIP READ ------------------------
+*   BEFORE THE READ, BECAUSE THE READ IS THE THING BEING AVOIDED. The
+*   cache above is this control's own and dies with it - ENSURE_PARTS( )
+*   builds the control fresh every round trip - so on its own it only ever
+*   saved a SECOND call within ONE round trip. This one lives on the
+*   engine, which the draft carries across, so a tick that changes nothing
+*   about which rows exist does not go back to the legacy DPC for them.
+*   That read is most of a second on a real citizen and it ran on every
+*   tick, every page press and every search.
+*
+*   THE KEY IS MODE AND OWNER, matching the local cache above: those two
+*   are what change the READ. Search and Favourites are applied after it in
+*   HITS( ) and must stay out of the key, or every keystroke would look
+*   like a different list and re-read the lot.
+*
+*   A FAILED ASSIGN FALLS THROUGH TO THE READ rather than returning
+*   nothing. The reference is only ever created here, so a type that does
+*   not match means the cache is from an older session shape - in which
+*   case the right answer is to read again and overwrite it, not to draw
+*   an empty list.
+    FIELD-SYMBOLS <lt_cache> TYPE zcl_rak_property_api=>tt_prop_rows.
+    IF mo_e->mr_pcl_rows IS BOUND AND mo_e->mv_pcl_rowkey = lv_key.
+      ASSIGN mo_e->mr_pcl_rows->* TO <lt_cache>.
+      IF sy-subrc = 0.
+        mt_rows = <lt_cache>.
+        mv_read = abap_true.
+        mv_key  = lv_key.
+        CLEAR mv_note.
+*       GUARDED, like the timed trace further down and unlike TICKS( )'s
+*       per-slot line: the string template is built before TRACE( ) is
+*       entered, so an unguarded call costs the concatenation on every
+*       round trip of every journey whether or not anyone is tracing.
+        IF mo_e->mv_trace = abap_true.
+          mo_e->trace( |PARCEL  read { mode( ) } served from the engine cache | &&
+                       |· { lines( mt_rows ) } row(s) · no backend call| ).
+        ENDIF.
+        rt = mt_rows.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     mv_read = abap_true.
     mv_key  = lv_key.
     CLEAR: mt_rows, mv_note.
 
 *   ---- TIMED, BECAUSE THIS READ IS THE SELECTOR'S WHOLE COST ----------
 *
-*   THE CACHE ABOVE IS PER ROUND TRIP, NOT PER SESSION, and that is the
-*   performance characteristic worth knowing about rather than guessing
-*   at. ZCL_RAK_JOURNEY_ENGINE->ENSURE_PARTS( ) creates this control fresh
-*   on EVERY round trip, so MV_READ and MT_ROWS start empty every time:
-*   the full parcel read happens again on every page press, every search,
-*   every owner switch and - now that the cards carry checkboxes - every
-*   single tick.
+*   REACHED ONCE PER MODE PER SESSION NOW, NOT ONCE PER ROUND TRIP. Both
+*   caches above had to miss to get here: MV_READ, which is this control's
+*   own and dies with it every round trip, and MV_PCL_ROWKEY on the engine,
+*   which does not. What used to stand here recorded the opposite - that
+*   ENSURE_PARTS( ) rebuilds the control every round trip, so MT_ROWS
+*   started empty every time and the full read ran again on every page
+*   press, every search, every owner switch and every single tick. That is
+*   what the engine-level cache is for.
 *
-*   AND THE READ IS UNBOUNDED. PROPERTIES( ) sends Partner, Partnerguid,
+*   AND THE READ IS STILL UNBOUNDED. PROPERTIES( ) sends Partner, Partnerguid,
 *   Partnerrole and Type as filters and no $top or $skip, so a partner
 *   with two hundred parcels fetches two hundred rows to render five.
 *   Paging and search are applied AFTER this, in HITS( ) and PAGER( ) -
@@ -517,7 +599,25 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         mv_note = lx->get_text( ).
     ENDTRY.
 
+*   ---- AND KEPT, SO THE NEXT ROUND TRIP DOES NOT REPEAT IT ------------
+*   UNCONDITIONALLY, INCLUDING AN EMPTY RESULT. A citizen with no property
+*   reads nothing every time otherwise, which is the same cost for the
+*   same answer. MV_NOTE is deliberately NOT cached: it is recomputed from
+*   the rows on the next render, and a message from a failed read has no
+*   business outliving the read that produced it.
+*
+*   A FAILED READ IS STILL CACHED, and that is the one thing here worth
+*   arguing about. It is the right side to err on: the alternative is a
+*   backend that is down being asked again on every tick, which is the
+*   behaviour this whole change exists to remove. MV_PCL_ROWKEY is a
+*   CLEAR away from forcing a fresh read when a step needs one.
     DATA(lv_ms) = mo_e->tock( lv_t0 ).
+
+*   AFTER TOCK( ), SO THE NUMBER STAYS THE READ'S. Filling the cache is a
+*   table copy and costs almost nothing, but "almost nothing" is not the
+*   same as nothing and this figure is the one the gate below judges and
+*   the one anyone tuning the DPC will quote. It measures the backend call
+*   and only the backend call.
     IF mo_e->mv_trace = abap_true.
       mo_e->trace( |PARCEL  read { mode( ) }| &&
                    COND string( WHEN owner( ) IS NOT INITIAL THEN |/{ owner( ) }| ELSE `` ) &&
@@ -525,24 +625,45 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                    | · page size { c_page_size }| ).
       mo_e->trace_perf( iv_label = |PARCEL read { mode( ) }| iv_ms = lv_ms ).
 
-*     A GATE, NOT A TRACE LINE, ONCE IT IS BIG ENOUGH TO FEEL. The number
-*     that matters is not the read on its own - it is the read multiplied
-*     by the round trips, and a multi-select list turns one selection into
-*     one round trip PER PARCEL. Fifty rows at 40ms is invisible; two
-*     hundred rows at 400ms is four seconds spent across ten ticks.
+*     A GATE, NOT A TRACE LINE, ONCE IT IS BIG ENOUGH TO FEEL.
+*
+*     WHAT IT USED TO SAY IS NOW DONE. It asked for "a cross-round-trip
+*     cache keyed on partner, mode and owner" because the read ran again on
+*     every round trip, which turned a multi-select list into one full
+*     property read PER TICK. The cache above is that cache, so this is no
+*     longer a cost multiplied by the round trips.
+*
+*     WHAT IS LEFT IS THE FIRST READ OF A MODE, once per mode per session,
+*     and it is still worth seeing: it is the wait before the list appears,
+*     and it is still UNBOUNDED - PROPERTIES( ) sends no $top or $skip, so
+*     a partner with two hundred parcels fetches two hundred rows to render
+*     five. Paging and search are applied after it, in HITS( ) and PAGER( ),
+*     which is correct and matches the legacy control - neither is a filter
+*     the DPC accepts - but it means neither reduces what is read. Fixing
+*     THAT means a DPC that pages, which is a backend change.
 *
 *     The threshold is deliberately generous. This is here to make a real
 *     problem visible on a real partner, not to complain about a
 *     development client with three parcels.
       IF lines( mt_rows ) > 60 OR lv_ms > 300.
         mo_e->trace_gate( |The parcel read returned { lines( mt_rows ) } row(s) in | &&
-                          |{ lv_ms } ms, and it is repeated on EVERY round trip - | &&
-                          |the control is recreated per round trip, so its row | &&
-                          |cache never survives one. Paging and search are applied | &&
-                          |after the read and do not reduce it. At this size that | &&
-                          |wants a cross-round-trip cache keyed on partner, mode | &&
-                          |and owner.| ).
+                          |{ lv_ms } ms. It is now cached across round trips, so | &&
+                          |this is the FIRST read of this mode in the session and | &&
+                          |not a per-tick cost - but it is still the wait before | &&
+                          |the list appears, and it is still unbounded: paging and | &&
+                          |search are applied after it and do not reduce it. | &&
+                          |Reducing it further means a DPC that accepts $top and | &&
+                          |$skip.| ).
       ENDIF.
+    ENDIF.
+
+    CREATE DATA mo_e->mr_pcl_rows TYPE zcl_rak_property_api=>tt_prop_rows.
+    ASSIGN mo_e->mr_pcl_rows->* TO <lt_cache>.
+    IF sy-subrc = 0.
+      <lt_cache> = mt_rows.
+      mo_e->mv_pcl_rowkey = lv_key.
+    ELSE.
+      CLEAR: mo_e->mr_pcl_rows, mo_e->mv_pcl_rowkey.
     ENDIF.
 
     rt = mt_rows.
@@ -626,8 +747,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_cur) = mo_e->val_get( mv_fld ).
     IF lv_cur IS NOT INITIAL.
       DATA(lo_cur) = lo_box->hbox( alignitems = 'Center' class = 'sapUiTinyMarginBottom' ).
+*     BOUND, NOT WRITTEN, FOR THE REASON THE TICK BOXES ARE. Writing
+*     LV_CUR here put the chosen parcel number into the MARKUP, so moving
+*     the choice from one card to another changed the XML and SEND_VIEW( )
+*     could not take the quiet path - the tick went quiet and this line
+*     repainted the page underneath it. The binding is the same string
+*     whatever the value is.
+*
+*     BIND( ) RATHER THAN A SHARED MV_PCL_ SLOT, and that is what keeps
+*     two selectors on one step apart: it resolves the JOURNEY FIELD's own
+*     model component through COMP_NAME( ), the same component VAL_SET( )
+*     writes, so each selector binds to its own field. An engine-level
+*     scalar would have been the shorter route and would have made both
+*     headers show whichever field rendered last.
       lo_cur->object_status( title = t( iv_en = `Selected` iv_ar = `المحدد` )
-                             text  = lv_cur
+                             text  = mo_e->zif_rak_journey~bind( mv_fld )
                              state = 'Success'
                              icon  = 'sap-icon://accept' ).
       lo_cur->button( text  = t( iv_en = `Clear` iv_ar = `مسح` )
@@ -829,10 +963,13 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     CLEAR: mo_e->mv_pcl_t1, mo_e->mv_pcl_t2, mo_e->mv_pcl_t3,
            mo_e->mv_pcl_t4, mo_e->mv_pcl_t5, mo_e->mv_pcl_t6.
 
-    IF mv_multi = abap_false.
-      RETURN.
-    ENDIF.
-
+*   BOTH MODES NOW. This returned here when the field was single-select,
+*   because the only thing the slots drove was the multi tick box and the
+*   single card carried a Select BUTTON whose caption it read straight off
+*   LV_SEL. The button is gone and both modes draw the same bound check
+*   box, so both modes need the slots loaded - left as it was, every card
+*   on a single-select journey would bind to a slot nobody filled and
+*   render permanently unticked.
     DATA(lv_slot) = 0.
     LOOP AT it_page INTO DATA(ls_r).
       lv_slot = lv_slot + 1.
@@ -849,7 +986,7 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      DATA(lv_on) = is_sel( lv_k ).
+      DATA(lv_on) = sel_now( lv_k ).
 
       CASE lv_slot.
         WHEN 1. mo_e->mv_pcl_t1 = lv_on.
@@ -904,15 +1041,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     DATA(lv_sec) = cell( is_row = is_row iv_comp = 'SECTORTEXT' ).
     DATA(lv_use) = cell( is_row = is_row iv_comp = 'LANDUSE' ).
     DATA(lv_typ) = cell( is_row = is_row iv_comp = 'TYPE' ).
-*   SELECTED - membership in multi mode, equality in single mode. The
-*   single-mode comparison is left exactly as it was so no existing
-*   journey changes behaviour.
-    DATA lv_sel TYPE abap_bool.
-    IF mv_multi = abap_true.
-      lv_sel = is_sel( lv_key ).
-    ELSE.
-      lv_sel = xsdbool( mo_e->val_get( mv_fld ) = lv_key ).
-    ENDIF.
+*   SELECTED - membership in multi mode, equality in single mode, and both
+*   read through SEL_NOW( ) now that TICKS( ) has to reach the same verdict
+*   about the same card. The single-mode comparison inside it is left
+*   exactly as it was, so no existing journey changes behaviour.
+    DATA(lv_sel) = sel_now( lv_key ).
 
 *   THE LIVE CARD SHOWS 507060119, NOT 00000000000507060119. PropertiesSet
 *   returns the padded form and the legacy control strips it for display.
@@ -969,8 +1102,21 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   when it sat in the action row and had to say what it did. Beside the
 *   parcel number that caption competes with the number for the first
 *   thing read, and the number is what identifies the row - so the box is
-*   bare and the whole card is the label. The single-select path keeps its
-*   captioned button, untouched.
+*   bare and the whole card is the label.
+*   ---- ONE CONTROL FOR BOTH MODES -----------------------------------
+*   The single-select card used to close with an emphasised Select /
+*   Selected button at the bottom right while the multi one carried this
+*   box at the top left, so the same list offered two different
+*   affordances depending on an ftype the citizen cannot see. It is a tick
+*   box in both modes now, in this one place, and the button is gone.
+*
+*   WHAT DID NOT CHANGE IS THE SELECTION RULE. Single select still means
+*   ONE parcel: the event below sends SEL_, which SEL_TOG( ) turns into a
+*   REPLACE of the stored value, so ticking a second card moves the choice
+*   rather than adding to it and the first card unticks on the next paint.
+*   Making the box send TOG_ in both modes would have been the smaller
+*   diff and would have written a separator-joined LIST into a field every
+*   single-select journey reads as one key.
 *   ---- BOUND, NOT WRITTEN, AND THAT IS THE FLICKER FIX ---------------
 *   `selected = xsdbool( lv_sel )` put the tick state into the MARKUP, so
 *   every tick changed the XML - and SEND_VIEW( ) takes the quiet path
@@ -996,32 +1142,73 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *   outside the paged loop, or a C_PAGE_SIZE raised without adding
 *   attributes, then behaves exactly as it used to instead of losing its
 *   tick state altogether.
-    IF mv_multi = abap_true.
-      DATA(lo_cbx) = lo_top.
-      CASE iv_slot.
-        WHEN 1.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t1 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 2.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t2 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 3.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t3 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 4.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t4 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 5.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t5 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN 6.
-          lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t6 )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-        WHEN OTHERS.
-          lo_cbx->checkbox( selected = xsdbool( lv_sel = abap_true )
-                            select   = mo_e->mo_client->_event( |{ c_pfx }TOG_{ mv_fld }~{ lv_key }| ) ).
-      ENDCASE.
-    ENDIF.
+*
+*   TICKING AN ALREADY-TICKED BOX IN SINGLE MODE CLEARS IT. A check box
+*   has two directions where the old Select button had one, and sending
+*   the key again - which is what the button did on every press - would
+*   re-select what the citizen just unticked and the box would spring back
+*   under their finger.
+*
+*   WHICH DIRECTION IT IS, IS DECIDED IN THE HANDLER, NOT HERE. An earlier
+*   pass read LV_SEL at this point and sent the Clear payload from a ticked
+*   card, which put the selection back into the MARKUP by the back door
+*   after the binding above had just taken it out: the two cards involved
+*   in a move both changed their event string, the view could not hash
+*   equal, and the flicker survived the binding. SEL_TOG( ) reads the
+*   STORED VALUE instead, so the payload here never varies.
+*
+*   THE MODE IS STILL READ HERE, AT RENDER, AND IT HAS TO BE. MV_MULTI is
+*   assigned in RENDER( ), and the control is rebuilt every round trip by
+*   ENSURE_PARTS( ) - so at event-dispatch time it is still blank whatever
+*   the journey is, exactly as MV_FLD is (see TOGGLE( )'s header). That is
+*   why the mode is carried down as a PREFIX, SEL_ against TOG_: reading
+*   MV_MULTI inside ON_EVENT( ) would report single-select on a multi
+*   journey and every tick would replace the list instead of extending it.
+*   THE SAME STRING WHATEVER THE CARD'S STATE IS, and that is the rest of
+*   the flicker fix. This read LV_SEL and sent PICK_<field>~ - the Clear
+*   payload - for a card that was already ticked, so a tick CHANGED THE
+*   MARKUP of both cards involved and the view could never hash equal.
+*   Binding the tick state bought nothing while the event beside it moved.
+*
+*   SO THE UNTICK DECISION MOVED TO THE HANDLER, where it is made against
+*   the STORED VALUE rather than against render state: SEL_TOG( ) clears
+*   when the key it is handed is already the chosen one and picks
+*   otherwise. Same two directions, decided from the same fact, off a
+*   payload that never varies.
+*
+*   A PREFIX OF ITS OWN RATHER THAN A MODE TEST. SEL_ means single-select
+*   by its own name, so ON_EVENT( ) never has to ask MV_MULTI - which is
+*   blank at event-dispatch time, the reason TOGGLE( )'s header gives for
+*   IS_SEL( ) staying mode-blind. The mode is still read HERE, at render,
+*   exactly as before.
+    DATA(lv_ev) = COND string(
+      WHEN mv_multi = abap_true THEN |{ c_pfx }TOG_{ mv_fld }~{ lv_key }|
+      ELSE                           |{ c_pfx }SEL_{ mv_fld }~{ lv_key }| ).
+
+    DATA(lo_cbx) = lo_top.
+    CASE iv_slot.
+      WHEN 1.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t1 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 2.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t2 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 3.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t3 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 4.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t4 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 5.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t5 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN 6.
+        lo_cbx->checkbox( selected = mo_e->mo_client->_bind_edit( mo_e->mv_pcl_t6 )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+      WHEN OTHERS.
+        lo_cbx->checkbox( selected = xsdbool( lv_sel = abap_true )
+                          select   = mo_e->mo_client->_event( lv_ev ) ).
+    ENDCASE.
 
     lo_top->title( text = lv_show level = 'H5' class = 'rakPclNo' ).
     IF lv_badge IS NOT INITIAL.
@@ -1041,9 +1228,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 
     DATA(lo_act) = lo_bot->hbox( class = 'rakPclAct' ).
 
-*   Full Details FIRST and quiet, Select last and emphasised - the live
-*   card puts the commitment at the end of the row, and a link beside a
-*   filled button reads as the secondary action without needing to say so.
+*   FULL DETAILS AND NOTHING ELSE - this row held a link and then an
+*   emphasised Select button, and the sentence that stood here explained
+*   the pairing: quiet link first, commitment last. The button is gone,
+*   choosing is the tick box at the front of the top row, so there is no
+*   pairing left to read - only the one secondary action.
 *   A row without an INTRENO gets no link rather than a link that opens an
 *   empty dialog: the $expand read is addressed by that key.
     IF lv_int IS NOT INITIAL.
@@ -1053,30 +1242,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
                               |{ c_pfx }DET_{ lv_int }~{ lv_show }| ) ).
     ENDIF.
 
-*   IN MULTI MODE THE ACTION ROW ENDS HERE - Full Details and nothing
-*   else. The checkbox that used to be drawn at this point has moved to
-*   the FRONT of the top row; see the block there for why. Returning
-*   before the Select button is what keeps the card from offering two
-*   ways to choose the same parcel, one of which would replace the whole
-*   selection instead of adding to it.
+*   AND THE ACTION ROW ENDS HERE, IN BOTH MODES - Full Details and nothing
+*   else. The Select / Selected button that used to close the single-select
+*   card was removed with this line: choosing is the tick box at the front
+*   of the top row now, and a card carrying both would offer two ways to
+*   do one thing, sitting at opposite corners and disagreeing about
+*   whether choosing is an ACTION or a STATE.
 *
-*   SELECTED IS STILL BOUND FROM THE STORED LIST up there, so a tick
-*   survives paging, searching and a round trip - it is not client-side
-*   state - and the event is still a TOGGLE. PICK_ replaces the whole
-*   value, which is right for one parcel and is exactly what stopped a
-*   merge being assembled; TOG_ adds or removes one key and leaves the
-*   rest.
-    IF mv_multi = abap_true.
-      RETURN.
-    ENDIF.
-
-    lo_act->button(
-      text  = COND #( WHEN lv_sel = abap_true THEN t( iv_en = `Selected` iv_ar = `محددة` )
-                                              ELSE t( iv_en = `Select`   iv_ar = `اختيار` ) )
-      icon  = COND #( WHEN lv_sel = abap_true THEN 'sap-icon://accept' ELSE '' )
-      type  = COND #( WHEN lv_sel = abap_true THEN 'Success' ELSE 'Emphasized' )
-      press = mo_e->mo_client->_event(
-                |{ c_pfx }PICK_{ mv_fld }~{ lv_key }| ) ).
+*   SELECTED IS BOUND FROM THE STORED VALUE up there, so a tick survives
+*   paging, searching and a round trip - it is not client-side state.
   ENDMETHOD.
 
 
@@ -1105,6 +1279,91 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
         RETURN.
       ENDIF.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD sel_now.
+*   IS THIS CARD'S PARCEL CHOSEN - read by CARD( ) to pick the tick box's
+*   event and by TICKS( ) to load the slot the box binds to. Those two have
+*   to reach the SAME answer for the same card: a box drawn ticked that
+*   sends the "select me" payload takes two presses to clear, and one drawn
+*   unticked that sends the Clear payload cannot be ticked at all. They
+*   were two copies of the test, in two methods, and only one of them ever
+*   ran - which is why this is a method rather than a second COND.
+*
+*   MODE-DEPENDENT, AND THAT IS WHY IT IS NOT IS_SEL( ) ITSELF. Multi is a
+*   membership in the separator-joined list; single is an equality against
+*   the whole stored value, which is the test the Select button always
+*   used. IS_SEL( ) has to stay the plain membership test, because
+*   TOGGLE( ) calls it from the EVENT dispatch where MV_MULTI has not been
+*   assigned yet - RENDER( ) sets it and the control is rebuilt every round
+*   trip - so a mode-aware IS_SEL( ) would read SINGLE on a multi journey
+*   and every tick would add and never remove.
+*
+*   SAFE TO CALL FROM EITHER, because both callers run inside RENDER( ).
+    IF mv_multi = abap_true.
+      rv = is_sel( iv_key ).
+    ELSE.
+      rv = xsdbool( mo_e->val_get( mv_fld ) = iv_key ).
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD sel_tog.
+*   THE SINGLE-SELECT TICK, and TOGGLE( )'s opposite number: that one adds
+*   or removes one key and leaves the rest, this one holds ONE parcel and
+*   the tick either moves it or clears it.
+*
+*   WHY THE DECISION IS HERE AND NOT AT RENDER. The box used to carry the
+*   Clear payload in its markup when it was already ticked, which made the
+*   markup move with the selection and cost the quiet path - see CARD( )'s
+*   note. Reading the stored value at event time gives the same two
+*   directions off a payload that never varies.
+*
+*   NO MODE TEST, AND NONE IS POSSIBLE HERE. MV_MULTI is blank at event
+*   dispatch - RENDER( ) assigns it and ENSURE_PARTS( ) rebuilds this
+*   control every round trip - so the mode is carried by the EVENT PREFIX
+*   instead: SEL_ is only ever written by a single-select card.
+    DATA(lv_f) = iv_field.
+    IF lv_f IS INITIAL.
+      lv_f = mo_e->mv_pcl_field.
+    ENDIF.
+    IF lv_f IS INITIAL OR iv_key IS INITIAL.
+      RETURN.
+    ENDIF.
+
+*   RESOLVED BEFORE IT IS COMPARED, for PICK( )'s reason: a card press
+*   carries the padded PARCELID and a map click the trimmed one, and what
+*   is STORED is always the row's own form. Comparing the raw payload
+*   against the stored value would read "not the chosen one" for the very
+*   parcel that is chosen, and the tick would re-pick instead of clearing.
+    DATA(lv_key) = iv_key.
+    LOOP AT rows( ) INTO DATA(ls_pr).
+      DATA(lv_pk) = cell( is_row = ls_pr iv_comp = 'PARCELID' ).
+      IF lv_pk IS INITIAL.
+        lv_pk = cell( is_row = ls_pr iv_comp = 'BUILDING' ).
+      ENDIF.
+      IF lv_pk IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      DATA(lv_pt) = lv_pk.
+      SHIFT lv_pt LEFT DELETING LEADING '0'.
+      IF lv_pk = lv_key OR lv_pt = lv_key.
+        lv_key = lv_pk.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+
+*   BOTH DIRECTIONS GO THROUGH PICK( ), so the field state reset and the
+*   ON_CHANGE( ) call happen on a clear exactly as they do on a pick - an
+*   untick that skipped them would leave a stale validation message on a
+*   field that is now empty. PICK( ) resolves the key again and that is
+*   harmless: it is a lookup, not a write.
+    IF mo_e->val_get( lv_f ) = lv_key.
+      pick( iv_field = lv_f iv_key = `` ).
+    ELSE.
+      pick( iv_field = lv_f iv_key = lv_key ).
+    ENDIF.
   ENDMETHOD.
 
 
@@ -1418,7 +1677,15 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *
 *   THREE ROUNDS WENT ON THE REPAINT because the symptom looks like one.
 *   It was never the repaint: the tick never reached the field.
-    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP 'TOG_*' AND lv CS '~'.
+*
+*   SEL_ IS IN THIS LIST FOR THE REASON TOG_ HAD TO BE ADDED TO IT - see
+*   the paragraphs above, which are about exactly this bug. SEL_ carries
+*   SEL_<field>~<parcel>, so a tilde that separates a PAYLOAD and not an
+*   owner; left out, the SPLIT below would throw the parcel key into
+*   LV_OWN, reset the browse state against MV_PCL_FIELD, and hand
+*   SEL_TOG( ) an empty key to return on.
+    IF lv NP 'PICK_*' AND lv NP 'DET_*' AND lv NP 'TOG_*'
+       AND lv NP 'SEL_*' AND lv CS '~'.
 *     NOT "SPLIT lv ... INTO lv ..." - the same variable as source and as
 *     first target is not something to rely on. Split into two of its own.
       SPLIT lv AT '~' INTO DATA(lv_ev) DATA(lv_own).
@@ -1496,6 +1763,30 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
 *     it cannot force a stale view. A tick that really does change the
 *     page - crossing M012's two-parcel rule and enabling Next - changes
 *     the markup, fails the hash, and repaints as before.
+      mo_e->mv_quiet_evt = abap_true.
+
+    ELSEIF lv CP 'SEL_*'.
+*     <field>~<key>, the single-select tick box. OFFSET 4, not 5 - 'SEL_'
+*     is four characters, the same trap TOG_ carries a note about.
+      SPLIT substring( val = lv off = 4 ) AT '~' INTO DATA(lv_sfld) DATA(lv_skey).
+      IF lv_sfld IS NOT INITIAL.
+        mo_e->mv_pcl_field = lv_sfld.
+      ENDIF.
+      sel_tog( iv_field = lv_sfld iv_key = lv_skey ).
+
+*     ELIGIBLE FOR THE QUIET PATH, on the same terms as TOG_ above. Both
+*     things a single-select tick moves are now bound - the six slots and
+*     the chosen-parcel line at the top of the list - so the markup holds
+*     still across a tick and VIEW_MODEL_UPDATE( ) pushes the new state
+*     without tearing the control tree down.
+*
+*     IT STILL DEGRADES TO A REPAINT rather than going stale: the hash is
+*     compared either way, and the round trip that ADDS or REMOVES the
+*     chosen-parcel line changes the markup for real - the line is drawn
+*     under IF LV_CUR IS NOT INITIAL - so the first tick on an empty field
+*     and the one that clears it repaint, as they should. What no longer
+*     repaints is every tick in between, which is the one the citizen
+*     repeats.
       mo_e->mv_quiet_evt = abap_true.
 
     ELSEIF lv CP 'PICK_*'.
