@@ -161,8 +161,8 @@ START-OF-SELECTION.
       msg_ar = 'أدخل رقم القطعة بالأرقام فقط' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 30
       field_name = 'MERGEHINT' ftype = 'DISPLAY'
-      default_val = `A merge needs at least two parcels. Pick from your own ` &&
-                    `list, or add a parcel you do not own - the owner's ` &&
+      default_val = 'A merge needs at least two parcels. Pick from your own ' &&
+                    'list, or add a parcel you do not own - the owner''s ' &&
                     'letter of consent will then be required.' ) ) ).
 
 * --------------------------------------------------- STP2 Parcels & Documents

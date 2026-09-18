@@ -205,7 +205,7 @@ START-OF-SELECTION.
 *   decision rather than a guess, so the literal is used and flagged.
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
       field_name = 'PARCELHINT' ftype = 'DISPLAY'
-      default_val = `Can't find a parcel? Your properties are listed on ` &&
+      default_val = 'Can''t find a parcel? Your properties are listed on ' &&
                     'your home page. Only parcels you own can be divided.' ) ) ).
 
 * --------------------------------------------------- STP2 Documents

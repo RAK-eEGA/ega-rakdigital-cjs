@@ -118,7 +118,7 @@ START-OF-SELECTION.
       tech_name = 'INTRENO_PARCEL' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 20
       field_name = 'PARCELHINT' ftype = 'DISPLAY'
-      default_val = `Can't find a parcel? Your properties are listed on ` &&
+      default_val = 'Can''t find a parcel? Your properties are listed on ' &&
                     'your home page.' ) ) ).
 
 * --------------------------------------------------- STP2 Regulation & Documents
