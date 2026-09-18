@@ -1035,10 +1035,11 @@ CLASS zcl_rak_cj_parcel IMPLEMENTATION.
     IF lv_sec IS NOT INITIAL. APPEND lv_sec TO lt_meta. ENDIF.
     IF lv_use IS NOT INITIAL. APPEND lv_use TO lt_meta. ENDIF.
     IF lv_typ IS NOT INITIAL. APPEND lv_typ TO lt_meta. ENDIF.
-    lo_p->text( text  = concat_lines_of( table = lt_meta sep = ` | ` )
-                class = 'rakPclMeta' ).
+    DATA(lo_bot) = lo_p->hbox( class = 'rakPclBot' ).
+    lo_bot->text( text  = concat_lines_of( table = lt_meta sep = ` | ` )
+                  class = 'rakPclMeta' ).
 
-    DATA(lo_act) = lo_p->hbox( class = 'rakPclAct' ).
+    DATA(lo_act) = lo_bot->hbox( class = 'rakPclAct' ).
 
 *   Full Details FIRST and quiet, Select last and emphasised - the live
 *   card puts the commitment at the end of the row, and a link beside a

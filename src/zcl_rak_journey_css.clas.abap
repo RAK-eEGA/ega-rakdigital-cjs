@@ -795,19 +795,22 @@ CLASS ZCL_RAK_JOURNEY_CSS IMPLEMENTATION.
         |.rakPclBadge\{margin-inline-start:auto;padding:.12rem .55rem;| &&
         |border-radius:999px;background:rgba(0,122,194,.10);\}| &&
         |.rakPclMeta\{color:#6a7484;font-size:.85rem;\}| &&
-*     The actions row. Full Details is a LINK and Select is a filled button,
-*     so without a rule between them the link's icon sits hard against its
-*     own text and the two controls touch. A hairline above the row is what
-*     the live card uses to separate the actions from the meta line.
-        |.rakPclAct\{width:100%;justify-content:flex-end;align-items:center;| &&
-        |gap:1.25rem;margin-top:.55rem;padding-top:.55rem;flex-wrap:wrap;| &&
-        |border-top:1px solid { g-line_clr };\}| &&
+*     The bottom row. The meta line and the actions share ONE HBox: the meta
+*     takes the free space and the actions are pushed to the end by an auto
+*     inline-start margin, so the two sit on one line and wrap together on a
+*     narrow screen. Full Details is a LINK and Select is a filled button, so
+*     without a gap between them the link's icon sits hard against its own
+*     text and the two controls touch.
+        |.rakPclBot\{width:100%;align-items:center;gap:.75rem;flex-wrap:wrap;\}| &&
+        |.rakPclBot>*:first-child\{flex:1 1 auto;min-width:0;\}| &&
+        |.rakPclAct\{margin-inline-start:auto;justify-content:flex-end;| &&
+        |align-items:center;gap:1.25rem;flex-wrap:wrap;\}| &&
         |.rakPclAct .sapMLnk .sapUiIcon\{margin-inline-end:.4rem;\}| &&
         |.rakPclAct .sapMLnk\{white-space:nowrap;\}| &&
         |.rakPclAct .sapMBtn\{margin:0;\}| &&
 *     The card's own vertical rhythm. It is a VBox, so gap is the only thing
 *     holding the number, the meta line and the actions apart.
-        |.rakPclCard\{gap:.4rem;\}| &&
+        |.rakPclCard\{gap:.25rem;\}| &&
         |.rakPclCard .sapMTitle\{margin:0;\}| &&
         |.rakPclHint\{color:#6a7484;font-size:.82rem;\}| &&
 *     ---- THE PAYMENT CARD, matched to the legacy page -------------------
