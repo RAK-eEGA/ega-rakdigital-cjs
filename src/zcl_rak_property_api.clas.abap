@@ -335,13 +335,524 @@ CLASS zcl_rak_property_api DEFINITION
                 iv_name   TYPE string
       RETURNING VALUE(rv) TYPE string.
 
+*   ---- THE CJS READ PATH, AND WHY IT IS A REDEFINITION ---------------
+*   THE ODATA SERVICE NEVER SEES THIS. Gateway instantiates
+*   ZCL_ZEGA_CJ_DPC_EXT itself; this class is a SUBCLASS of it, reached
+*   only because CJS calls the entityset method in process - see the
+*   class header. So redefining here changes what CJS gets and nothing
+*   else: the legacy service keeps calling the inherited body, which is
+*   untouched, and no MPC, metadata or filter property changes.
+*
+*   IT IS A NARROW FAST PATH WITH A SUPER FALLBACK, not a replacement.
+*   FAST_ROWS( ) answers only the shape the parcel selector actually
+*   asks for - a partner guid that resolves in BUT000, no ParcelId, not
+*   LEASE or POA, not a Tasheel relationship - and reports EV_DONE when
+*   it did. Everything else, including every branch nobody has measured,
+*   goes to SUPER->, which IS the legacy code. A case that is not
+*   understood is therefore not a case that is reimplemented.
+*
+*   OFF UNTIL A JOURNEY ASKS FOR IT. PROPERTIES( ) adds the CJSENGINE
+*   filter only for the journeys in C_V3_JOURNEYS, so nothing changes for
+*   a journey that is not listed, and removing a journey from that list
+*   is the whole rollback. The filter rides along to SUPER-> on the slow
+*   path and is ignored there: the DPC reads its filters BY NAME and has
+*   never heard of this one.
+    METHODS propertiesset_get_entityset REDEFINITION.
+
 
   PRIVATE SECTION.
+
+*   The opt-in list. A journey id here reads through
+*   ZCL_EGA_MUN_CJ_ODATA_API_V3; every other journey reads exactly as it
+*   does today. Comma separated with a leading and trailing comma so a
+*   CS test cannot match a prefix - ',M01,' does not find ',M011,'.
+    CONSTANTS c_v3_journeys TYPE string VALUE ',,'.
+    CONSTANTS c_engine_prop TYPE string VALUE `CjsEngine`.
+    CONSTANTS c_engine_v3   TYPE string VALUE `V3`.
+
+    TYPES: BEGIN OF ty_addr,
+             plno    TYPE relmplno,
+             address TYPE string,
+           END OF ty_addr.
+    TYPES tt_addr TYPE SORTED TABLE OF ty_addr WITH UNIQUE KEY plno.
+    TYPES: BEGIN OF ty_plkey,
+             plno TYPE relmplno,
+           END OF ty_plkey.
+    TYPES tt_plkey TYPE SORTED TABLE OF ty_plkey WITH UNIQUE KEY plno.
+
+*   V3 for this journey, or blank. FILTER( ) drops a blank value, so a
+*   journey that is not opted in sends no engine filter at all.
+    METHODS engine_for
+      RETURNING VALUE(rv) TYPE string.
+
+*   Did the caller ask for V3 - the filter PROPERTIES( ) attaches.
+    METHODS engine_asked
+      IMPORTING it_filter TYPE /iwbep/t_mgw_select_option
+      RETURNING VALUE(rv) TYPE abap_bool.
+
+*   The CJS read. EV_DONE is false for every shape this does not handle,
+*   and the caller then takes SUPER->.
+    METHODS fast_rows
+      IMPORTING it_filter    TYPE /iwbep/t_mgw_select_option
+      EXPORTING et_entityset TYPE tt_prop_rows
+                ev_done      TYPE abap_bool.
+
+*   BAPI_RE_PL_GET_DETAIL once per DISTINCT parcel rather than once per
+*   ROW. The DPC calls PARCEL_ADDRESS( ) inside both VALUE constructors,
+*   so a parcel with twelve units pays for thirteen BAPI calls to build
+*   one address. Units take their parent parcel's address, so the map is
+*   keyed on the parcel number and every row reads it.
+    METHODS addr_map
+      IMPORTING it_plno   TYPE tt_plkey
+      RETURNING VALUE(rt) TYPE tt_addr.
+
+*   Replicas of the DPC's own PARCEL_ADDRESS( ) and CTT( ), which are
+*   PRIVATE there - see GET_FILENET_DOCS( )'s note above, only the
+*   _GET_ENTITYSET methods are protected - so inheriting reaches neither.
+*   Copied from ZCL_EGA_CJ_Z2UI5_M030, which already carries the same two
+*   for the same reason, so there is one shape to keep in step and not a
+*   fresh guess at what the DPC does.
+    METHODS pl_addr
+      IMPORTING iv_parcel     TYPE relmplno
+      RETURNING VALUE(rv)     TYPE string.
+    METHODS to_ts
+      IMPORTING iv_d      TYPE dats
+      RETURNING VALUE(rv) TYPE timestamp.
 ENDCLASS.
 
 
 
 CLASS zcl_rak_property_api IMPLEMENTATION.
+
+
+  METHOD engine_for.
+*   A JOURNEY THAT IS NOT LISTED GETS NOTHING BACK, and FILTER( ) drops a
+*   blank, so the engine filter is simply absent and the redefinition
+*   hands the call to SUPER->. That is the default and it is the current
+*   behaviour, unchanged.
+    IF ms_ctx-journey IS INITIAL.
+      RETURN.
+    ENDIF.
+    IF c_v3_journeys CS |,{ ms_ctx-journey },|.
+      rv = c_engine_v3.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD engine_asked.
+    rv = xsdbool( VALUE string(
+           it_filter[ property = c_engine_prop ]-select_options[ 1 ]-low OPTIONAL ) = c_engine_v3 ).
+  ENDMETHOD.
+
+
+  METHOD propertiesset_get_entityset.
+
+*   ---- WHO ANSWERS THIS CALL -----------------------------------------
+*   THE ORDER OF THESE TWO TESTS IS THE SAFETY. The engine filter is
+*   asked FIRST, so a journey that has not opted in cannot reach any of
+*   the new code however its other filters look; and FAST_ROWS( ) then
+*   refuses anything it does not recognise rather than guessing, which is
+*   what EV_DONE is for.
+    IF engine_asked( it_filter_select_options ) = abap_true.
+
+      fast_rows(
+        EXPORTING it_filter    = it_filter_select_options
+        IMPORTING et_entityset = et_entityset
+                  ev_done      = DATA(lv_done) ).
+
+      IF lv_done = abap_true.
+        RETURN.
+      ENDIF.
+
+*     NOT HANDLED, SO NOTHING PARTIAL IS KEPT. FAST_ROWS( ) can have
+*     written rows before it discovered a shape it does not own, and
+*     SUPER-> is about to produce the whole answer itself.
+      CLEAR et_entityset.
+
+    ENDIF.
+
+*   THE LEGACY BODY, UNCHANGED. Lease, POA, ParcelId, Tasheel, the
+*   PORTAL1 header guard and every journey that has not opted in arrive
+*   here, and what they get is what they get today.
+    super->propertiesset_get_entityset(
+      EXPORTING
+        iv_entity_name           = iv_entity_name
+        iv_entity_set_name       = iv_entity_set_name
+        iv_source_name           = iv_source_name
+        it_filter_select_options = it_filter_select_options
+        is_paging                = is_paging
+        it_key_tab               = it_key_tab
+        it_navigation_path       = it_navigation_path
+        it_order                 = it_order
+        iv_filter_string         = iv_filter_string
+        iv_search_string         = iv_search_string
+        io_tech_request_context  = io_tech_request_context
+      IMPORTING
+        et_entityset             = et_entityset
+        es_response_context      = es_response_context ).
+
+  ENDMETHOD.
+
+
+  METHOD fast_rows.
+
+    DATA: lv_temp   TYPE string,
+          lv_guid   TYPE bu_partner_guid,
+          lt_plkey  TYPE tt_plkey,
+          ls_row    TYPE ty_prop_row,
+          lt_out    TYPE tt_prop_rows.
+
+*   ---- THE SHAPES THIS DOES NOT OWN ----------------------------------
+*   Each of these is a branch of the DPC that runs BEFORE the read this
+*   method replaces, and each is left to it. A ParcelId call is the
+*   existence check ZCL_RAK_PROPERTY_API makes before a map pick; LEASE
+*   and POA go to LEASE_PROPERTIESSET( ), which is PRIVATE there and
+*   cannot be called from here anyway.
+    IF VALUE string( it_filter[ property = 'ParcelId' ]-select_options[ 1 ]-low OPTIONAL ) IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_appl) = VALUE string( it_filter[ property = 'ApplType' ]-select_options[ 1 ]-low OPTIONAL ).
+    IF lv_appl = 'LEASE' OR lv_appl = 'POA'.
+      RETURN.
+    ENDIF.
+
+*   THE PORTAL HEADER GUARD, REPLICATED RATHER THAN SKIPPED. It reads the
+*   same request context CJS already hands the DPC, so the inputs are
+*   identical and so is the answer. Skipping it would return rows on the
+*   one path the DPC deliberately answers blank.
+    DATA(lt_hdr) = io_tech_request_context->get_request_headers( ).
+    READ TABLE lt_hdr TRANSPORTING NO FIELDS WITH KEY name = 'x-custom1'.
+    DATA(lv_new) = xsdbool( sy-subrc = 0 ).
+
+    zcl_zega_cj_utility_dpc_ext=>get_bp(
+      EXPORTING io_tech_request_context = io_tech_request_context
+      IMPORTING user                    = DATA(lv_user)
+                partner                 = DATA(lv_xpartner) ).
+
+    IF sy-uname = 'PORTAL1' OR sy-uname = 'RAKDIGI_USER'.
+      IF lv_new = abap_true AND lv_user IS INITIAL.
+        ev_done = abap_true.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    lv_temp = VALUE #( it_filter[ property = 'Partnerguid' ]-select_options[ 1 ]-low OPTIONAL ).
+    TRANSLATE lv_temp TO UPPER CASE.
+    lv_guid = lv_temp.
+    IF lv_guid IS INITIAL.
+      ev_done = abap_true.
+      RETURN.
+    ENDIF.
+
+*   BUT000 ONLY. A guid that resolves through ZEGA_T_CJ_BP_REL instead is
+*   the Tasheel branch, which filters the property list against
+*   ZEGA_T_CJ_OBJREL and forces role TR0800 - a different read, not a
+*   faster one, so it goes to SUPER->.
+    SELECT SINGLE partner FROM but000
+      WHERE partner_guid = @lv_guid
+      INTO @DATA(lv_partner).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    DATA(lv_role) = VALUE string( it_filter[ property = 'Partnerrole' ]-select_options[ 1 ]-low OPTIONAL ).
+    DATA(lv_fav)  = VALUE string( it_filter[ property = 'Favourite' ]-select_options[ 1 ]-low OPTIONAL ).
+    DATA(lv_type) = VALUE string( it_filter[ property = 'Type' ]-select_options[ 1 ]-low OPTIONAL ).
+    IF lv_role = 'YTR080'.
+      lv_role = 'ZTR080'.
+    ENDIF.
+
+*   ---- THE ONE LINE THIS WHOLE REDEFINITION EXISTS FOR ----------------
+    DATA(lo_obj) = NEW zcl_ega_mun_cj_odata_api_v3( partner = lv_partner
+                                                    role    = CONV #( lv_role ) ).
+
+    SELECT * FROM zega_t_cj_favlog
+      WHERE partner = @lv_partner
+      INTO TABLE @DATA(lt_log).
+    SORT lt_log BY intreno.
+
+*   DECIDED THEN SWEPT, not deleted inside the loop. The DPC runs DELETE
+*   PROPERTIES WHERE INTRENO while looping PROPERTIES, which drops rows
+*   the loop has not reached and can skip the row after each deletion, so
+*   which rows survived depended on where they sat. This applies the rule
+*   the code expresses, to every row.
+    IF lv_fav = abap_true.
+      DATA lt_keep TYPE zcl_ega_mun_cj_odata_api_v3=>tt_properties.
+      LOOP AT lo_obj->properties ASSIGNING FIELD-SYMBOL(<fs_pr>).
+        READ TABLE lt_log TRANSPORTING NO FIELDS
+             WITH KEY intreno = <fs_pr>-intreno BINARY SEARCH.
+        IF sy-subrc = 0.
+          APPEND <fs_pr> TO lt_keep.
+        ENDIF.
+      ENDLOOP.
+      lo_obj->properties = lt_keep.
+    ENDIF.
+
+    LOOP AT lo_obj->properties ASSIGNING <fs_pr>.
+      READ TABLE lt_log TRANSPORTING NO FIELDS
+           WITH KEY intreno = <fs_pr>-intreno BINARY SEARCH.
+      IF sy-subrc = 0.
+        <fs_pr>-favourite = abap_true.
+      ENDIF.
+    ENDLOOP.
+
+    DATA(lt_prop) = lo_obj->properties.
+    DATA(lt_pl)   = lo_obj->get_pl_header( ).
+    DATA(lt_ao)   = lo_obj->get_ao_header( ).
+    DATA(lt_loc)  = lo_obj->get_location( ).
+    DATA(lt_st)   = lo_obj->get_status( ).
+
+*   ---- INDEXED ONCE INSTEAD OF SCANNED PER FIELD ----------------------
+*   The DPC's VALUE constructors reach MT_PROPERTIES[ INTRENO = ... ]
+*   eight times for a parcel row and six more for a unit, and each one is
+*   a linear scan of every property the citizen holds. Same for STATUS
+*   and LOCATION. Sorted copies turn the whole mapping from quadratic
+*   into one binary search per field.
+    DATA lt_pidx TYPE SORTED TABLE OF zcl_ega_mun_cj_odata_api_v3=>ty_properties
+                      WITH NON-UNIQUE KEY intreno.
+    lt_pidx = lt_prop.
+    SORT lt_st BY objnr.
+    SORT lt_loc BY intreno.
+
+*   LT_PL IS NOT SORTED, AND THAT IS DELIBERATE. The parcel rows are
+*   appended in GET_PL_HEADER( )'s own order, which is the order the DPC
+*   emits them and therefore the order the card list pages through -
+*   sorting it here would quietly reshuffle which parcels land on page
+*   one. The lookup the unit rows need gets its own sorted copy instead.
+    DATA lt_plx TYPE SORTED TABLE OF zcl_ega_mun_cj_odata_api_v3=>ty_pl_header
+                     WITH NON-UNIQUE KEY intreno.
+    lt_plx = lt_pl.
+
+    LOOP AT lt_pl ASSIGNING FIELD-SYMBOL(<fs_wa>).
+      INSERT VALUE #( plno = <fs_wa>-plno ) INTO TABLE lt_plkey.
+    ENDLOOP.
+    DATA(lt_addr) = addr_map( lt_plkey ).
+
+*   ---- PARCEL ROWS ----------------------------------------------------
+    LOOP AT lt_pl ASSIGNING <fs_wa>.
+
+      CLEAR ls_row.
+      READ TABLE lt_pidx ASSIGNING FIELD-SYMBOL(<fs_pi>)
+           WITH KEY intreno = <fs_wa>-intreno.
+      DATA(lv_has) = xsdbool( sy-subrc = 0 ).
+
+      ls_row-parcelid        = <fs_wa>-plno.
+      ls_row-parceldesc      = <fs_wa>-xpl.
+      ls_row-locationdesc    = <fs_wa>-xpl.
+      ls_row-landuse         = <fs_wa>-xfixfitcharact.
+      ls_row-type            = 'Parcel'.
+      ls_row-intreno         = <fs_wa>-intreno.
+      ls_row-departmentcode  = 'MUN'.
+      ls_row-departmentname  = COND #( WHEN sy-langu = 'E' THEN 'Municipality'
+                                                           ELSE 'بلدية رأس الخيمة' ).
+
+      IF <fs_wa>-validfrom IS NOT INITIAL.
+        ls_row-parcelvalidfrom = to_ts( <fs_wa>-validfrom ).
+      ENDIF.
+
+*     THE GRANT PARCEL DATES ITSELF FROM THE CONTRACT, not from VILMPL -
+*     the DPC's own COND, kept whole because a grant that has run out has
+*     to read as run out on the card.
+      IF lv_has = abap_true AND <fs_pi>-is_grant = 'X'.
+        IF <fs_pi>-validto IS NOT INITIAL.
+          ls_row-parcelvalidto = to_ts( CONV #( <fs_pi>-validto ) ).
+        ENDIF.
+      ELSEIF <fs_wa>-validto IS NOT INITIAL.
+        ls_row-parcelvalidto = to_ts( <fs_wa>-validto ).
+      ENDIF.
+
+      IF lv_has = abap_true.
+        READ TABLE lt_st ASSIGNING FIELD-SYMBOL(<fs_stx>)
+             WITH KEY objnr = <fs_pi>-objnr BINARY SEARCH.
+        IF sy-subrc = 0.
+          ls_row-parcelstatus = <fs_stx>-txt30.
+        ENDIF.
+        ls_row-favourite     = <fs_pi>-favourite.
+        ls_row-ownershiptype = <fs_pi>-ownershpmthd.
+        ls_row-granttype     = <fs_pi>-granttype.
+      ENDIF.
+
+      READ TABLE lt_loc ASSIGNING FIELD-SYMBOL(<fs_lo>)
+           WITH KEY intreno = <fs_wa>-intreno BINARY SEARCH.
+      IF sy-subrc = 0.
+        ls_row-sector     = <fs_lo>-sector.
+        ls_row-sectortext = <fs_lo>-sectortext.
+        ls_row-area       = <fs_lo>-area.
+        ls_row-areatext   = <fs_lo>-areatext.
+      ENDIF.
+
+      READ TABLE lt_addr ASSIGNING FIELD-SYMBOL(<fs_ad>)
+           WITH TABLE KEY plno = <fs_wa>-plno.
+      IF sy-subrc = 0.
+        ls_row-address = <fs_ad>-address.
+      ENDIF.
+
+      APPEND ls_row TO lt_out.
+
+    ENDLOOP.
+
+*   ---- THE I8912 EXCLUSION, BEFORE THE UNITS ARE ADDED ----------------
+*   Order matters and it is the DPC's. This runs against the parcel rows
+*   only; units are appended after it and are not tested.
+    IF lt_st IS NOT INITIAL AND lt_out IS NOT INITIAL.
+      SELECT a~objnr, b~plno
+        FROM jest AS a
+        INNER JOIN vilmpl AS b ON a~objnr = b~objnr
+        FOR ALL ENTRIES IN @lt_st
+        WHERE a~objnr = @lt_st-objnr AND a~stat = 'I8912' AND a~inact = @abap_false
+        INTO TABLE @DATA(lt_na).
+      IF lt_na IS NOT INITIAL.
+        SORT lt_na BY plno.
+        DATA lt_ok TYPE tt_prop_rows.
+        LOOP AT lt_out ASSIGNING FIELD-SYMBOL(<fs_o>).
+          READ TABLE lt_na TRANSPORTING NO FIELDS
+               WITH KEY plno = <fs_o>-parcelid BINARY SEARCH.
+          IF sy-subrc <> 0.
+            APPEND <fs_o> TO lt_ok.
+          ENDIF.
+        ENDLOOP.
+        lt_out = lt_ok.
+      ENDIF.
+    ENDIF.
+
+*   ---- UNIT ROWS ------------------------------------------------------
+    LOOP AT lt_ao ASSIGNING FIELD-SYMBOL(<fs_wa1>).
+
+      CLEAR ls_row.
+      READ TABLE lt_pidx ASSIGNING <fs_pi> WITH KEY intreno = <fs_wa1>-intreno.
+      lv_has = xsdbool( sy-subrc = 0 ).
+
+      ls_row-aoid           = <fs_wa1>-aoid.
+      ls_row-aoname         = <fs_wa1>-xao.
+      ls_row-aotype         = <fs_wa1>-xmaotype.
+      ls_row-aofunction     = <fs_wa1>-xmaofunction.
+      ls_row-intreno        = <fs_wa1>-intreno.
+      ls_row-type           = 'Unit'.
+      ls_row-floor          = <fs_wa1>-flraoid.
+      ls_row-floorname      = <fs_wa1>-flrxao.
+      ls_row-building       = <fs_wa1>-bldaoid.
+      ls_row-buildingname   = <fs_wa1>-bldxao.
+      ls_row-externalunitno = <fs_wa1>-zzold_unnr.
+      ls_row-fewa           = <fs_wa1>-zzfewa_acc.
+      ls_row-departmentcode = 'MUN'.
+      ls_row-departmentname = COND #( WHEN sy-langu = 'E' THEN 'Municipality'
+                                                          ELSE 'بلدية رأس الخيمة' ).
+
+      IF <fs_wa1>-validfrom IS NOT INITIAL.
+        ls_row-aovalidfrom = to_ts( <fs_wa1>-validfrom ).
+      ENDIF.
+      IF <fs_wa1>-validto IS NOT INITIAL.
+        ls_row-aovalidto = to_ts( <fs_wa1>-validto ).
+      ENDIF.
+
+      IF lv_has = abap_true.
+
+        ls_row-parcelid  = <fs_pi>-parentid.
+        ls_row-favourite = <fs_pi>-favourite.
+
+        READ TABLE lt_st ASSIGNING <fs_stx>
+             WITH KEY objnr = <fs_pi>-objnr BINARY SEARCH.
+        IF sy-subrc = 0.
+          ls_row-aostatus = <fs_stx>-txt30.
+        ENDIF.
+
+*       A UNIT TAKES ITS LOCATION AND ITS ADDRESS FROM THE PARENT PARCEL,
+*       through INTRENO_P - the unit's own INTRENO has no location row.
+        READ TABLE lt_loc ASSIGNING <fs_lo>
+             WITH KEY intreno = <fs_pi>-intreno_p BINARY SEARCH.
+        IF sy-subrc = 0.
+          ls_row-sector     = <fs_lo>-sector.
+          ls_row-sectortext = <fs_lo>-sectortext.
+          ls_row-area       = <fs_lo>-area.
+          ls_row-areatext   = <fs_lo>-areatext.
+        ENDIF.
+
+        READ TABLE lt_plx ASSIGNING FIELD-SYMBOL(<fs_pp>)
+             WITH KEY intreno = <fs_pi>-intreno_p.
+        IF sy-subrc = 0.
+          READ TABLE lt_addr ASSIGNING <fs_ad> WITH TABLE KEY plno = <fs_pp>-plno.
+          IF sy-subrc = 0.
+            ls_row-address = <fs_ad>-address.
+          ENDIF.
+        ENDIF.
+
+      ENDIF.
+
+      APPEND ls_row TO lt_out.
+
+    ENDLOOP.
+
+    IF lv_type IS NOT INITIAL.
+      DELETE lt_out WHERE type <> lv_type.
+    ENDIF.
+
+    et_entityset = lt_out.
+    ev_done      = abap_true.
+
+  ENDMETHOD.
+
+
+  METHOD addr_map.
+
+    LOOP AT it_plno ASSIGNING FIELD-SYMBOL(<fs_k>).
+      IF <fs_k>-plno IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      INSERT VALUE #( plno    = <fs_k>-plno
+                      address = pl_addr( <fs_k>-plno ) ) INTO TABLE rt.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD pl_addr.
+
+    DATA: lv_plno   TYPE bapi_re_parcel_land_key-parcel_of_land_number,
+          ls_pl     TYPE bapi_re_parcel_land,
+          lt_addr   TYPE STANDARD TABLE OF bapi_re_multi_addr,
+          lt_return TYPE STANDARD TABLE OF bapiret2.
+
+    lv_plno = iv_parcel.
+
+    CALL FUNCTION 'BAPI_RE_PL_GET_DETAIL'
+      EXPORTING
+        locationhierarchy  = ' '
+        subdivisionnumber  = ' '
+        parceloflandnumber = lv_plno
+      IMPORTING
+        parcel_of_land     = ls_pl
+      TABLES
+        address            = lt_addr
+        return             = lt_return.
+
+    DATA(ls_a) = VALUE bapi_re_multi_addr( lt_addr[ 1 ] OPTIONAL ).
+
+    rv = ls_a-house_no    && COND #( WHEN ls_a-house_no    IS NOT INITIAL THEN ',' )
+      && ls_a-street_lng  && COND #( WHEN ls_a-street_lng  IS NOT INITIAL THEN ',' )
+      && ls_a-str_suppl1  && COND #( WHEN ls_a-str_suppl1  IS NOT INITIAL THEN ',' )
+      && ls_a-str_suppl2  && COND #( WHEN ls_a-str_suppl2  IS NOT INITIAL THEN ',' )
+      && ls_a-str_suppl3  && COND #( WHEN ls_a-str_suppl3  IS NOT INITIAL THEN ',' )
+      && ls_a-location    && COND #( WHEN ls_a-location    IS NOT INITIAL THEN ',' )
+      && ls_a-district.
+
+  ENDMETHOD.
+
+
+  METHOD to_ts.
+
+*   THE DPC PASSES I_T = '000000' AND NO C_T at every one of these four
+*   calls, so the date-format branch of its CTT( ) is never reached from
+*   this path and is not carried here. UTC, like the original.
+    CALL FUNCTION 'IB_CONVERT_INTO_TIMESTAMP'
+      EXPORTING
+        i_datlo     = iv_d
+        i_timlo     = '000000'
+        i_tzone     = 'UTC'
+      IMPORTING
+        e_timestamp = rv.
+
+  ENDMETHOD.
 
 
   METHOD guard.
@@ -388,6 +899,21 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
     IF iv_favourite = abap_true.
       filter( EXPORTING iv_property = `Favourite` iv_value = `X` CHANGING ct_filter = lt_flt ).
     ENDIF.
+
+*   ---- WHICH READ ANSWERS THIS, AND ONLY FOR THE LISTED JOURNEYS ------
+*   ENGINE_FOR( ) returns V3 for a journey in C_V3_JOURNEYS and blank for
+*   every other, and FILTER( ) drops a blank - so an unlisted journey
+*   sends no engine filter and the redefinition below hands it straight
+*   to the inherited DPC body, exactly as today.
+*
+*   A FILTER RATHER THAN A METHOD PARAMETER because this call is IN
+*   PROCESS. Nothing between here and the redefinition validates filter
+*   property names - there is no Gateway in the path - so the flag costs
+*   no MPC change, no metadata change and nothing the OData service can
+*   see. Over HTTP the same idea would have needed the property adding to
+*   the entity type and the model regenerating.
+    filter( EXPORTING iv_property = c_engine_prop iv_value = engine_for( )
+            CHANGING  ct_filter   = lt_flt ).
 
     TRY.
         propertiesset_get_entityset(
