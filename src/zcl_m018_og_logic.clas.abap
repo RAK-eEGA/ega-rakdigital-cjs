@@ -85,23 +85,6 @@ public section.
 *   The SHARED option key: the second member of the RB1/RB2 segmented
 *   group, S_BENEFICIARY, whose FIELD_NAME is RB2 and whose LABEL_CON is
 *   OG_SHARED. The key is RB2 - OG_SHARED is the label code.
-*   ---- the Add Business Partner dialog --------------------------------
-*   ONE POPUP ID AND THREE EVENTS. OPEN clears and shows it, FIND
-*   resolves an Emirates ID to a partner and fills the read-only lines,
-*   PICK adds the resolved partner to the grid. CANCEL is the base's.
-  constants C_POP_BP type STRING value 'BPADD' ##NO_TEXT.
-  constants C_EVT_OPEN type STRING value 'BPOPEN' ##NO_TEXT.
-  constants C_EVT_FIND type STRING value 'BPFIND' ##NO_TEXT.
-  constants C_EVT_PICK type STRING value 'BPPICK' ##NO_TEXT.
-*   The dialog's own fields. Configured HIDDEN on STP1 - see the note in
-*   ZRAK_M018_LOAD: without a ZRAK_T_JNY_FLD row each of these binds to
-*   nothing and the dialog loses whatever is typed into it.
-  constants C_POP_EID type STRING value 'POP_EID' ##NO_TEXT.
-  constants C_POP_BPNO type STRING value 'POP_BPNO' ##NO_TEXT.
-  constants C_POP_NAME type STRING value 'POP_BPNAME' ##NO_TEXT.
-  constants C_POP_NAT type STRING value 'POP_NAT' ##NO_TEXT.
-  constants C_POP_PHONE type STRING value 'POP_PHONE' ##NO_TEXT.
-
   constants C_BENEF_SHARED type STRING value 'RB2' ##NO_TEXT.
 
 *   THE MIRROR OF ON_CHANGE( ), AND IT IS NOT OPTIONAL. Taking the
@@ -148,18 +131,9 @@ protected section.
 *   How many partners the citizen has actually added. Zero for a journey
 *   with no grid, which is why the caller checks the beneficiary toggle
 *   first rather than reading this on its own.
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_BEFORE_FIELD redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_RENDER_POPUP redefinition .
-  methods ZIF_RAK_JOURNEY_LOGIC~ON_POPUP_EVENT redefinition .
+  methods BP_CFG redefinition .
+  methods BP_ON redefinition .
 
-  methods POP_CLEAR
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY .
-  methods POP_FIND
-    importing
-      !IO_CTX type ref to ZIF_RAK_JOURNEY
-    returning
-      value(RS) type ZCL_ZEGA_BP_MPC_EXT=>TS_BUSINESSPARTNER .
   methods BP_ROWS
     importing
       !IO_CTX type ref to ZIF_RAK_JOURNEY
@@ -189,173 +163,35 @@ ENDCLASS.
 CLASS ZCL_M018_OG_LOGIC IMPLEMENTATION.
 
 
-  METHOD pop_clear.
-    io_ctx->set_val( iv_name = c_pop_eid   iv_value = `` ).
-    io_ctx->set_val( iv_name = c_pop_bpno  iv_value = `` ).
-    io_ctx->set_val( iv_name = c_pop_name  iv_value = `` ).
-    io_ctx->set_val( iv_name = c_pop_nat   iv_value = `` ).
-    io_ctx->set_val( iv_name = c_pop_phone iv_value = `` ).
-  ENDMETHOD.
+  METHOD bp_cfg.
 
-
-  METHOD pop_find.
-
-*   THE SAME READ ON_SEARCH( ) ALREADY MAKES, and deliberately the same
-*   one: the dialog is a second door onto the partner the inline search
-*   found, not a second way of finding partners. NO_MOI_CALL is set for
-*   the reason it is set there - the federal lookup is not wanted for a
-*   list the citizen is assembling by hand.
-    DATA(lv_eid) = condense( io_ctx->get_val( c_pop_eid ) ).
-    CHECK lv_eid IS NOT INITIAL.
-
-    DATA ls_req TYPE zcl_rak_bp_search=>ty_req.
-    ls_req-idtype      = 'EID'.
-    ls_req-eid         = lv_eid.
-    ls_req-no_moi_call = abap_true.
-
-    DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
-    READ TABLE ls_res-rows INTO rs INDEX 1.
-    IF sy-subrc <> 0.
-      CLEAR rs.
-    ENDIF.
+*   ---- M018 SWITCHES THE SHARED PICKER ON, AND THAT IS ALL IT DOES ----
+*   The dialog, the search, the duplicate check and the grid append all
+*   live on ZCL_RAK_JOURNEY_LOGIC. This names the grid and the one
+*   identifier a grant accepts; everything else is the default.
+*
+*   EID ALONE, NO TRADE LICENCE. A shared grant is shared between
+*   PEOPLE - the grantees are natural persons and a trade licence
+*   identifies a company, so offering it would invite a value the rest
+*   of the journey cannot use. Listing 'EID,TL' here is all it would
+*   take if that ever changes.
+*
+*   NO_MOI MATCHES ON_SEARCH( ). The inline search sets NO_MOI_CALL for
+*   this list and the dialog is a second door onto the same partner, so
+*   the two must not disagree about whether the federal lookup runs.
+    rs-grid    = c_fld_bplist.
+    rs-idtypes = `EID`.
+    rs-no_moi  = abap_true.
 
   ENDMETHOD.
 
 
-  METHOD zif_rak_journey_logic~on_render_before_field.
+  METHOD bp_on.
 
-*   ---- THE BUTTON SITS ON THE LIST, NOT ON THE STEP -------------------
-*   ON_RENDER_START( ) would put it at the top of step 1, above the grant
-*   type. The live screen has it on the Business Partner list heading, to
-*   the right, which is what ON_RENDER_BEFORE_FIELD on the grid gives -
-*   the hook fires immediately before that one field is drawn.
-    CHECK to_upper( is_field-name ) = c_fld_bplist.
-
-*   AND ONLY WHEN THE LIST ITSELF IS THERE. R02 shows the grid for a
-*   SHARED grant only; an Add button over a hidden grid would offer to
-*   fill a list the citizen cannot see.
-    CHECK io_ctx->get_val( c_fld_benef ) = c_benef_shared.
-
-    DATA(lo_bar) = io_view->hbox( justifycontent = 'End'
-                                  class          = 'sapUiTinyMarginBottom' ).
-    lo_bar->button(
-      text  = COND string( WHEN sy-langu = 'A'
-                           THEN `+ شريك تجاري` ELSE `+ Business Partner` )
-      icon  = 'sap-icon://add'
-      type  = 'Transparent'
-      press = io_ctx->event( c_evt_open ) ).
-
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_render_popup.
-
-    CHECK iv_id = c_pop_bp.
-
-*   TWO STATES, ONE DIALOG. Before a partner is resolved the primary
-*   button SEARCHES; once POP_BPNO carries one it ADDS. The alternative -
-*   a Search button of its own beside the field - is not something
-*   DIALOG_FORM( ) draws, and a dialog that needs its own layout is a
-*   dialog that stops matching every other one in the journey.
-    DATA(lv_found) = xsdbool( io_ctx->get_val( c_pop_bpno ) IS NOT INITIAL ).
-
-    dialog_form(
-      io_ctx     = io_ctx
-      io_popup   = io_popup
-      iv_title   = COND string( WHEN sy-langu = 'A'
-                                THEN `إضافة شريك تجاري` ELSE `Add Business Partner` )
-      iv_ok_text = COND string(
-                     WHEN lv_found = abap_true
-                     THEN COND string( WHEN sy-langu = 'A' THEN `إضافة` ELSE `Add` )
-                     ELSE COND string( WHEN sy-langu = 'A' THEN `بحث` ELSE `Search` ) )
-      iv_ok_evt  = COND string( WHEN lv_found = abap_true THEN c_evt_pick ELSE c_evt_find )
-      it_fields  = VALUE #(
-        ( name  = c_pop_eid
-          label = COND string( WHEN sy-langu = 'A' THEN `رقم الهوية` ELSE `Emirates ID` ) )
-        ( name  = c_pop_bpno
-          label = COND string( WHEN sy-langu = 'A' THEN `رقم الشريك` ELSE `BP number` ) )
-        ( name  = c_pop_name
-          label = COND string( WHEN sy-langu = 'A' THEN `الاسم` ELSE `Name` ) )
-        ( name  = c_pop_nat
-          label = COND string( WHEN sy-langu = 'A' THEN `الجنسية` ELSE `Nationality` ) )
-        ( name  = c_pop_phone
-          label = COND string( WHEN sy-langu = 'A' THEN `رقم الهاتف` ELSE `Phone Number` ) ) ) ).
-
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_popup_event.
-
-    CASE iv_event.
-
-      WHEN c_evt_open.
-        pop_clear( io_ctx ).
-        io_ctx->open_popup( c_pop_bp ).
-
-      WHEN c_evt_find.
-        DATA(ls_bp) = pop_find( io_ctx ).
-        IF ls_bp-partner IS INITIAL.
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = COND string(
-                             WHEN sy-langu = 'A'
-                             THEN `لم يتم العثور على شريك بهذه الهوية.`
-                             ELSE `No business partner found for that Emirates ID.` ) ).
-*         LEFT OPEN ON PURPOSE. A dialog that closes on a miss makes the
-*         citizen reopen it and retype the number they just typed.
-          RETURN.
-        ENDIF.
-        io_ctx->set_val( iv_name = c_pop_bpno  iv_value = CONV string( ls_bp-partner ) ).
-        io_ctx->set_val( iv_name = c_pop_name  iv_value = pick( is_bp    = ls_bp
-                                                                iv_names = `FULLNAME,NAME,NAME1` ) ).
-        io_ctx->set_val( iv_name = c_pop_nat   iv_value = pick( is_bp    = ls_bp
-                                                                iv_names = `NATIONALITY,NATIO,COUNTRY` ) ).
-        io_ctx->set_val( iv_name = c_pop_phone iv_value = pick( is_bp    = ls_bp
-                                                                iv_names = `MOBILE,PHONE,TELNR` ) ).
-
-      WHEN c_evt_pick.
-        DATA(lv_bp) = io_ctx->get_val( c_pop_bpno ).
-        IF lv_bp IS INITIAL.
-          RETURN.
-        ENDIF.
-        IF already_added( io_ctx = io_ctx iv_bp = lv_bp ) = abap_true.
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = COND string(
-                             WHEN sy-langu = 'A'
-                             THEN `هذا الشريك مضاف بالفعل إلى القائمة.`
-                             ELSE `That partner is already on the list.` ) ).
-          pop_clear( io_ctx ).
-          io_ctx->close_popup( ).
-          RETURN.
-        ENDIF.
-
-*       RESOLVED AGAIN RATHER THAN CARRIED. ADD_ROW( ) takes the whole
-*       TS_BUSINESSPARTNER, and rebuilding one from four strings in the
-*       model would fill the four the dialog shows and leave every other
-*       component blank - the grid is four columns today and will not
-*       always be. One more read of a partner the citizen just looked at
-*       is the cheaper mistake.
-        DATA(ls_add) = pop_find( io_ctx ).
-        IF ls_add-partner IS INITIAL.
-          io_ctx->add_msg( iv_type = 'Warning'
-                           iv_text = COND string(
-                             WHEN sy-langu = 'A'
-                             THEN `تعذر إضافة الشريك. يرجى المحاولة مرة أخرى.`
-                             ELSE `That partner could not be added. Try again.` ) ).
-          RETURN.
-        ENDIF.
-        add_row( io_ctx = io_ctx is_bp = ls_add ).
-        pop_clear( io_ctx ).
-        io_ctx->close_popup( ).
-
-      WHEN OTHERS.
-*       PAYNOW, PAYPOLL AND CANCEL ARE THE BASE'S. Swallowing them here
-*       would take the payment step's own events with them.
-        super->zif_rak_journey_logic~on_popup_event(
-          io_ctx   = io_ctx
-          iv_id    = iv_id
-          iv_event = iv_event ).
-
-    ENDCASE.
+*   ONLY WHEN THE LIST IS THERE. R02 shows the grid for a SHARED grant
+*   only, and an Add button over a hidden grid offers to fill a list the
+*   citizen cannot see.
+    rv = xsdbool( io_ctx->get_val( c_fld_benef ) = c_benef_shared ).
 
   ENDMETHOD.
 

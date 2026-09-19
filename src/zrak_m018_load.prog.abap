@@ -242,6 +242,9 @@ START-OF-SELECTION.
 *   HIDDEN, NOT ABSENT. They never draw on the step - HIDDEN keeps them
 *   off the form - but BUILD_MODEL( ) still gives each one a component,
 *   which is the whole point of the row.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 56
+      field_name = 'POP_IDTYPE' ftype = 'INPUT' hidden = abap_true
+      zlabel = 'Identifier' zlabel_ar = 'نوع المعرّف' )
     ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 51
       field_name = 'POP_EID' ftype = 'INPUT' hidden = abap_true
       zlabel = 'Emirates ID' zlabel_ar = 'رقم الهوية' )

@@ -175,6 +175,18 @@ CLASS zcl_rak_journey_logic DEFINITION
              placeholder TYPE string,
              width       TYPE string,
              maxlen      TYPE i,
+*            ---- a masked input, the convention the form already uses ----------
+*            A sap.m.MaskInput pattern. Blank draws the plain input, which is
+*            what every existing caller gets. 'OFF' is accepted and means the
+*            same, so a value copied straight out of a SEARCH field's MASK:
+*            directive can be handed over without translating it first.
+*
+*            THE PATTERN IS THE FORM'S, NOT A SECOND ONE. EID_MASK( ) on the
+*            renderer resolves the journey's, defaulting to 784-9999-9999999-9,
+*            and ZCL_RAK_BP_SEARCH=>MASK_EID( ) normalises a typed value to that
+*            same shape - so a dialog and a form field asking for the same
+*            identifier ask for it the same way.
+             mask        TYPE string,
 *            ---- an F4 button on the field -------------------------------------
 *            Draws sap.m.Input's own value-help icon and fires this event, caught
 *            in ON_POPUP_EVENT like any other. For a lookup the handler owns - a
@@ -182,6 +194,106 @@ CLASS zcl_rak_journey_logic DEFINITION
              f4_evt      TYPE string,
            END OF ty_pop_field,
            tt_pop_field TYPE STANDARD TABLE OF ty_pop_field WITH EMPTY KEY.
+
+*   ---- THE BUSINESS PARTNER PICKER, ONCE, FOR EVERY JOURNEY -----------
+*   EVERY BP DIALOG IS THE SAME DIALOG. Type an identifier, resolve it to
+*   a partner, show who came back, add them to a grid, refuse a duplicate.
+*   Only three things differ between journeys: which grid, which
+*   identifiers may be typed, and whether the picker is offered at all -
+*   so those three are the configuration and the rest is here.
+*
+*   A JOURNEY SWITCHES IT ON BY REDEFINING BP_CFG( ) AND NOTHING ELSE.
+*   The default below returns a blank GRID, which means off, so every
+*   journey that has never heard of this renders exactly as it does now.
+*   ON_RENDER_BEFORE_FIELD( ), ON_RENDER_POPUP( ) and ON_POPUP_EVENT( )
+*   are implemented here and do nothing until BP_CFG( ) names a grid.
+*
+*   A HANDLER THAT REDEFINES THOSE THREE HOOKS MUST CALL SUPER->, which
+*   is the ordinary inheritance contract and is worth saying out loud
+*   because the symptom of forgetting is a button that never appears.
+    TYPES: BEGIN OF ty_bp_cfg,
+*            The grid the chosen partner is appended to. BLANK = the
+*            picker is off, and that is the default.
+             grid      TYPE string,
+*            Which identifiers the dialog offers, comma separated, in the
+*            order they should appear:
+*              EID   Emirates ID        masked, 784-9999-9999999-9
+*              TL    Trade licence      plain input
+*              UID   Unified number     plain input
+*              DOC   Passport number    plain input
+*              BP    Partner number     plain input
+*            Blank means EID alone. A journey that must not offer a trade
+*            licence simply does not list TL - which is the parameterising
+*            this exists for, rather than a second dialog class.
+             idtypes   TYPE string,
+*            The EID mask. Blank takes 784-9999-9999999-9; 'OFF' draws a
+*            plain input. Same spelling as a SEARCH field's MASK:
+*            directive, deliberately.
+             mask      TYPE string,
+*            Dialog title and button caption. Blank takes the defaults
+*            below, which are already bilingual.
+             title     TYPE string,
+             title_ar  TYPE string,
+             button    TYPE string,
+             button_ar TYPE string,
+*            Skip the federal lookup. A list the citizen assembles by hand
+*            wants the local partner only; a first-time registration does
+*            not. ON_SEARCH( ) in M018 sets this, so the dialog matches it.
+             no_moi    TYPE abap_bool,
+           END OF ty_bp_cfg.
+
+*   The dialog's own five model members. They are CONFIGURED FIELDS on the
+*   journey, HIDDEN, because IO_CTX->BIND( ) resolves a name to a model
+*   component and a name on no ZRAK_T_JNY_FLD row binds to NOTHING - the
+*   input then draws, accepts typing and loses it, silently. Any journey
+*   switching the picker on needs these five rows.
+    CONSTANTS c_bp_pop   TYPE string VALUE 'BPADD' ##NO_TEXT.
+    CONSTANTS c_bp_open  TYPE string VALUE 'BPOPEN' ##NO_TEXT.
+    CONSTANTS c_bp_find  TYPE string VALUE 'BPFIND' ##NO_TEXT.
+    CONSTANTS c_bp_pick  TYPE string VALUE 'BPPICK' ##NO_TEXT.
+    CONSTANTS c_bp_type  TYPE string VALUE 'POP_IDTYPE' ##NO_TEXT.
+    CONSTANTS c_bp_id    TYPE string VALUE 'POP_EID' ##NO_TEXT.
+    CONSTANTS c_bp_no    TYPE string VALUE 'POP_BPNO' ##NO_TEXT.
+    CONSTANTS c_bp_name  TYPE string VALUE 'POP_BPNAME' ##NO_TEXT.
+    CONSTANTS c_bp_nat   TYPE string VALUE 'POP_NAT' ##NO_TEXT.
+    CONSTANTS c_bp_phone TYPE string VALUE 'POP_PHONE' ##NO_TEXT.
+
+    CONSTANTS c_bp_mask_default TYPE string VALUE '784-9999-9999999-9' ##NO_TEXT.
+
+*   Off unless a journey says otherwise. Redefine to switch the picker on.
+    METHODS bp_cfg
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rs) TYPE ty_bp_cfg.
+*   A second gate, for a picker that is only offered under a condition
+*   the config cannot express - M018 offers it for a SHARED grant only.
+*   The default is on, so BP_CFG( ) alone is enough for the simple case.
+    METHODS bp_on
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rv) TYPE abap_bool.
+*   Is this partner already on the grid. Column one is the partner
+*   number by convention; redefine if a journey orders its grid
+*   differently.
+    METHODS bp_seen
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+                iv_bp     TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
+*   Append the partner. The default writes partner, name, nationality and
+*   phone, which is the four-column grid every caller has today; a
+*   journey with different columns redefines this one method.
+    METHODS bp_add
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey
+                is_bp  TYPE zcl_zega_bp_mpc_ext=>ts_businesspartner.
+*   Resolve what the citizen typed. Separate so a journey can pre- or
+*   post-process without owning the dialog.
+    METHODS bp_find
+      IMPORTING io_ctx    TYPE REF TO zif_rak_journey
+      RETURNING VALUE(rs) TYPE zcl_zega_bp_mpc_ext=>ts_businesspartner.
+    METHODS bp_clear
+      IMPORTING io_ctx TYPE REF TO zif_rak_journey.
+*   The identifier list, resolved to options for the dialog's dropdown.
+    METHODS bp_types
+      IMPORTING is_cfg    TYPE ty_bp_cfg
+      RETURNING VALUE(rt) TYPE zif_rak_journey=>tt_option.
 
     " Build a titled form dialog from a field list. Inputs are two-way bound
     " to the named model members; Save / Cancel fire handler events (default
@@ -556,6 +668,18 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
                              enabled  = lv_edit ).
 
         WHEN OTHERS.
+*         MASKED FIRST, because a mask replaces the control rather than
+*         decorating it - sap.m.MaskInput is not sap.m.Input with a property
+*         set. Blank or OFF falls through to the plain input below, so every
+*         caller that has never heard of masks renders exactly as before.
+          IF ls-mask IS NOT INITIAL AND to_upper( ls-mask ) <> 'OFF'.
+            lo_form->mask_input( value       = io_ctx->bind( ls-name )
+                                 mask        = ls-mask
+                                 width       = lv_w
+                                 placeholder = ls-placeholder ).
+            CONTINUE.
+          ENDIF.
+
 *         F4_EVT draws sap.m.Input's own value-help icon. Blank leaves the input
 *         exactly as it rendered before any of this existed.
           lo_form->input( value            = io_ctx->bind( ls-name )
@@ -1901,7 +2025,317 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD bp_cfg.
+*   OFF. A journey redefines this and names a grid.
+    RETURN.
+  ENDMETHOD.
+
+
+  METHOD bp_on.
+    rv = abap_true.
+  ENDMETHOD.
+
+
+  METHOD bp_clear.
+    io_ctx->set_val( iv_name = c_bp_id    iv_value = `` ).
+    io_ctx->set_val( iv_name = c_bp_no    iv_value = `` ).
+    io_ctx->set_val( iv_name = c_bp_name  iv_value = `` ).
+    io_ctx->set_val( iv_name = c_bp_nat   iv_value = `` ).
+    io_ctx->set_val( iv_name = c_bp_phone iv_value = `` ).
+  ENDMETHOD.
+
+
+  METHOD bp_types.
+
+    DATA(lv_list) = to_upper( condense( is_cfg-idtypes ) ).
+    IF lv_list IS INITIAL.
+      lv_list = `EID`.
+    ENDIF.
+
+    SPLIT lv_list AT ',' INTO TABLE DATA(lt).
+    LOOP AT lt INTO DATA(lv).
+      lv = condense( lv ).
+      CHECK lv IS NOT INITIAL.
+      APPEND VALUE #(
+        key  = lv
+        text = SWITCH string( lv
+                 WHEN 'EID' THEN COND string( WHEN sy-langu = 'A' THEN `رقم الهوية` ELSE `Emirates ID` )
+                 WHEN 'TL'  THEN COND string( WHEN sy-langu = 'A' THEN `الرخصة التجارية` ELSE `Trade licence` )
+                 WHEN 'UID' THEN COND string( WHEN sy-langu = 'A' THEN `الرقم الموحد` ELSE `Unified number` )
+                 WHEN 'DOC' THEN COND string( WHEN sy-langu = 'A' THEN `رقم جواز السفر` ELSE `Passport number` )
+                 WHEN 'BP'  THEN COND string( WHEN sy-langu = 'A' THEN `رقم الشريك` ELSE `Partner number` )
+                 ELSE lv ) ) TO rt.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD bp_find.
+
+    DATA(ls_cfg) = bp_cfg( io_ctx ).
+    DATA(lv_term) = condense( io_ctx->get_val( c_bp_id ) ).
+    CHECK lv_term IS NOT INITIAL.
+
+*   WHICH IDENTIFIER THE CITIZEN SAID IT WAS. With one type configured
+*   the dropdown is not drawn at all, so the model member is empty and
+*   the single configured type is the answer.
+    DATA(lt_types) = bp_types( ls_cfg ).
+    DATA(lv_type) = to_upper( condense( io_ctx->get_val( c_bp_type ) ) ).
+    IF lv_type IS INITIAL OR NOT line_exists( lt_types[ key = lv_type ] ).
+      lv_type = VALUE #( lt_types[ 1 ]-key OPTIONAL ).
+    ENDIF.
+
+*   ONE FIELD PER IDENTIFIER, which is ZCL_RAK_BP_SEARCH's own interface
+*   and not a guess - see the note on its TY_REQ. Sending a passport
+*   number as an EID asks which partner holds an Emirates ID equal to a
+*   passport number, matches nothing, and reads to the citizen exactly
+*   like a mistyped number.
+    DATA ls_req TYPE zcl_rak_bp_search=>ty_req.
+    CASE lv_type.
+      WHEN 'TL'.
+        ls_req-trade_licence = lv_term.
+      WHEN 'UID'.
+        ls_req-uid = lv_term.
+      WHEN 'DOC'.
+        ls_req-document_number = lv_term.
+      WHEN 'BP'.
+        ls_req-partner = lv_term.
+      WHEN OTHERS.
+        ls_req-idtype = 'EID'.
+        ls_req-eid    = lv_term.
+    ENDCASE.
+    ls_req-no_moi_call = ls_cfg-no_moi.
+
+    DATA(ls_res) = NEW zcl_rak_bp_search( )->search( is_req = ls_req ).
+    READ TABLE ls_res-rows INTO rs INDEX 1.
+    IF sy-subrc <> 0.
+      CLEAR rs.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD bp_seen.
+
+    CHECK iv_bp IS NOT INITIAL.
+    DATA(ls_grid) = io_ctx->get_grid_data( bp_cfg( io_ctx )-grid ).
+    LOOP AT ls_grid-rows INTO DATA(lt_row).
+      READ TABLE lt_row INTO DATA(lv_cell) INDEX 1.
+      IF sy-subrc = 0 AND condense( lv_cell ) = condense( iv_bp ).
+        rv = abap_true.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD bp_add.
+
+    DATA(lv_grid) = bp_cfg( io_ctx )-grid.
+    CHECK lv_grid IS NOT INITIAL.
+
+    DATA(ls_grid) = io_ctx->get_grid_data( lv_grid ).
+    DATA lt_cell TYPE zif_rak_journey=>tt_string.
+
+    APPEND CONV string( is_bp-partner ) TO lt_cell.
+    APPEND COND string(
+      WHEN sy-langu = 'A' AND is_bp-arabic_full_name IS NOT INITIAL
+      THEN CONV string( is_bp-arabic_full_name )
+      WHEN is_bp-english_full_name IS NOT INITIAL
+      THEN CONV string( is_bp-english_full_name )
+      ELSE CONV string( is_bp-arabic_full_name ) ) TO lt_cell.
+    APPEND CONV string( is_bp-nationality_desc ) TO lt_cell.
+    APPEND CONV string( is_bp-mobile_number ) TO lt_cell.
+
+    APPEND lt_cell TO ls_grid-rows.
+    io_ctx->set_grid_data( iv_field = lv_grid is_data = ls_grid ).
+
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_render_before_field.
+
+*   ---- THE ADD BUTTON HANGS OFF THE GRID ------------------------------
+*   ON_RENDER_START( ) would put it at the top of the step, above
+*   everything. The button belongs on the list it fills, which is what
+*   this hook gives: it fires immediately before that one field is drawn.
+    DATA(ls_cfg) = bp_cfg( io_ctx ).
+    CHECK ls_cfg-grid IS NOT INITIAL.
+    CHECK to_upper( is_field-name ) = to_upper( ls_cfg-grid ).
+    CHECK bp_on( io_ctx ) = abap_true.
+
+    DATA(lo_bar) = io_view->hbox( justifycontent = 'End'
+                                  class          = 'sapUiTinyMarginBottom' ).
+    lo_bar->button(
+      text  = COND string(
+                WHEN sy-langu = 'A'
+                THEN COND string( WHEN ls_cfg-button_ar IS NOT INITIAL
+                                  THEN ls_cfg-button_ar ELSE `+ شريك تجاري` )
+                ELSE COND string( WHEN ls_cfg-button IS NOT INITIAL
+                                  THEN ls_cfg-button ELSE `+ Business Partner` ) )
+      icon  = 'sap-icon://add'
+      type  = 'Transparent'
+      press = io_ctx->event( c_bp_open ) ).
+
+  ENDMETHOD.
+
+
+  METHOD zif_rak_journey_logic~on_render_popup.
+
+    CHECK iv_id = c_bp_pop.
+    DATA(ls_cfg) = bp_cfg( io_ctx ).
+    CHECK ls_cfg-grid IS NOT INITIAL.
+
+*   TWO STATES, ONE DIALOG. Before a partner is resolved the primary
+*   button SEARCHES; once POP_BPNO carries one it ADDS. A search button
+*   of its own beside the field is not something DIALOG_FORM( ) draws,
+*   and a dialog with its own layout stops matching every other dialog.
+    DATA(lv_found) = xsdbool( io_ctx->get_val( c_bp_no ) IS NOT INITIAL ).
+    DATA(lt_types) = bp_types( ls_cfg ).
+
+    DATA lt_fld TYPE tt_pop_field.
+
+*   ONE IDENTIFIER MEANS NO DROPDOWN. Offering a choice of one is a
+*   control the citizen has to read and cannot act on.
+    IF lines( lt_types ) > 1.
+      APPEND VALUE #( name    = c_bp_type
+                      label   = COND string( WHEN sy-langu = 'A'
+                                             THEN `نوع المعرّف` ELSE `Identifier` )
+                      type    = 'SELECT'
+                      options = lt_types ) TO lt_fld.
+    ENDIF.
+
+*   THE MASK APPLIES TO THE EMIRATES ID AND ONLY TO IT. A trade licence
+*   or a passport has no fixed shape, so masking one would refuse
+*   characters that belong in it.
+    DATA(lv_first) = VALUE string( lt_types[ 1 ]-key OPTIONAL ).
+    DATA(lv_sel)   = to_upper( condense( io_ctx->get_val( c_bp_type ) ) ).
+    IF lv_sel IS INITIAL.
+      lv_sel = lv_first.
+    ENDIF.
+
+    APPEND VALUE #(
+      name  = c_bp_id
+      label = VALUE #( lt_types[ key = lv_sel ]-text DEFAULT
+                       COND string( WHEN sy-langu = 'A' THEN `رقم الهوية` ELSE `Emirates ID` ) )
+      mask  = COND string(
+                WHEN lv_sel <> 'EID' THEN ``
+                WHEN ls_cfg-mask IS NOT INITIAL THEN ls_cfg-mask
+                ELSE c_bp_mask_default ) ) TO lt_fld.
+
+    APPEND VALUE #( name     = c_bp_no
+                    label    = COND string( WHEN sy-langu = 'A' THEN `رقم الشريك` ELSE `BP number` )
+                    readonly = abap_true ) TO lt_fld.
+    APPEND VALUE #( name     = c_bp_name
+                    label    = COND string( WHEN sy-langu = 'A' THEN `الاسم` ELSE `Name` )
+                    readonly = abap_true ) TO lt_fld.
+    APPEND VALUE #( name     = c_bp_nat
+                    label    = COND string( WHEN sy-langu = 'A' THEN `الجنسية` ELSE `Nationality` )
+                    readonly = abap_true ) TO lt_fld.
+    APPEND VALUE #( name     = c_bp_phone
+                    label    = COND string( WHEN sy-langu = 'A' THEN `رقم الهاتف` ELSE `Phone Number` )
+                    readonly = abap_true ) TO lt_fld.
+
+    dialog_form(
+      io_ctx     = io_ctx
+      io_popup   = io_popup
+      iv_title   = COND string(
+                     WHEN sy-langu = 'A'
+                     THEN COND string( WHEN ls_cfg-title_ar IS NOT INITIAL
+                                       THEN ls_cfg-title_ar ELSE `إضافة شريك تجاري` )
+                     ELSE COND string( WHEN ls_cfg-title IS NOT INITIAL
+                                       THEN ls_cfg-title ELSE `Add Business Partner` ) )
+      iv_ok_text = COND string(
+                     WHEN lv_found = abap_true
+                     THEN COND string( WHEN sy-langu = 'A' THEN `إضافة` ELSE `Add` )
+                     ELSE COND string( WHEN sy-langu = 'A' THEN `بحث` ELSE `Search` ) )
+      iv_ok_evt  = COND string( WHEN lv_found = abap_true THEN c_bp_pick ELSE c_bp_find )
+      it_fields  = lt_fld ).
+
+  ENDMETHOD.
+
+
   METHOD zif_rak_journey_logic~on_popup_event.
+
+*   ---- THE PICKER'S OWN EVENTS, BEFORE THE PAYMENT ONES ---------------
+*   Only reached when a journey has switched the picker on; otherwise
+*   BP_CFG( ) returns a blank grid and this whole block falls through to
+*   the payment handling below, untouched.
+    IF bp_cfg( io_ctx )-grid IS NOT INITIAL.
+      CASE iv_event.
+
+        WHEN c_bp_open.
+          bp_clear( io_ctx ).
+          io_ctx->open_popup( c_bp_pop ).
+          RETURN.
+
+        WHEN c_bp_find.
+          DATA(ls_bp) = bp_find( io_ctx ).
+          IF ls_bp-partner IS INITIAL.
+            io_ctx->add_msg( iv_type = 'Warning'
+                             iv_text = COND string(
+                               WHEN sy-langu = 'A'
+                               THEN `لم يتم العثور على شريك بهذه البيانات.`
+                               ELSE `No business partner found for that value.` ) ).
+*           LEFT OPEN ON PURPOSE, so the citizen does not reopen the
+*           dialog and retype the number they just typed.
+            RETURN.
+          ENDIF.
+          io_ctx->set_val( iv_name = c_bp_no   iv_value = CONV string( ls_bp-partner ) ).
+          io_ctx->set_val( iv_name = c_bp_name iv_value = COND string(
+            WHEN sy-langu = 'A' AND ls_bp-arabic_full_name IS NOT INITIAL
+            THEN CONV string( ls_bp-arabic_full_name )
+            WHEN ls_bp-english_full_name IS NOT INITIAL
+            THEN CONV string( ls_bp-english_full_name )
+            ELSE CONV string( ls_bp-arabic_full_name ) ) ).
+          io_ctx->set_val( iv_name = c_bp_nat
+                           iv_value = CONV string( ls_bp-nationality_desc ) ).
+          io_ctx->set_val( iv_name = c_bp_phone
+                           iv_value = CONV string( ls_bp-mobile_number ) ).
+          RETURN.
+
+        WHEN c_bp_pick.
+          DATA(lv_bp) = io_ctx->get_val( c_bp_no ).
+          IF lv_bp IS INITIAL.
+            RETURN.
+          ENDIF.
+          IF bp_seen( io_ctx = io_ctx iv_bp = lv_bp ) = abap_true.
+            io_ctx->add_msg( iv_type = 'Warning'
+                             iv_text = COND string(
+                               WHEN sy-langu = 'A'
+                               THEN `هذا الشريك مضاف بالفعل إلى القائمة.`
+                               ELSE `That partner is already on the list.` ) ).
+            bp_clear( io_ctx ).
+            io_ctx->close_popup( ).
+            RETURN.
+          ENDIF.
+
+*         RESOLVED AGAIN RATHER THAN CARRIED. BP_ADD( ) takes the whole
+*         TS_BUSINESSPARTNER, and rebuilding one from the four strings
+*         the dialog shows would fill four components and leave every
+*         other blank - the grid is four columns today and will not
+*         always be. One more read of a partner the citizen is looking
+*         at is the cheaper mistake.
+          DATA(ls_add) = bp_find( io_ctx ).
+          IF ls_add-partner IS INITIAL.
+            io_ctx->add_msg( iv_type = 'Warning'
+                             iv_text = COND string(
+                               WHEN sy-langu = 'A'
+                               THEN `تعذر إضافة الشريك. يرجى المحاولة مرة أخرى.`
+                               ELSE `That partner could not be added. Try again.` ) ).
+            RETURN.
+          ENDIF.
+          bp_add( io_ctx = io_ctx is_bp = ls_add ).
+          bp_clear( io_ctx ).
+          io_ctx->close_popup( ).
+          RETURN.
+
+        WHEN OTHERS.
+*         Not the picker's. Falls through to the payment events below.
+      ENDCASE.
+    ENDIF.
+
 
 *   ---- PAY_SCREEN, DERIVED WHEN NOTHING SUPPLIED IT ------------------
 *   PREPARE_PAYMENT( ) refuses without it, and its own message says what
@@ -2404,17 +2838,8 @@ CLASS ZCL_RAK_JOURNEY_LOGIC IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD zif_rak_journey_logic~on_render_before_field.
-
-  ENDMETHOD.
-
-
   METHOD zif_rak_journey_logic~on_render_end.
 
-  ENDMETHOD.
-
-
-  METHOD zif_rak_journey_logic~on_render_popup.
   ENDMETHOD.
 
 
