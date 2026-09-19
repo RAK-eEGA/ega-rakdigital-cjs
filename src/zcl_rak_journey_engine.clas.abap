@@ -882,6 +882,53 @@ CLASS ZCL_RAK_JOURNEY_ENGINE IMPLEMENTATION.
 
     mo_rules->eval_rules( ).
 
+*   ENTER ON A MASKED SEARCH BOX, AND THE PRICE OF ADMITTING IT.
+*
+*   RENDER_ONE( )'s SEARCH branch draws sap.m.MaskInput once a mask applies,
+*   and that control extends sap.m.InputBase rather than sap.m.Input, so it
+*   has no SUBMIT event to wire - the Enter key stopped reaching the engine
+*   the moment the mask arrived. CHANGE is the only commit-time event the
+*   control has, and it fires on Enter AND on blur, which is why the
+*   renderer refused to point it straight at the search: BP_QUERY writes,
+*   costs seconds and forces a COMMIT, and one of those per tab-out is a
+*   worse bug than the missing Enter.
+*
+*   SO THE CONTROL RAISES SRCHM_ AND THIS DECIDES. Two tests, both cheap
+*   and both server-side, where the control cannot help:
+*
+*     COMPLETE. An unfilled position comes back as the mask's placeholder
+*     symbol, so '784-1111-1111111-_' is a half-typed id and searching for
+*     it would return nothing and cost the same five seconds. NORM_MASKED( )
+*     above cleans COUNT fields only - it must not touch this one, because a
+*     SEARCH value keeps its separators and the handler expects them.
+*
+*     NEW. _LASTQ remembers what this field last searched for. It lands in
+*     MT_SCRATCH rather than the model - no journey configures a _LASTQ
+*     component and none should have to - so a blur that follows an Enter
+*     search finds the value unchanged and does nothing. This is the test
+*     that makes CHANGE safe to use at all.
+*
+*   THE BUTTON IS NOT GUARDED. It still raises SEARCH_ and still searches
+*   every time it is pressed: a citizen pressing Search twice is asking for
+*   a retry, and refusing the second press because the value matches would
+*   be a second silent failure in the same box.
+    IF strlen( lv_event ) > 6 AND substring( val = lv_event len = 6 ) = 'SRCHM_'.
+      DATA(lv_mfld) = substring( val = lv_event off = 6 ).
+      DATA(lv_mval) = val_get( lv_mfld ).
+      IF lv_mval IS NOT INITIAL
+         AND lv_mval NS '_'
+         AND val_get( iv_name = lv_mfld iv_suffix = '_LASTQ' ) <> lv_mval.
+        val_set( iv_name = lv_mfld iv_suffix = '_LASTQ' iv_value = lv_mval ).
+        lv_event = |SEARCH_{ lv_mfld }|.
+      ELSE.
+*       NOTHING TO DO, AND NOTHING TO REDRAW. The markup is identical, so
+*       the quiet flag lets SEND_VIEW( )'s hash skip the repaint and the
+*       citizen sees no flash for a round trip that decided not to act.
+        mv_quiet_evt = abap_true.
+        CLEAR lv_event.
+      ENDIF.
+    ENDIF.
+
     IF strlen( lv_event ) > 7 AND substring( val = lv_event len = 7 ) = 'SEARCH_'.
 *     QUIET, LIKE CHANGE_ AND THE ATTACHMENT EVENTS. A partner search writes
 *     what it found into the model - birth date, nationality, mobile, email,

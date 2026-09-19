@@ -1114,18 +1114,37 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                          submit      = mo_e->mo_client->_event( |SEARCH_{ is_field-name }| )
                          class       = 'sapUiSmallMarginBegin' ).
         ELSE.
-*         WHAT THE MASK COSTS, and it is the same bill D001 already paid:
-*         sap.m.MaskInput has neither SUBMIT nor CLASS, so Enter-to-search
-*         is gone and the margin has to come from a wrapper. The Search
-*         button beside the field is unaffected. CHANGE is deliberately
-*         NOT wired to the search in Enter's place - BP_QUERY writes,
-*         costs at least five seconds and forces a COMMIT, so it belongs
-*         on a button the citizen presses and nowhere else.
+*         ENTER SEARCHES AGAIN, THROUGH CHANGE, AND THAT IS WHY IT BROKE.
+*         sap.m.MaskInput is not sap.m.Input with a property set - it
+*         extends sap.m.InputBase directly and SUBMIT is sap.m.Input's own
+*         event, so the moment this branch started drawing a mask the
+*         Enter key stopped reaching the engine. Nothing was removed; the
+*         control simply never had the event. Reported as "Enter used to
+*         work and does not any more", and it is exactly right.
+*
+*         CHANGE IS THE ONE EVENT THE CONTROL DOES HAVE, and on InputBase
+*         it fires when the value is COMMITTED - which is Enter, and is
+*         also blur. The earlier note here refused CHANGE for that reason:
+*         BP_QUERY writes, costs seconds and forces a COMMIT, and a search
+*         nobody asked for on every tab-out is worse than no Enter key.
+*
+*         SO IT IS NOT THE SEARCH EVENT. SRCHM_ is a separate event and the
+*         engine decides whether it becomes one: it searches only when the
+*         masked value is COMPLETE - no placeholder left in it - and only
+*         when it differs from the value that field last searched for. A
+*         half-typed id tabs away silently, and a blur that follows an
+*         Enter search does nothing, because the value has not changed.
+*         The Search button still raises SEARCH_ unguarded, so pressing it
+*         twice deliberately still searches twice.
+*
+*         The wrapper stays: sap.m.MaskInput has no CLASS either, so the
+*         margin has to come from the hbox around it.
           lo_box->hbox( class = 'sapUiSmallMarginBegin'
                       )->mask_input( value       = bind_of( is_field-name )
                                      mask        = lv_msk
                                      placeholder = is_field-placeholder
-                                     width       = '18rem' ).
+                                     width       = '18rem'
+                                     change      = mo_e->mo_client->_event( |SRCHM_{ is_field-name }| ) ).
         ENDIF.
         lo_box->button( text  = zcl_rak_text=>get( iv_no = zcl_rak_text=>c_no-search iv_default = 'Search' )
                         type  = 'Emphasized'
