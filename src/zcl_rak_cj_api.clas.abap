@@ -75,6 +75,12 @@ CLASS zcl_rak_cj_api DEFINITION
              role        TYPE string,
              intreno     TYPE string,   " io_ctx->get_case( ) - never a cached id
              journey     TYPE string,
+*            THE CJS JOURNEY ID - M011, M016 - WHICH JOURNEY ABOVE IS NOT.
+*            That one is BKND_JOURNEY, the BAdI filter, and only two
+*            journeys in the repo set it at all; the rest leave it blank.
+*            Anything keying on "which journey is this" needs this field,
+*            not that one.
+             journey_id  TYPE string,
              screen      TYPE string,   " the step's bknd_screen
              department  TYPE string,
              langu       TYPE sy-langu,

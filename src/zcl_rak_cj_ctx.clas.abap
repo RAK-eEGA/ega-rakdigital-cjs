@@ -192,6 +192,11 @@ CLASS zcl_rak_cj_ctx IMPLEMENTATION.
 *   CJS journey id prefixed MIG_ would match nothing.
     rs-journey = ls_cfg-backend-journey.
 
+*   THE SAME KEY THE CONFIG CACHE IS READ WITH, which is the CJS journey
+*   id. RS-JOURNEY above is the BACKEND code and is blank on most
+*   journeys, so it cannot answer "which journey is this".
+    rs-journey_id = io_ctx->get_param( 'journey' ).
+
     rs-screen     = VALUE #( ls_cfg-steps[ io_ctx->get_step( ) + 1 ]-bknd_screen OPTIONAL ).
     rs-department = io_ctx->get_param( 'DEPARTMENT' ).
     rs-langu      = sy-langu.

@@ -395,7 +395,8 @@ CLASS zcl_rak_property_api DEFINITION
 *   ZCL_EGA_MUN_CJ_ODATA_API_V3; every other journey reads exactly as it
 *   does today. Comma separated with a leading and trailing comma so a
 *   CS test cannot match a prefix - ',M01,' does not find ',M011,'.
-    CONSTANTS c_v3_journeys TYPE string VALUE ',,'.
+    CONSTANTS c_v3_journeys TYPE string
+                            VALUE ',M011,M012,M016,M017,M018,M019,M020,M021,M028,M029,'.
     CONSTANTS c_engine_prop TYPE string VALUE `CjsEngine`.
     CONSTANTS c_engine_v3   TYPE string VALUE `V3`.
 
@@ -470,10 +471,14 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 *   blank, so the engine filter is simply absent and the redefinition
 *   hands the call to SUPER->. That is the default and it is the current
 *   behaviour, unchanged.
-    IF ms_ctx-journey IS INITIAL.
+*   JOURNEY_ID, NOT JOURNEY. MS_CTX-JOURNEY is the BACKEND journey code
+*   from BKND_JOURNEY, and only M011 and M012 set it - every other
+*   journey leaves it blank, so keying on it would have opted none of
+*   them in however this list was written.
+    IF ms_ctx-journey_id IS INITIAL.
       RETURN.
     ENDIF.
-    IF c_v3_journeys CS |,{ ms_ctx-journey },|.
+    IF c_v3_journeys CS |,{ to_upper( ms_ctx-journey_id ) },|.
       rv = c_engine_v3.
     ENDIF.
   ENDMETHOD.
