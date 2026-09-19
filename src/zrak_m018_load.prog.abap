@@ -226,6 +226,38 @@ START-OF-SELECTION.
       msg = 'REQUIRED:State the number of shared grantees;RANGE:A shared grant needs between 2 and 10 grantees'
       msg_ar = 'REQUIRED:يرجى تحديد عدد المستفيدين المشتركين;RANGE:المنحة المشتركة تتطلب من 2 إلى 10 مستفيدين' )
 
+*   ---- THE FIVE FIELDS THE PARTNER DIALOG TYPES INTO ------------------
+*   THEY ARE HERE BECAUSE A POPUP INPUT NEEDS A MODEL COMPONENT. The
+*   dialog binds two-way through IO_CTX->BIND( ), and BIND_OF( ) resolves
+*   a name to a component of the journey model - a name that is on no
+*   ZRAK_T_JNY_FLD row resolves to NOTHING and returns a blank binding.
+*   The input then draws, accepts typing and loses it on the round trip,
+*   silently, which is the failure CLAUDE.md lists first.
+*
+*   ZCL_RAK_D001_OWNER_POPUP IS THE PATTERN AND ALSO THE WARNING: its
+*   POP_BP, POP_NAME, POP_SHARE and POP_EID are configured nowhere, and
+*   that class is referenced by no journey - so it has never run. Copying
+*   its shape is right; copying it without these rows is not.
+*
+*   HIDDEN, NOT ABSENT. They never draw on the step - HIDDEN keeps them
+*   off the form - but BUILD_MODEL( ) still gives each one a component,
+*   which is the whole point of the row.
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 51
+      field_name = 'POP_EID' ftype = 'INPUT' hidden = abap_true
+      zlabel = 'Emirates ID' zlabel_ar = 'رقم الهوية' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 52
+      field_name = 'POP_BPNO' ftype = 'INPUT' hidden = abap_true readonly = abap_true
+      zlabel = 'BP number' zlabel_ar = 'رقم الشريك' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 53
+      field_name = 'POP_BPNAME' ftype = 'INPUT' hidden = abap_true readonly = abap_true
+      zlabel = 'Name' zlabel_ar = 'الاسم' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 54
+      field_name = 'POP_NAT' ftype = 'INPUT' hidden = abap_true readonly = abap_true
+      zlabel = 'Nationality' zlabel_ar = 'الجنسية' )
+    ( mandt = sy-mandt journey_id = c_jny step_id = 'STP1' seqnr = 55
+      field_name = 'POP_PHONE' ftype = 'INPUT' hidden = abap_true readonly = abap_true
+      zlabel = 'Phone Number' zlabel_ar = 'رقم الهاتف' )
+
 *   THE PARTNER LIST. An EDITABLE_TABLE, so GET_GRID_DATA( ) reaches the
 *   rows - the handler counts them against SHARED_GRANTEES. Per-column
 *   READONLY rather than field-level READONLY: the field flag takes the
@@ -734,7 +766,36 @@ START-OF-SELECTION.
       action = 'SHOW' tgt_field = 'CHILD3CB' )
     ( mandt = sy-mandt journey_id = c_jny rule_id = 'R17'
       src_field = 'RB0' src_op = 'EQ' src_value = 'RB4'
-      action = 'SHOW' tgt_field = 'CHILD4CB' ) ) ).
+      action = 'SHOW' tgt_field = 'CHILD4CB' )
+
+*   R18 EXISTS IN THE SYSTEM AND DID NOT EXIST HERE. The export carries
+*   it; this loader stopped at R17. R04 already SHOWS the program combo
+*   when the type IS a program grant, so without R18 the combo was shown
+*   by a rule and never hidden by one - it stayed on screen after the
+*   citizen went back to Normal Grant.
+    ( mandt = sy-mandt journey_id = c_jny rule_id = 'R18'
+      src_field = 'RB3' src_op = 'NE' src_value = 'RB5'
+      action = 'HIDE' tgt_field = 'GRANTTYPECOMBO' )
+
+*   ---- THE CHILDREN HEADING FOLLOWS ITS DROPDOWNS ---------------------
+*   R08 to R17 show CHILD1CB..CHILD4CB for one to four wives, but nothing
+*   ever governed CHILD_HEAD - the section title above them. With none of
+*   the dropdowns shown, the heading "Enter the Number of Children for
+*   each wife" still stood there on its own over empty space. The live
+*   screen has no heading at zero wives, so it is shown by the same four
+*   values that show the first dropdown.
+    ( mandt = sy-mandt journey_id = c_jny rule_id = 'R19'
+      src_field = 'RB0' src_op = 'EQ' src_value = 'RB1'
+      action = 'SHOW' tgt_field = 'CHILD_HEAD' )
+    ( mandt = sy-mandt journey_id = c_jny rule_id = 'R20'
+      src_field = 'RB0' src_op = 'EQ' src_value = 'RB2'
+      action = 'SHOW' tgt_field = 'CHILD_HEAD' )
+    ( mandt = sy-mandt journey_id = c_jny rule_id = 'R21'
+      src_field = 'RB0' src_op = 'EQ' src_value = 'RB3'
+      action = 'SHOW' tgt_field = 'CHILD_HEAD' )
+    ( mandt = sy-mandt journey_id = c_jny rule_id = 'R22'
+      src_field = 'RB0' src_op = 'EQ' src_value = 'RB4'
+      action = 'SHOW' tgt_field = 'CHILD_HEAD' ) ) ).
 
   COMMIT WORK AND WAIT.
   zcl_rak_cj_cfg_cache=>invalidate( iv_journey = CONV #( c_jny ) ).
