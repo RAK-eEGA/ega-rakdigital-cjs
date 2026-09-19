@@ -91,9 +91,16 @@ CLASS zcl_rak_property_api DEFINITION
     TYPES tt_partner_rows TYPE STANDARD TABLE OF ty_partner_row WITH DEFAULT KEY.
     TYPES tt_mapurl_rows  TYPE STANDARD TABLE OF ty_mapurl_row  WITH DEFAULT KEY.
 
+*   TOTAL IS THE COUNT BEFORE PAGING, not LINES( ROWS ). A pager needs to
+*   know there are ninety parcels while holding six of them, and once the
+*   read pages server side the table can no longer answer that. It is
+*   filled only on the V3 path - the inherited DPC ignores paging
+*   entirely, so on the legacy path ROWS is everything and TOTAL stays
+*   zero. A caller that does not page can keep reading LINES( ROWS ).
     TYPES: BEGIN OF ty_prop_res,
-             rows TYPE tt_prop_rows,
-             msg  TYPE bapiret2_t,
+             rows  TYPE tt_prop_rows,
+             total TYPE i,
+             msg   TYPE bapiret2_t,
            END OF ty_prop_res.
 
     TYPES: BEGIN OF ty_partner_res,
@@ -184,12 +191,30 @@ CLASS zcl_rak_property_api DEFINITION
 *   IV_OWNER_GUID is for the property-management tab ONLY: the citizen is
 *   acting for somebody else, so the guid filtered on is that owner's, not
 *   their own. Blank means the citizen's own, which is the normal case.
+*   ---- PAGING, SEARCH AND SORT ARE V3-ONLY, AND OPTIONAL -------------
+*   THE INHERITED DPC IGNORES ALL THREE. IS_PAGING, IV_SEARCH_STRING and
+*   IT_ORDER reach PROPERTIESSET_GET_ENTITYSET and are never read - which
+*   is why the parcel control pages and searches in ABAP over the whole
+*   list today, and why the whole list has to be read to show six cards.
+*   The V3 path honours them; the legacy path still cannot, so a caller
+*   that passes them on a journey that has not opted in gets the same
+*   unpaged answer it gets now. Nothing silently half-pages: TOTAL is
+*   zero when the read did not page.
+*
+*   IV_SEARCH matches the haystack the control's HITS( ) already builds -
+*   parcel number, building, sector text and land use, upper-cased,
+*   substring - so moving a journey to server-side search does not change
+*   which cards match, only where the matching happens.
     METHODS properties
       IMPORTING iv_type       TYPE string OPTIONAL
                 iv_role       TYPE string DEFAULT c_role_owner
                 iv_appl_type  TYPE string OPTIONAL
                 iv_favourite  TYPE abap_bool DEFAULT abap_false
                 iv_owner_guid TYPE string OPTIONAL
+                iv_search     TYPE string OPTIONAL
+                iv_top        TYPE i DEFAULT 0
+                iv_skip       TYPE i DEFAULT 0
+                iv_sort       TYPE string OPTIONAL
       RETURNING VALUE(rs)     TYPE ty_prop_res.
 
 *   PROPERTIES( ) with Type = Parcel. The one a PARCEL field calls.
@@ -198,6 +223,10 @@ CLASS zcl_rak_property_api DEFINITION
     METHODS parcels
       IMPORTING iv_grants     TYPE abap_bool DEFAULT abap_false
                 iv_owner_guid TYPE string OPTIONAL
+                iv_search     TYPE string OPTIONAL
+                iv_top        TYPE i DEFAULT 0
+                iv_skip       TYPE i DEFAULT 0
+                iv_sort       TYPE string OPTIONAL
       RETURNING VALUE(rs)     TYPE ty_prop_res.
 
 *   PROPERTIES( ) with Type = Unit.
@@ -394,8 +423,18 @@ CLASS zcl_rak_property_api DEFINITION
 *   and the caller then takes SUPER->.
     METHODS fast_rows
       IMPORTING it_filter    TYPE /iwbep/t_mgw_select_option
+                iv_search    TYPE string
+                is_paging    TYPE /iwbep/s_mgw_paging
+                it_order     TYPE /iwbep/t_mgw_sorting_order
       EXPORTING et_entityset TYPE tt_prop_rows
+                ev_count     TYPE i
                 ev_done      TYPE abap_bool.
+
+*   The haystack HITS( ) builds, built once per row here instead.
+    METHODS matches
+      IMPORTING is_row    TYPE ty_prop_row
+                iv_term   TYPE string
+      RETURNING VALUE(rv) TYPE abap_bool.
 
 *   BAPI_RE_PL_GET_DETAIL once per DISTINCT parcel rather than once per
 *   ROW. The DPC calls PARCEL_ADDRESS( ) inside both VALUE constructors,
@@ -457,10 +496,18 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
       fast_rows(
         EXPORTING it_filter    = it_filter_select_options
+                  iv_search    = iv_search_string
+                  is_paging    = is_paging
+                  it_order     = it_order
         IMPORTING et_entityset = et_entityset
+                  ev_count     = DATA(lv_count)
                   ev_done      = DATA(lv_done) ).
 
       IF lv_done = abap_true.
+*       THE COUNT BEFORE PAGING. Gateway's own channel for it, so a real
+*       OData consumer asking for $inlinecount would be answered too -
+*       except that no OData consumer reaches this code at all.
+        es_response_context-inlinecount = lv_count.
         RETURN.
       ENDIF.
 
@@ -787,8 +834,77 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
       DELETE lt_out WHERE type <> lv_type.
     ENDIF.
 
+*   ---- SEARCH, THEN SORT, THEN COUNT, THEN PAGE -----------------------
+*   THE ORDER OF THESE FOUR IS THE WHOLE CONTRACT. Searching after paging
+*   would page the unsearched list and then filter the page, so page one
+*   of a search for SUHAILAH would hold whichever of the first six
+*   parcels happened to match. Counting after paging would report the
+*   page size. Sorting after paging would sort a page.
+*
+*   THE SAME HAYSTACK THE CONTROL BUILDS - parcel number, building,
+*   sector text, land use, upper-cased, substring - so a journey moving
+*   from the control's HITS( ) to this finds exactly the same cards.
+    IF iv_search IS NOT INITIAL.
+      DATA(lv_term) = to_upper( condense( iv_search ) ).
+      DATA lt_hit TYPE tt_prop_rows.
+      LOOP AT lt_out ASSIGNING FIELD-SYMBOL(<fs_h>).
+        IF matches( is_row = <fs_h> iv_term = lv_term ) = abap_true.
+          APPEND <fs_h> TO lt_hit.
+        ENDIF.
+      ENDLOOP.
+      lt_out = lt_hit.
+    ENDIF.
+
+*   ONE PROPERTY, AND AN UNKNOWN NAME LEAVES THE ORDER ALONE rather than
+*   dumping: IT_ORDER carries whatever a caller typed, and SORT BY a
+*   component that does not exist is a short dump, not a message.
+    LOOP AT it_order ASSIGNING FIELD-SYMBOL(<fs_ord>).
+      DATA(lv_comp) = to_upper( condense( CONV string( <fs_ord>-property ) ) ).
+      ASSIGN COMPONENT lv_comp OF STRUCTURE ls_row TO FIELD-SYMBOL(<fs_probe>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      IF to_upper( CONV string( <fs_ord>-order ) ) = `DESC`.
+        SORT lt_out BY (lv_comp) DESCENDING.
+      ELSE.
+        SORT lt_out BY (lv_comp) ASCENDING.
+      ENDIF.
+      EXIT.
+    ENDLOOP.
+
+    ev_count = lines( lt_out ).
+
+*   TOP = 0 MEANS NO PAGING, which is what every caller that has not
+*   asked for it sends, so the whole list comes back exactly as before.
+*   SKIP past the end answers empty rather than the last page.
+    IF is_paging-top > 0 OR is_paging-skip > 0.
+      DATA(lv_from) = is_paging-skip + 1.
+      DATA(lv_to)   = COND i( WHEN is_paging-top > 0
+                              THEN is_paging-skip + is_paging-top
+                              ELSE lines( lt_out ) ).
+      DATA lt_page TYPE tt_prop_rows.
+      LOOP AT lt_out ASSIGNING <fs_h> FROM lv_from TO lv_to.
+        APPEND <fs_h> TO lt_page.
+      ENDLOOP.
+      lt_out = lt_page.
+    ENDIF.
+
     et_entityset = lt_out.
     ev_done      = abap_true.
+
+  ENDMETHOD.
+
+
+  METHOD matches.
+
+    rv = abap_true.
+    IF iv_term IS INITIAL.
+      RETURN.
+    ENDIF.
+    IF to_upper( |{ is_row-parcelid } { is_row-building } { is_row-sectortext } { is_row-landuse }| )
+       NS iv_term.
+      CLEAR rv.
+    ENDIF.
 
   ENDMETHOD.
 
@@ -915,6 +1031,18 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
     filter( EXPORTING iv_property = c_engine_prop iv_value = engine_for( )
             CHANGING  ct_filter   = lt_flt ).
 
+*   IV_SORT IS ONE PROPERTY NAME, optionally suffixed ` desc`, because
+*   that is all any caller has wanted and IT_ORDER's shape is a table of
+*   exactly that pair. Blank leaves the order the read produced, which is
+*   GET_PL_HEADER( )'s and is what the list shows today.
+    DATA lt_ord TYPE /iwbep/t_mgw_sorting_order.
+    IF iv_sort IS NOT INITIAL.
+      SPLIT condense( iv_sort ) AT ` ` INTO DATA(lv_ordp) DATA(lv_ordd).
+      APPEND VALUE #( property = lv_ordp
+                      order    = COND #( WHEN to_upper( lv_ordd ) = `DESC`
+                                         THEN `desc` ELSE `asc` ) ) TO lt_ord.
+    ENDIF.
+
     TRY.
         propertiesset_get_entityset(
           EXPORTING
@@ -922,15 +1050,17 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
             iv_entity_set_name       = `PropertiesSet`
             iv_source_name           = ``
             it_filter_select_options = lt_flt
-            is_paging                = VALUE #( )
+            is_paging                = VALUE #( top = iv_top skip = iv_skip )
             it_key_tab               = VALUE #( )
             it_navigation_path       = VALUE #( )
-            it_order                 = VALUE #( )
+            it_order                 = lt_ord
             iv_filter_string         = ``
-            iv_search_string         = ``
+            iv_search_string         = iv_search
             io_tech_request_context  = mo_req
           IMPORTING
-            et_entityset             = rs-rows ).
+            et_entityset             = rs-rows
+            es_response_context      = DATA(ls_resp) ).
+        rs-total = ls_resp-inlinecount.
       CATCH cx_root INTO DATA(lx).
         to_msg( EXPORTING io_exc = lx CHANGING ct_msg = rs-msg ).
     ENDTRY.
@@ -942,7 +1072,11 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
            iv_type       = c_type_parcel
            iv_role       = COND string( WHEN iv_grants = abap_true
                                         THEN c_role_grant ELSE c_role_owner )
-           iv_owner_guid = iv_owner_guid ).
+           iv_owner_guid = iv_owner_guid
+           iv_search     = iv_search
+           iv_top        = iv_top
+           iv_skip       = iv_skip
+           iv_sort       = iv_sort ).
   ENDMETHOD.
 
 
