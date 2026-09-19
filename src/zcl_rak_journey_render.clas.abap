@@ -2869,6 +2869,37 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
       lv_w = '100%'.
     ENDIF.
 
+*   A PER CENT WIDTH INSIDE A FLOW CELL IS ACCEPTED AND HAS NO EFFECT, and
+*   nothing said so. CSS_WIDTH( ) takes % as readily as rem, so the value
+*   reaches the control as width="100%" and looks configured - but
+*   sap.m.FlexBox renders RENDERTYPE 'Div', so every child of .rakCellFlow
+*   sits in its own item div and it is THAT div the rule sizes:
+*
+*       .rakCellFlow>*:first-child { flex:0 1 auto; min-width:0; }
+*
+*   Basis auto means the div is sized by its content, the content is an input
+*   asking for 100% OF THE DIV, and a percentage resolved against a container
+*   being sized by that same content collapses to shrink-to-fit. The box
+*   comes out roughly as wide as its own text. A rem works correctly.
+*
+*   TRACED RATHER THAN REFUSED, and rather than changed. Refusing it would
+*   make CSS_WIDTH( ) answer differently depending on a flag it cannot see,
+*   and the two CSS answers - flex:1 1 0 on the rule, or RENDERTYPE 'Bare' on
+*   the row - both move every FLOW field that exists today.
+*
+*   TRACE( ), NOT TRACE_GATE( ), and the difference is not cosmetic.
+*   TRACE_GATE( ) appends to MT_GATE as an Error AND writes a ZCL_RAK_CJ_EVT
+*   audit row with RESULT = 'BLOCK' - unconditionally, on every render, trace
+*   or no trace - and the gate summary then reads "this journey must not go to
+*   QA until every one is cleared". A control that is narrower than its author
+*   wanted is not a blocker. TRACE( ) returns immediately unless MV_TRACE is
+*   set, writes no audit row, and is what the other advisory notes use.
+    IF mv_flow_cell = abap_true AND lv_cfgw CP '*%'.
+      mo_e->trace( |WIDTH   { is_field-name } { lv_cfgw } is a per cent inside a | &&
+                   |FLOW cell, where it resolves to shrink-to-fit and has no | &&
+                   |effect. Use a rem - 34rem, say - or clear FLOW on the field.| ).
+    ENDIF.
+
 *   Where an empty dropdown comes from. Three sources feed one list and each
 *   can come back with nothing, so "No data" on screen used to be the same
 *   picture whether the field had no configured options, the handler declined,
@@ -3698,6 +3729,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                           maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                           valuestate     = lv_vs
                           valuestatetext = lv_vst
+                          showclearicon  = abap_true
                           width          = lv_w ).
         ENDIF.
 
@@ -3716,6 +3748,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
                         valuestatetext = lv_vst
+                        showclearicon  = abap_true
                         width          = lv_w ).
 
       WHEN 'PHONE'.
@@ -3733,6 +3766,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                         change         = mo_e->opt_evt( iv_name = is_field-name iv_typed = abap_true )
                         valuestate     = lv_vs
                         valuestatetext = lv_vst
+                        showclearicon  = abap_true
                         width          = lv_w ).
 
       WHEN 'CURRENCY'.
@@ -4016,6 +4050,21 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
 *         legal CSS identifier and that helper already caps and normalises it
 *         for the model component. Additive: no existing markup changes, and a
 *         journey that styles nothing is unaffected.
+*       R25-4(1). THE ONE-TAP CLEAR, AND IT COSTS NOTHING WHEN EMPTY.
+*       sap.m.Input renders the icon ONLY while the field HAS a value, so a
+*       blank form looks exactly as it does today and nothing moves until
+*       there is something worth clearing. On a phone that is the
+*       difference between one tap and holding backspace through a
+*       nineteen-character Emirates ID.
+*
+*       ALWAYS ON FOR THESE FOUR RATHER THAN A COLUMN ON ZRAK_T_JNY_FLD.
+*       A flag would be a row to set on every text field of every journey
+*       to get the behaviour everyone wants, and an author who left it
+*       blank would get the worse input. The types that do NOT get it are
+*       the ones where it would be wrong or pointless: a read-only
+*       DISPLAY, a SELECT that clears through its own list, a DATE with a
+*       picker of its own, and CURRENCY, whose own placeholder carries the
+*       unit.
           io_form->input( class          = |rakF{ zcl_rak_journey_util=>comp_name( is_field-name ) }|
                           value          = lv_bind
                           placeholder    = is_field-placeholder
@@ -4024,6 +4073,7 @@ CLASS ZCL_RAK_JOURNEY_RENDER IMPLEMENTATION.
                           maxlength      = COND string( WHEN is_field-validation-max_len > 0 THEN |{ is_field-validation-max_len }| ELSE `0` )
                           valuestate     = lv_vs
                           valuestatetext = lv_vst
+                          showclearicon  = abap_true
                           width          = lv_w ).
         ENDIF.
     ENDCASE.
