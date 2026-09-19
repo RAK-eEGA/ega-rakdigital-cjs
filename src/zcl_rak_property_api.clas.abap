@@ -423,6 +423,7 @@ CLASS zcl_rak_property_api DEFINITION
 *   and the caller then takes SUPER->.
     METHODS fast_rows
       IMPORTING it_filter    TYPE /iwbep/t_mgw_select_option
+                io_ctx       TYPE REF TO /iwbep/if_mgw_req_entityset
                 iv_search    TYPE string
                 is_paging    TYPE /iwbep/s_mgw_paging
                 it_order     TYPE /iwbep/t_mgw_sorting_order
@@ -496,6 +497,7 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 
       fast_rows(
         EXPORTING it_filter    = it_filter_select_options
+                  io_ctx       = io_tech_request_context
                   iv_search    = iv_search_string
                   is_paging    = is_paging
                   it_order     = it_order
@@ -568,12 +570,12 @@ CLASS zcl_rak_property_api IMPLEMENTATION.
 *   same request context CJS already hands the DPC, so the inputs are
 *   identical and so is the answer. Skipping it would return rows on the
 *   one path the DPC deliberately answers blank.
-    DATA(lt_hdr) = io_tech_request_context->get_request_headers( ).
+    DATA(lt_hdr) = io_ctx->get_request_headers( ).
     READ TABLE lt_hdr TRANSPORTING NO FIELDS WITH KEY name = 'x-custom1'.
     DATA(lv_new) = xsdbool( sy-subrc = 0 ).
 
     zcl_zega_cj_utility_dpc_ext=>get_bp(
-      EXPORTING io_tech_request_context = io_tech_request_context
+      EXPORTING io_tech_request_context = io_ctx
       IMPORTING user                    = DATA(lv_user)
                 partner                 = DATA(lv_xpartner) ).
 
